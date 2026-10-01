@@ -1,0 +1,682 @@
+[
+{
+"id": "riga",
+"name": "Rīga",
+"lat": 56.9496,
+"lng": 24.1052,
+"pop": 600,
+"republic": true
+},
+{
+"id": "daugavpils",
+"name": "Daugavpils",
+"lat": 55.8747,
+"lng": 26.5362,
+"pop": 80,
+"republic": true
+},
+{
+"id": "liepaja",
+"name": "Liepāja",
+"lat": 56.5047,
+"lng": 21.0108,
+"pop": 65,
+"republic": true
+},
+{
+"id": "jelgava",
+"name": "Jelgava",
+"lat": 56.6511,
+"lng": 23.7214,
+"pop": 55,
+"republic": true
+},
+{
+"id": "jurmala",
+"name": "Jūrmala",
+"lat": 56.968,
+"lng": 23.7704,
+"pop": 50,
+"republic": true
+},
+{
+"id": "ventspils",
+"name": "Ventspils",
+"lat": 57.3894,
+"lng": 21.5606,
+"pop": 33,
+"republic": true
+},
+{
+"id": "rezekne",
+"name": "Rēzekne",
+"lat": 56.5099,
+"lng": 27.3331,
+"pop": 27,
+"republic": true
+},
+{
+"id": "valmiera",
+"name": "Valmiera",
+"lat": 57.5384,
+"lng": 25.4264,
+"pop": 22,
+"republic": true
+},
+{
+"id": "jekabpils",
+"name": "Jēkabpils",
+"lat": 56.4992,
+"lng": 25.8578,
+"pop": 21,
+"republic": true
+},
+{
+"id": "ogre",
+"name": "Ogre",
+"lat": 56.8156,
+"lng": 24.6042,
+"pop": 24,
+"republic": false
+},
+{
+"id": "tukums",
+"name": "Tukums",
+"lat": 56.9672,
+"lng": 23.1553,
+"pop": 17,
+"republic": false
+},
+{
+"id": "cesis",
+"name": "Cēsis",
+"lat": 57.3119,
+"lng": 25.2747,
+"pop": 15,
+"republic": false
+},
+{
+"id": "salaspils",
+"name": "Salaspils",
+"lat": 56.8603,
+"lng": 24.3497,
+"pop": 16,
+"republic": false
+},
+{
+"id": "kuldiga",
+"name": "Kuldīga",
+"lat": 56.9687,
+"lng": 21.9706,
+"pop": 10,
+"republic": false
+},
+{
+"id": "olaine",
+"name": "Olaine",
+"lat": 56.7869,
+"lng": 23.9397,
+"pop": 10,
+"republic": false
+},
+{
+"id": "saldus",
+"name": "Saldus",
+"lat": 56.6642,
+"lng": 22.4878,
+"pop": 10,
+"republic": false
+},
+{
+"id": "talsi",
+"name": "Talsi",
+"lat": 57.2447,
+"lng": 22.5881,
+"pop": 9,
+"republic": false
+},
+{
+"id": "sigulda",
+"name": "Sigulda",
+"lat": 57.1537,
+"lng": 24.8531,
+"pop": 10,
+"republic": false
+},
+{
+"id": "bauska",
+"name": "Bauska",
+"lat": 56.4086,
+"lng": 24.1928,
+"pop": 9,
+"republic": false
+},
+{
+"id": "dobele",
+"name": "Dobele",
+"lat": 56.6258,
+"lng": 23.2788,
+"pop": 9,
+"republic": false
+},
+{
+"id": "limbazi",
+"name": "Limbaži",
+"lat": 57.5131,
+"lng": 24.7131,
+"pop": 7,
+"republic": false
+},
+{
+"id": "smiltene",
+"name": "Smiltene",
+"lat": 57.4236,
+"lng": 25.9006,
+"pop": 5,
+"republic": false
+},
+{
+"id": "madona",
+"name": "Madona",
+"lat": 56.8526,
+"lng": 26.2217,
+"pop": 7,
+"republic": false
+},
+{
+"id": "aizkraukle",
+"name": "Aizkraukle",
+"lat": 56.6047,
+"lng": 25.2553,
+"pop": 7,
+"republic": false
+},
+{
+"id": "gulbene",
+"name": "Gulbene",
+"lat": 57.1756,
+"lng": 26.7519,
+"pop": 7,
+"republic": false
+},
+{
+"id": "balvi",
+"name": "Balvi",
+"lat": 57.1309,
+"lng": 27.2647,
+"pop": 6,
+"republic": false
+},
+{
+"id": "ludza",
+"name": "Ludza",
+"lat": 56.5463,
+"lng": 27.7226,
+"pop": 7,
+"republic": false
+},
+{
+"id": "preili",
+"name": "Preiļi",
+"lat": 56.293,
+"lng": 26.727,
+"pop": 6,
+"republic": false
+},
+{
+"id": "kraslava",
+"name": "Krāslava",
+"lat": 55.8953,
+"lng": 27.1665,
+"pop": 7,
+"republic": false
+},
+{
+"id": "aluksne",
+"name": "Alūksne",
+"lat": 57.4229,
+"lng": 27.0469,
+"pop": 7,
+"republic": false
+},
+{
+"id": "valka",
+"name": "Valka",
+"lat": 57.775,
+"lng": 26.0178,
+"pop": 5,
+"republic": false
+},
+{
+"id": "saulkrasti",
+"name": "Saulkrasti",
+"lat": 57.264,
+"lng": 24.414,
+"pop": 3,
+"republic": false
+},
+{
+"id": "kekava",
+"name": "Ķekava",
+"lat": 56.8294,
+"lng": 24.2305,
+"pop": 8,
+"republic": false
+},
+{
+"id": "livani",
+"name": "Līvāni",
+"lat": 56.3542,
+"lng": 26.175,
+"pop": 7,
+"republic": false
+},
+{
+"id": "lielvarde",
+"name": "Lielvārde",
+"lat": 56.7228,
+"lng": 24.8148,
+"pop": 5,
+"republic": false
+},
+{
+"id": "kandava",
+"name": "Kandava",
+"lat": 57.0333,
+"lng": 22.78,
+"pop": 4,
+"republic": false
+},
+{
+"id": "aizpute",
+"name": "Aizpute",
+"lat": 56.72,
+"lng": 21.605,
+"pop": 4,
+"republic": false
+},
+{
+"id": "grobina",
+"name": "Grobiņa",
+"lat": 56.5358,
+"lng": 21.1653,
+"pop": 4,
+"republic": false
+},
+{
+"id": "pavilosta",
+"name": "Pāvilosta",
+"lat": 56.8894,
+"lng": 21.1928,
+"pop": 1,
+"republic": false
+},
+{
+"id": "dundaga",
+"name": "Dundaga",
+"lat": 57.5069,
+"lng": 22.35,
+"pop": 1,
+"republic": false
+},
+{
+"id": "rujiena",
+"name": "Rūjiena",
+"lat": 57.9022,
+"lng": 25.3356,
+"pop": 3,
+"republic": false
+},
+{
+"id": "ainazi",
+"name": "Ainaži",
+"lat": 57.8667,
+"lng": 24.3631,
+"pop": 1,
+"republic": false
+},
+{
+"id": "salacgriva",
+"name": "Salacgrīva",
+"lat": 57.7544,
+"lng": 24.3544,
+"pop": 3,
+"republic": false
+},
+{
+"id": "zilupe",
+"name": "Zilupe",
+"lat": 56.3856,
+"lng": 28.1236,
+"pop": 2,
+"republic": false
+},
+{
+"id": "vilaka",
+"name": "Viļaka",
+"lat": 57.18,
+"lng": 27.67,
+"pop": 1,
+"republic": false
+},
+{
+"id": "sabile",
+"name": "Sabile",
+"lat": 57.05,
+"lng": 22.57,
+"pop": 1,
+"republic": false
+},
+{
+"id": "stende",
+"name": "Stende",
+"lat": 57.15,
+"lng": 22.5333,
+"pop": 1,
+"republic": false
+},
+{
+"id": "skrunda",
+"name": "Skrunda",
+"lat": 56.675,
+"lng": 22.0167,
+"pop": 2,
+"republic": false
+},
+{
+"id": "ilukste",
+"name": "Ilūkste",
+"lat": 55.9778,
+"lng": 26.2928,
+"pop": 2,
+"republic": false
+},
+{
+"id": "karsava",
+"name": "Kārsava",
+"lat": 56.7764,
+"lng": 27.6725,
+"pop": 2,
+"republic": false
+},
+{
+"id": "cesvaine",
+"name": "Cesvaine",
+"lat": 56.9678,
+"lng": 26.3072,
+"pop": 1,
+"republic": false
+},
+{
+"id": "varaklani",
+"name": "Varakļāni",
+"lat": 56.6075,
+"lng": 26.7542,
+"pop": 2,
+"republic": false
+},
+{
+"id": "ape",
+"name": "Ape",
+"lat": 57.5403,
+"lng": 26.6969,
+"pop": 1,
+"republic": false
+},
+{
+"id": "mazsalaca",
+"name": "Mazsalaca",
+"lat": 57.8583,
+"lng": 25.05,
+"pop": 1,
+"republic": false
+},
+{
+"id": "strenci",
+"name": "Strenči",
+"lat": 57.6253,
+"lng": 25.675,
+"pop": 1,
+"republic": false
+},
+{
+"id": "plavinas",
+"name": "Pļaviņas",
+"lat": 56.6167,
+"lng": 25.7167,
+"pop": 3,
+"republic": false
+},
+{
+"id": "koknese",
+"name": "Koknese",
+"lat": 56.6467,
+"lng": 25.44,
+"pop": 3,
+"republic": false
+},
+{
+"id": "ikskile",
+"name": "Ikšķile",
+"lat": 56.8333,
+"lng": 24.4833,
+"pop": 4,
+"republic": false
+},
+{
+"id": "baldone",
+"name": "Baldone",
+"lat": 56.7433,
+"lng": 24.3933,
+"pop": 3,
+"republic": false
+},
+{
+"id": "iecava",
+"name": "Iecava",
+"lat": 56.6,
+"lng": 24.2,
+"pop": 5,
+"republic": false
+},
+{
+"id": "vecumnieki",
+"name": "Vecumnieki",
+"lat": 56.6047,
+"lng": 24.52,
+"pop": 2,
+"republic": false
+},
+{
+"id": "ergli",
+"name": "Ērgļi",
+"lat": 56.9083,
+"lng": 25.6333,
+"pop": 2,
+"republic": false
+},
+{
+"id": "jaunjelgava",
+"name": "Jaunjelgava",
+"lat": 56.6131,
+"lng": 25.0783,
+"pop": 2,
+"republic": false
+},
+{
+"id": "viesite",
+"name": "Viesīte",
+"lat": 56.3453,
+"lng": 25.5639,
+"pop": 2,
+"republic": false
+},
+{
+"id": "auce",
+"name": "Auce",
+"lat": 56.4614,
+"lng": 22.9,
+"pop": 3,
+"republic": false
+},
+{
+"id": "broceni",
+"name": "Brocēni",
+"lat": 56.68,
+"lng": 22.5633,
+"pop": 3,
+"republic": false
+},
+{
+"id": "priekule",
+"name": "Priekule",
+"lat": 56.45,
+"lng": 21.5983,
+"pop": 2,
+"republic": false
+},
+{
+"id": "durbe",
+"name": "Durbe",
+"lat": 56.5856,
+"lng": 21.3636,
+"pop": 1,
+"republic": false
+},
+{
+"id": "nica",
+"name": "Nīca",
+"lat": 56.3342,
+"lng": 21.0658,
+"pop": 1,
+"republic": false
+},
+{
+"id": "rucava",
+"name": "Rucava",
+"lat": 56.1597,
+"lng": 21.1544,
+"pop": 1,
+"republic": false
+},
+{
+"id": "vainode",
+"name": "Vaiņode",
+"lat": 56.4197,
+"lng": 21.8536,
+"pop": 1,
+"republic": false
+},
+{
+"id": "roja",
+"name": "Roja",
+"lat": 57.5047,
+"lng": 22.8033,
+"pop": 2,
+"republic": false
+},
+{
+"id": "mersrags",
+"name": "Mērsrags",
+"lat": 57.3333,
+"lng": 23.1333,
+"pop": 1,
+"republic": false
+},
+{
+"id": "carnikava",
+"name": "Carnikava",
+"lat": 57.13,
+"lng": 24.28,
+"pop": 2,
+"republic": false
+},
+{
+"id": "incukalns",
+"name": "Inčukalns",
+"lat": 57.0958,
+"lng": 24.6989,
+"pop": 2,
+"republic": false
+},
+{
+"id": "marupe",
+"name": "Mārupe",
+"lat": 56.9061,
+"lng": 24.0478,
+"pop": 10,
+"republic": false
+},
+{
+"id": "adazi",
+"name": "Ādaži",
+"lat": 57.075,
+"lng": 24.325,
+"pop": 7,
+"republic": false
+},
+{
+"id": "ropazi",
+"name": "Ropaži",
+"lat": 56.97,
+"lng": 24.63,
+"pop": 2,
+"republic": false
+},
+{
+"id": "lubana",
+"name": "Lubāna",
+"lat": 56.9,
+"lng": 26.72,
+"pop": 2,
+"republic": false
+},
+{
+"id": "dagda",
+"name": "Dagda",
+"lat": 56.095,
+"lng": 27.53,
+"pop": 2,
+"republic": false
+},
+{
+"id": "subate",
+"name": "Subate",
+"lat": 56.0,
+"lng": 25.92,
+"pop": 1,
+"republic": false
+},
+{
+"id": "piltene",
+"name": "Piltene",
+"lat": 57.225,
+"lng": 21.675,
+"pop": 1,
+"republic": false
+},
+{
+"id": "kalnciems",
+"name": "Kalnciems",
+"lat": 56.78,
+"lng": 23.63,
+"pop": 1,
+"republic": false
+},
+{
+"id": "jaunpils",
+"name": "Jaunpils",
+"lat": 56.73,
+"lng": 23.02,
+"pop": 1,
+"republic": false
+},
+{
+"id": "pope",
+"name": "Pope",
+"lat": 57.34,
+"lng": 21.84,
+"pop": 1,
+"republic": false
+}
+]

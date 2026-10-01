@@ -1,0 +1,24 @@
+# Raspberry Pi / Linux systemd unit.  Install:
+#   sudo cp deploy/jetlag.service /etc/systemd/system/jetlag.service
+#   (edit User= and the paths below)
+#   sudo systemctl daemon-reload && sudo systemctl enable --now jetlag
+[Unit]
+Description=Jet Lag: Latvia game server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/Jet-Lag-Latvia
+# Game data lives OUTSIDE the repo so `git pull` can never touch it.
+Environment=JETLAG_DATA=/home/pi/jetlag-data
+# 127.0.0.1 = only reachable through the tunnel (recommended). Use 0.0.0.0 to also allow your home Wi-Fi.
+ExecStart=/usr/bin/python3 server/app.py --host 127.0.0.1 --port 8080
+Restart=always
+RestartSec=3
+# A clean stop (SIGTERM) flushes the game state to disk first.
+KillSignal=SIGTERM
+TimeoutStopSec=15
+
+[Install]
+WantedBy=multi-user.target
