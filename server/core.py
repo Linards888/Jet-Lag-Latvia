@@ -178,12 +178,22 @@ def verify_log(game):
     return True
 
 
-def notice(game, text, kind='info', to=None):
-    """Short-lived pop-up message for players. `to` = None (everyone) or a list of member ids."""
+PUSH_HOOK = None  # set by push.py: called with (game, notice) for every new notice
+
+
+def notice(game, key, kind='info', to=None, **args):
+    """Short-lived pop-up for players. `key` is translated by the client; `args` fill the template.
+    `to` = None (everyone) or a list of member ids."""
     n = game.setdefault('notices', [])
-    n.append({'id': (n[-1]['id'] + 1) if n else 1, 't': now_ms(), 'text': text, 'kind': kind, 'to': to})
+    e = {'id': (n[-1]['id'] + 1) if n else 1, 't': now_ms(), 'key': key, 'args': args, 'kind': kind, 'to': to}
+    n.append(e)
     if len(n) > 300:
         del n[:100]
+    if PUSH_HOOK:
+        try:
+            PUSH_HOOK(game, e)
+        except Exception as ex:  # a push problem must never break the game
+            print('push hook error', repr(ex))
 
 
 # ---------------------------------------------------------------- validation helpers

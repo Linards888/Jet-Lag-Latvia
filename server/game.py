@@ -76,7 +76,7 @@ def create_game(store, mode, name, admin_name, admin_pin, admin_plays, settings)
             'status': 'lobby', 'adminId': None, 'adminKeyHash': None, 'adminPlays': bool(admin_plays),
             'adminMode': 'fair' if admin_plays else 'full',
             'members': {}, 'teams': {}, 'log': [], 'notices': [], 'files': {}, 'version': 1, 'joinLocked': False,
-            'flags': [], 'data': {}, 'secret': {}, 'pausedAt': None,
+            'flags': [], 'data': {}, 'secret': {}, 'pausedAt': None, 'catV': 1,
         }
         game['settings'] = MODES[mode].default_settings()
         if settings:
@@ -353,7 +353,7 @@ def _edit_catalog(game, p):
     s = game['settings']
     if kind == 'cards' and mode in ('race', 'hide'):
         s['cards'] = cards.default_cards(mode) if p.get('reset') else cards.clean_cards(mode, p.get('items'))
-    elif kind == 'tasks' and mode == 'race':
+    elif kind == 'tasks' and mode in ('race', 'tag'):
         s['tasks'] = cards.default_tasks() if p.get('reset') else cards.clean_tasks(p.get('items'))
     else:
         raise GameError('This game has no such catalogue')
@@ -367,7 +367,7 @@ def _admin_action(store, game, m, typ, p, now):
         if not text:
             raise GameError('Empty announcement')
         log(game, 'announce', text, m['id'])
-        notice(game, text, 'announce')
+        notice(game, 'announce', 'announce', text=text)
     elif typ == 'lock_join':
         game['joinLocked'] = bool(p.get('locked', True))
         log(game, 'system', 'Joining %s' % ('locked' if game['joinLocked'] else 'unlocked'), m['id'])
@@ -375,6 +375,7 @@ def _admin_action(store, game, m, typ, p, now):
         if st != 'lobby':
             raise GameError('Settings can only be changed in the lobby')
         game['settings'] = mod.clean_settings(game['settings'], p.get('settings') or {})
+        game['catV'] += 1
         if p.get('name'):
             game['name'] = core.clean_name(p['name'], 'Game name')
         log(game, 'system', 'Admin updated the game settings', m['id'])
@@ -382,6 +383,7 @@ def _admin_action(store, game, m, typ, p, now):
         if st == 'finished':
             raise GameError('The game is over')
         _edit_catalog(game, p)
+        game['catV'] += 1
         log(game, 'system', 'Admin changed the %s list' % p.get('kind'), m['id'])
     elif typ == 'rename_team':
         t = game['teams'].get(p.get('teamId'))
@@ -420,14 +422,14 @@ def _admin_action(store, game, m, typ, p, now):
         if game['adminPlays'] and admin_mode(game) == 'full':
             game['adminMode'] = 'fair'
         log(game, 'system', 'The game has started', m['id'])
-        notice(game, 'The game has started', 'info')
+        notice(game, 'started', 'round')
     elif typ == 'pause':
         if st != 'running':
             raise GameError('Not running')
         mod.accrue(game, now)
         game['status'], game['pausedAt'] = 'paused', now
         log(game, 'system', 'Game paused: %s' % (str(p.get('reason') or '')[:120] or 'no reason given'), m['id'])
-        notice(game, 'The game is paused', 'info')
+        notice(game, 'paused', 'info')
     elif typ == 'resume':
         if st != 'paused':
             raise GameError('Not paused')
@@ -435,7 +437,7 @@ def _admin_action(store, game, m, typ, p, now):
         game['status'], game['pausedAt'] = 'running', None
         mod.resume(game, now, paused)
         log(game, 'system', 'Game resumed', m['id'])
-        notice(game, 'The game continues', 'info')
+        notice(game, 'resumed', 'info')
     elif typ == 'end':
         if st in ('lobby', 'finished'):
             raise GameError('Nothing to end')
@@ -443,7 +445,7 @@ def _admin_action(store, game, m, typ, p, now):
         mod.finish(game, now)
         game['status'] = 'finished'
         log(game, 'system', 'The admin ended the game', m['id'])
-        notice(game, 'The game is over', 'info')
+        notice(game, 'ended', 'info')
 
 
 def tick(store, now):
@@ -466,7 +468,20 @@ def public_info(game):
             'joinLocked': game['joinLocked'], 'adminPlays': game['adminPlays']}
 
 
-def view(game, me):
+HEAVY = ('cards', 'tasks', 'cityTerritory', 'muniTerritory')
+_CHAIN = {}  # code -> (time, ok): the full hash-chain check is cheap but not free, so do it at most every 30 s
+
+
+def chain_ok(game, now):
+    t, ok = _CHAIN.get(game['code'], (0, True))
+    if now - t > 30000 or game['version'] < 0:
+        ok = core.verify_log(game)
+        _CHAIN[game['code']] = (now, ok)
+    return ok
+
+
+def view(game, me, cv=None):
+    """State for one member. The big catalogue (cards, tasks, territories) is only sent when its version changed."""
     now = now_ms()
     mod = MODES[game['mode']]
     active = admin_active(game, me)
@@ -474,23 +489,41 @@ def view(game, me):
     for x in game['members'].values():
         members.append({'id': x['id'], 'name': x['name'], 'role': x['role'], 'teamId': x['teamId'], 'plays': plays(game, x),
                         'online': now - x['lastSeen'] < ONLINE_MS, 'hasLoc': bool(fresh_loc(x, now, 300000))})
-    notices = [{'id': n['id'], 't': n['t'], 'text': n['text'], 'kind': n['kind']}
+    notices = [{'id': n['id'], 't': n['t'], 'key': n['key'], 'args': n['args'], 'kind': n['kind']}
                for n in game.get('notices', [])[-60:] if n['to'] is None or me['id'] in n['to']]
     out = {
         'now': now, 'code': game['code'], 'mode': game['mode'], 'name': game['name'], 'status': game['status'],
-        'version': game['version'], 'joinLocked': game['joinLocked'], 'adminPlays': game['adminPlays'],
+        'version': game['version'], 'catV': game['catV'], 'joinLocked': game['joinLocked'], 'adminPlays': game['adminPlays'],
         'startedAt': game.get('startedAt'), 'pausedAt': game.get('pausedAt'),
         'me': {'id': me['id'], 'name': me['name'], 'role': me['role'], 'teamId': me['teamId'], 'plays': plays(game, me),
                'adminMode': admin_mode(game) if me['role'] == 'admin' else None, 'canAdmin': active,
                'referee': is_referee(game, me), 'neutral': neutral_admin(game, me)},
         'members': members,
         'teams': [{'id': t['id'], 'name': t['name'], 'color': t['color']} for t in game['teams'].values()],
-        'settings': game['settings'], 'notices': notices,
+        'settings': {k: v for k, v in game['settings'].items() if k not in HEAVY}, 'notices': notices,
         'g': mod.view(game, me, now),
     }
+    if cv != game['catV']:
+        out['catalog'] = {k: game['settings'][k] for k in HEAVY if k in game['settings']}
     if active:  # the event log is for the admin only
-        out.update({'log': game['log'][-150:], 'logTotal': len(game['log']), 'chainOk': core.verify_log(game), 'flags': game['flags'][-20:]})
+        out.update({'log': game['log'][-150:], 'logTotal': len(game['log']), 'chainOk': chain_ok(game, now), 'flags': game['flags'][-20:]})
     return out
+
+
+# ---------------------------------------------------------------- web push subscriptions
+def add_push(game, m, sub, lang):
+    if not isinstance(sub, dict) or not str(sub.get('endpoint', '')).startswith('https://'):
+        raise GameError('Bad push subscription')
+    keys = sub.get('keys') or {}
+    if not keys.get('p256dh') or not keys.get('auth'):
+        raise GameError('Bad push subscription')
+    lst = [x for x in m.setdefault('push', []) if x['endpoint'] != sub['endpoint']]
+    lst.append({'endpoint': sub['endpoint'], 'p256dh': keys['p256dh'], 'auth': keys['auth'], 'lang': str(lang or 'en')[:5]})
+    m['push'] = lst[-3:]
+
+
+def remove_push(m, endpoint=None):
+    m['push'] = [x for x in m.get('push', []) if endpoint and x['endpoint'] != endpoint]
 
 
 def touch(game, m):

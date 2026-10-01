@@ -1,5 +1,6 @@
 import { html, useState, useEffect } from '/vendor/preact.js';
 import { useToasts } from './api.js';
+import { getLocale, t } from './i18n.js';
 
 // ---------------------------------------------------------------- icons (inline SVG, no emoji)
 const PATHS = {
@@ -7,6 +8,7 @@ const PATHS = {
   palette: 'M12 3a9 9 0 100 18c1.4 0 2-1 1.6-2-.5-1.2.3-2.5 1.7-2.5H17a4 4 0 004-4c0-5-4-9.5-9-9.5zM7.5 11.5h.01M10 7.5h.01M14.5 7.5h.01',
   book: 'M5 4h10a3 3 0 013 3v13H8a3 3 0 01-3-3V4zM5 17a3 3 0 013-3h10',
   copy: 'M9 9h10v11H9zM5 15V4h10', pin: 'M12 21s7-6.2 7-11.5A7 7 0 005 9.5C5 14.8 12 21 12 21zM12 12a2.5 2.5 0 110-5 2.5 2.5 0 010 5z',
+  gear: 'M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z',
   edit: 'M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4', trash: 'M5 7h14M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3',
 };
 export function Ico({ n, size = 18 }) {
@@ -37,9 +39,18 @@ export function Toasts() {
 }
 
 export function Modal({ title, onClose, children, wide }) {
-  useEffect(() => { const f = (e) => e.key === 'Escape' && onClose(); window.addEventListener('keydown', f); return () => window.removeEventListener('keydown', f); }, []);
+  useEffect(() => { const f = (e) => e.key === 'Escape' && onClose(); window.addEventListener('keydown', f); const prev = document.body.style.overflow; document.body.style.overflow = 'hidden'; return () => { window.removeEventListener('keydown', f); document.body.style.overflow = prev; }; }, []);
   return html`<div class="modal-bg" onClick=${(e) => e.target === e.currentTarget && onClose()}>
-    <div class="modal" style=${wide ? { maxWidth: '760px' } : null}><div class="row sp nw" style="margin-bottom:8px"><h2 style="margin:0">${title}</h2><button class="ghost icon" onClick=${onClose} aria-label="Close"><${Ico} n="close" /></button></div>${children}</div></div>`;
+    <div class="modal ${wide ? 'wide' : ''}" role="dialog" aria-modal="true"><div class="modal-h"><h2>${title}</h2><button class="ghost icon" onClick=${onClose} aria-label=${t('close')}><${Ico} n="close" /></button></div>${children}</div></div>`;
+}
+
+// a card with a title row (and optional controls on the right)
+export function Section({ title, right, children, cls = '', id }) {
+  return html`<section class="card ${cls}" id=${id}>${(title || right) && html`<div class="sec-h"><h2>${title}</h2>${right}</div>`}${children}</section>`;
+}
+// a collapsible card
+export function Fold({ title, children, open, cls = '' }) {
+  return html`<details class="card sec ${cls}" open=${open}><summary><h2>${title}</h2></summary><div class="mt">${children}</div></details>`;
 }
 
 export const Chip = ({ color, children, cls = '' }) =>
@@ -73,8 +84,8 @@ export function fmtDur(ms, secs) {
   if (secs || h === 0) return h ? `${h}h ${String(m).padStart(2, '0')}m ${String(sec).padStart(2, '0')}s` : `${m}m ${String(sec).padStart(2, '0')}s`;
   return `${h}h ${String(m).padStart(2, '0')}m`;
 }
-export const fmtTime = (t) => new Date(t).toLocaleTimeString('lv-LV', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Riga' });
-export const fmtDateTime = (t) => new Date(t).toLocaleString('lv-LV', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Riga' });
+export const fmtTime = (ts) => new Date(ts).toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Riga' });
+export const fmtDateTime = (ts) => new Date(ts).toLocaleString(getLocale(), { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Riga' });
 export const fmtKm = (m) => (m < 1000 ? Math.round(m) + ' m' : (m / 1000).toFixed(m < 10000 ? 1 : 0) + ' km');
 
 export function dist(a, b) {

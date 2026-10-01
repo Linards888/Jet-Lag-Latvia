@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from '/vendor/preact.js';
+import { te, getLang } from './i18n.js';
 
 // ---------------------------------------------------------------- saved sessions (this browser only)
 export const saved = {
@@ -31,15 +32,26 @@ export async function api(method, path, body, token, raw) {
   catch { const e = new Error('Cannot reach the server'); e.status = 0; throw e; }
   let data = {};
   try { data = await res.json(); } catch {}
-  if (!res.ok) { const e = new Error(data.error || 'Request failed (' + res.status + ')'); e.status = res.status; throw e; }
+  if (!res.ok) { const e = new Error(te(data.error || 'Request failed (' + res.status + ')')); e.status = res.status; throw e; }
   return data;
 }
 
 // ---------------------------------------------------------------- static meta (cities, question menu, effect catalogue)
-export const META = { cities: [], byId: {}, munis: null, questions: [], cats: [], effects: {}, powers: {} };
+export const META = { cities: [], byId: {}, munis: null, questions: [], cats: [], effects: {}, shop: [] };
+let geoPromise = null;
 export async function loadMeta() {
-  const [m, g] = await Promise.all([api('GET', '/meta'), api('GET', '/geo/municipalities')]);
-  Object.assign(META, { cities: m.cities, byId: Object.fromEntries(m.cities.map((c) => [c.id, c])), munis: g, questions: m.questions, cats: m.cats, effects: m.effects, powers: m.powers });
+  const m = await api('GET', '/meta');
+  Object.assign(META, { cities: m.cities, byId: Object.fromEntries(m.cities.map((c) => [c.id, c])), questions: m.questions, cats: m.cats, effects: m.effects, shop: m.shop });
+}
+// the territory polygons are the biggest download, so they load in the background and maps redraw when they arrive
+export function loadGeo() {
+  if (!geoPromise) geoPromise = api('GET', '/geo/municipalities').then((g) => { META.munis = g; window.dispatchEvent(new Event('jll-geo')); }).catch(() => { geoPromise = null; });
+  return geoPromise;
+}
+export function useGeo() {
+  const [, tick] = useState(0);
+  useEffect(() => { loadGeo(); const f = () => tick((x) => x + 1); window.addEventListener('jll-geo', f); return () => window.removeEventListener('jll-geo', f); }, []);
+  return META.munis;
 }
 export const cityName = (id) => (META.byId[id] ? META.byId[id].name : id);
 
@@ -52,11 +64,14 @@ export function useGame(code) {
   const [conn, setConn] = useState(navigator.onLine === false ? 'off' : 'wait');
   const skew = useRef(0);
   const busy = useRef(false);
+  const cat = useRef({ v: null, data: null });   // the catalogue (cards, tasks, territories) is fetched only when its version changes
   const load = useCallback(async () => {
     if (!token || busy.current) return;
     busy.current = true;
     try {
-      const d = await api('GET', `/games/${code}/state`, null, token);
+      const d = await api('GET', `/games/${code}/state?cv=${cat.current.v ?? ''}`, null, token);
+      if (d.catalog) cat.current = { v: d.catV, data: d.catalog };
+      d.settings = { ...d.settings, ...(cat.current.data || {}) };
       skew.current = d.now - Date.now();
       setSt(d); setErr(null); setConn('ok');
     } catch (e) {
@@ -101,8 +116,8 @@ export function useLocation(code, token, enabled) {
   const last = useRef({ pos: null, sent: 0 });
   useEffect(() => {
     if (!enabled) { setInfo({ status: 'off', pos: null }); return; }
-    if (!navigator.geolocation) { setInfo({ status: 'error', msg: 'This browser has no GPS support' }); return; }
-    if (!window.isSecureContext) { setInfo({ status: 'error', msg: 'GPS needs HTTPS - open the game through the https:// address' }); return; }
+    if (!navigator.geolocation) { setInfo({ status: 'error', msg: 'no-gps' }); return; }
+    if (!window.isSecureContext) { setInfo({ status: 'error', msg: 'https' }); return; }
     let wake;
     const getWake = async () => { try { if (navigator.wakeLock && !document.hidden) wake = await navigator.wakeLock.request('screen'); } catch {} };
     getWake();
@@ -144,7 +159,7 @@ export function useNotices(st) {
     if (!fresh.length) return;
     setItems((cur) => [...cur, ...fresh].slice(-3));
     fresh.forEach((n) => setTimeout(() => setItems((cur) => cur.filter((x) => x.id !== n.id)), 6500));
-    try { if (navigator.vibrate && fresh.some((n) => ['card', 'curse', 'question', 'answer', 'tag'].includes(n.kind))) navigator.vibrate(60); } catch {}
+    try { if (navigator.vibrate && fresh.some((n) => ['card', 'curse', 'question', 'answer', 'tag', 'round'].includes(n.kind))) navigator.vibrate([120, 60, 120]); } catch {}
   }, [st && st.notices && st.notices.length && st.notices[st.notices.length - 1].id]);
   return [items, (id) => setItems((cur) => cur.filter((x) => x.id !== id))];
 }
@@ -163,3 +178,40 @@ export async function uploadPhoto(code, token, file) {
   return d.fid;
 }
 export const fileUrl = (code, token, fid) => `/api/games/${code}/file/${fid}?t=${encodeURIComponent(token)}`;
+
+// ---------------------------------------------------------------- web push (notifications when the page is closed)
+export const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && window.isSecureContext;
+const b64ToBytes = (s) => { const p = '='.repeat((4 - (s.length % 4)) % 4); const r = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from([...r].map((c) => c.charCodeAt(0))); };
+export async function pushStatus() {
+  if (!pushSupported()) return { supported: false };
+  const reg = await navigator.serviceWorker.getRegistration();
+  const sub = reg ? await reg.pushManager.getSubscription() : null;
+  return { supported: true, permission: Notification.permission, subscribed: !!sub };
+}
+export async function enablePush(code, token) {
+  if (!pushSupported()) throw new Error('unsupported');
+  const perm = await Notification.requestPermission();
+  if (perm !== 'granted') throw new Error('denied');
+  const reg = await navigator.serviceWorker.ready;
+  let sub = await reg.pushManager.getSubscription();
+  if (!sub) {
+    const { key } = await api('GET', '/push/key');
+    sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(key) });
+  }
+  await api('POST', `/games/${code}/push`, { subscription: sub.toJSON(), lang: getLang() }, token);
+}
+export async function disablePush(code, token) {
+  const reg = await navigator.serviceWorker.getRegistration();
+  const sub = reg && await reg.pushManager.getSubscription();
+  if (sub) { try { await api('POST', `/games/${code}/push/off`, { endpoint: sub.endpoint }, token); } catch {} await sub.unsubscribe(); }
+}
+// keep the server's record fresh (language, new device) whenever a game is opened with permission already granted
+export async function refreshPush(code, token) {
+  try { if (pushSupported() && Notification.permission === 'granted') await enablePush(code, token); } catch {}
+}
+export function localAlert(text) {   // used for in-page alerts (e.g. leaving the hiding zone) - vibrates and notifies even if the tab is in the background
+  try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch {}
+  try {
+    if (document.hidden && pushSupported() && Notification.permission === 'granted') navigator.serviceWorker.ready.then((r) => r.showNotification('Jet Lag: Latvia', { body: text, vibrate: [200, 100, 200], icon: '/icon-192.png', tag: 'jll-local' }));
+  } catch {}
+}

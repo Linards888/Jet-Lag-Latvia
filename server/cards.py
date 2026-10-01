@@ -7,6 +7,7 @@ definition never breaks a team's inventory.
 """
 import random
 
+import content_i18n
 import core
 from core import GameError
 
@@ -15,7 +16,7 @@ RACE_EFFECTS = {
     'time_bonus': {'label': 'Time bonus (minutes off your time)', 'params': {'min': (1, 180, 15)}, 'target': False},
     'time_penalty': {'label': 'Time penalty for another team', 'params': {'min': (1, 180, 20)}, 'target': True},
     'freeze': {'label': 'Freeze another team (no check-in / finish)', 'params': {'min': (1, 180, 20)}, 'target': True},
-    'skip_free': {'label': 'Skip a task without penalty', 'params': {}, 'target': False},
+    'shuffle_tasks': {'label': 'Shuffle all tasks except protected ones', 'params': {}, 'target': False},
     'extra_picks': {'label': 'Extra card picks', 'params': {'n': (1, 4, 1)}, 'target': False},
     'steal': {'label': 'Steal a random card from another team', 'params': {}, 'target': True},
     'spy': {'label': 'See all teams live for a while', 'params': {'min': (1, 60, 10)}, 'target': False},
@@ -51,7 +52,7 @@ DEFAULT_RACE_CARDS = [
     _c('rc05', 'Pērkona negaiss', 'Izvēlētajai komandai tiek pieskaitītas 30 minūtes.', 1, 'time_penalty', min=30),
     _c('rc06', 'Miglas aizsegs', 'Izvēlētā komanda 15 minūtes nevar reģistrēties pilsētā vai finišēt.', 3, 'freeze', min=15),
     _c('rc07', 'Sals', 'Izvēlētā komanda 30 minūtes nevar reģistrēties pilsētā vai finišēt.', 1, 'freeze', min=30),
-    _c('rc08', 'Lapsas gājiens', 'Izlaid vienu uzdevumu bez soda. Tas tāpat skaitās kā izpildīts.', 3, 'skip_free'),
+    _c('rc08', 'Uzdevumu virpulis', 'Sajauc visus uzdevumus, izņemot tos, kurus komandas ir aizsargājušas.', 2, 'shuffle_tasks'),
     _c('rc09', 'Laimes kurpīte', 'Uzreiz saņem vēl vienu kārts izvēli.', 3, 'extra_picks', n=1),
     _c('rc10', 'Zaglēna roka', 'Nozādz nejaušu kārti no izvēlētās komandas.', 2, 'steal'),
     _c('rc11', 'Putna skatiens', '10 minūtes redzi visu komandu atrašanās vietu.', 3, 'spy', min=10),
@@ -129,6 +130,26 @@ DEFAULT_TASKS = [
 ]
 
 
+def _attach_tr():
+    for lst, tr, field in ((DEFAULT_RACE_CARDS + DEFAULT_HIDE_CARDS, content_i18n.CARDS, 'name'), (DEFAULT_TASKS, content_i18n.TASKS, 'title')):
+        for it in lst:
+            t = tr.get(it['id'])
+            if t:
+                it['tr'] = {lang: {field: v[0], 'desc': v[1]} for lang, v in t.items()}
+
+
+_attach_tr()
+_DEFAULTS_BY_ID = {c['id']: c for c in DEFAULT_RACE_CARDS + DEFAULT_HIDE_CARDS + DEFAULT_TASKS}
+
+
+def _keep_tr(item, field):
+    """Translations only stay attached while the admin has not edited the default text."""
+    d = _DEFAULTS_BY_ID.get(item['id'])
+    if d and d.get(field) == item[field] and d['desc'] == item['desc'] and 'tr' in d:
+        item['tr'] = d['tr']
+    return item
+
+
 def default_cards(mode):
     return [dict(c, effect=dict(c['effect'])) for c in (DEFAULT_RACE_CARDS if mode == 'race' else DEFAULT_HIDE_CARDS)]
 
@@ -171,8 +192,8 @@ def clean_card(mode, c):
     cid = str(c.get('id') or '')
     if not cid or len(cid) > 16 or not cid.replace('_', '').isalnum():
         cid = 'c' + core.new_id(3)
-    return {'id': cid, 'name': name, 'desc': str(c.get('desc') or '').replace('<', '').replace('>', '').strip()[:240],
-            'weight': _clamp(c.get('weight', 3), 1, 8, 3), 'effect': out}
+    return _keep_tr({'id': cid, 'name': name, 'desc': str(c.get('desc') or '').replace('<', '').replace('>', '').strip()[:240],
+                     'weight': _clamp(c.get('weight', 3), 1, 8, 3), 'effect': out}, 'name')
 
 
 def clean_cards(mode, items):
@@ -200,8 +221,8 @@ def clean_tasks(items):
         if not tid or len(tid) > 16 or not tid.replace('_', '').isalnum() or tid in seen:
             tid = 't' + core.new_id(3)
         seen.add(tid)
-        out.append({'id': tid, 'title': title, 'desc': str(t.get('desc') or '').replace('<', '').replace('>', '').strip()[:600],
-                    'difficulty': _clamp(t.get('difficulty', 1), 1, 6, 1)})
+        out.append(_keep_tr({'id': tid, 'title': title, 'desc': str(t.get('desc') or '').replace('<', '').replace('>', '').strip()[:600],
+                             'difficulty': _clamp(t.get('difficulty', 1), 1, 6, 1)}, 'title'))
     return out
 
 

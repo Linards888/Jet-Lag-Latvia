@@ -2,6 +2,7 @@
 """Jet Lag: Latvia - zero-dependency server (Python 3.8+). Run:  python3 server/app.py  [--port 8080]"""
 import argparse
 import gzip
+import hashlib
 import json
 import mimetypes
 import os
@@ -19,14 +20,18 @@ import core  # noqa: E402
 import game as G  # noqa: E402
 import geo  # noqa: E402
 import hide  # noqa: E402
+import push  # noqa: E402
 import tag as tag_mode  # noqa: E402
 from core import GameError, LOCK  # noqa: E402
 
 PUBLIC = os.path.realpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'public'))
 STORE = None
+VAPID = PUSHER = None
 BUS = threading.Condition()
 GZ_CACHE = {}
 RATE = {}
+META_CACHE = {}
+SW_CACHE = {}
 
 
 def notify():
@@ -60,7 +65,7 @@ class Handler(BaseHTTPRequestHandler):
     def end_headers(self):
         self.send_header('X-Content-Type-Options', 'nosniff')
         self.send_header('Referrer-Policy', 'no-referrer')
-        self.send_header('Content-Security-Policy', "default-src 'self'; img-src 'self' data: blob: https://tile.openstreetmap.org; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self'; frame-ancestors 'none'")
+        self.send_header('Content-Security-Policy', "default-src 'self'; img-src 'self' data: blob: https://tile.openstreetmap.org; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; frame-ancestors 'none'")
         super().end_headers()
 
     def send_json(self, obj, status=200):
@@ -123,6 +128,8 @@ class Handler(BaseHTTPRequestHandler):
 
     # ------------------------------------------------------------ static
     def static(self, path):
+        if path == '/sw.js':
+            return self.service_worker()
         spa = path in ('/', '', '/index.html')
         full = os.path.realpath(os.path.join(PUBLIC, ('index.html' if spa else path.lstrip('/'))))
         status = 200
@@ -131,12 +138,47 @@ class Handler(BaseHTTPRequestHandler):
         ctype = mimetypes.guess_type(full)[0] or 'application/octet-stream'
         if full.endswith('.js'):
             ctype = 'text/javascript'
+        st = os.stat(full)
+        etag = '"%x-%x"' % (st.st_mtime_ns, st.st_size)
+        if status == 200 and self.headers.get('If-None-Match') == etag:
+            self.send_response(304)
+            self.send_header('ETag', etag)
+            self.end_headers()
+            return
         with open(full, 'rb') as f:
             body = f.read()
-        self._send_blob(body, ctype, full.startswith(os.path.join(PUBLIC, 'vendor')), full, status)
+        rel = os.path.relpath(full, PUBLIC).replace(os.sep, '/')
+        self._send_blob(body, ctype, rel.startswith('vendor/'), full, status, etag if status == 200 else None)
 
-    def _send_blob(self, body, ctype, immutable, cache_key=None, status=200):
-        gz = 'gzip' in self.headers.get('Accept-Encoding', '') and len(body) > 1500 and not ctype.startswith('image/')
+    def service_worker(self):
+        """sw.js is generated: its cache name is a hash of all public files, so every update refreshes the offline cache."""
+        files, h = [], hashlib.sha1()
+        for root, _dirs, names in sorted(os.walk(PUBLIC)):
+            for n in sorted(names):
+                full = os.path.join(root, n)
+                rel = os.path.relpath(full, PUBLIC).replace(os.sep, '/')
+                if rel in ('sw.js', '404.html') or rel.startswith('vendor/fonts/') or rel.startswith('vendor/images/'):
+                    continue
+                st = os.stat(full)
+                h.update(('%s%d%d' % (rel, st.st_mtime_ns, st.st_size)).encode())
+                files.append('/' + rel if rel != 'index.html' else '/')
+        version = h.hexdigest()[:12]
+        if version not in SW_CACHE:
+            with open(os.path.join(PUBLIC, 'sw.js'), encoding='utf8') as f:
+                tpl = f.read()
+            SW_CACHE.clear()
+            SW_CACHE[version] = tpl.replace('__VERSION__', version).replace('__PRECACHE__', json.dumps(files)).encode('utf8')
+        body = SW_CACHE[version]
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/javascript; charset=utf-8')
+        self.send_header('Content-Length', str(len(body)))
+        self.send_header('Cache-Control', 'no-cache')
+        self.send_header('Service-Worker-Allowed', '/')
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _send_blob(self, body, ctype, immutable, cache_key=None, status=200, etag=None):
+        gz = 'gzip' in self.headers.get('Accept-Encoding', '') and len(body) > 1500 and not ctype.startswith('image/') and not ctype.startswith('font/')
         if gz:
             key = (cache_key, len(body))
             body = GZ_CACHE.get(key) if cache_key and key in GZ_CACHE else gzip.compress(body, 6)
@@ -145,7 +187,10 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header('Content-Type', ctype + ('; charset=utf-8' if ctype.startswith('text/') or 'json' in ctype else ''))
         self.send_header('Content-Length', str(len(body)))
-        self.send_header('Cache-Control', 'public, max-age=86400' if immutable else 'no-cache')
+        self.send_header('Cache-Control', 'public, max-age=604800' if immutable else 'no-cache')
+        if etag:
+            self.send_header('ETag', etag)
+        self.send_header('Vary', 'Accept-Encoding')
         if gz:
             self.send_header('Content-Encoding', 'gzip')
         self.end_headers()
@@ -154,12 +199,18 @@ class Handler(BaseHTTPRequestHandler):
     # ------------------------------------------------------------ API
     def api(self, method, parts, q):
         if parts == ['health']:
-            return self.send_json({'ok': True, 'games': len(STORE.games)})
+            return self.send_json({'ok': True, 'games': len(STORE.games), 'push': {'sent': PUSHER.sent, 'failed': PUSHER.failed} if PUSHER else None})
+        if parts == ['push', 'key'] and method == 'GET':
+            return self.send_json({'key': VAPID.pub if VAPID else None})
         if parts == ['meta'] and method == 'GET':
-            return self.send_json({'cities': geo.CITIES, 'modes': list(G.MODES), 'questions': hide.QUESTIONS, 'cats': hide.CATS, 'effects': cards.effects_public(), 'powers': tag_mode.POWERS})
+            if 'meta' not in META_CACHE:
+                META_CACHE['meta'] = json.dumps({'cities': geo.CITIES, 'modes': list(G.MODES), 'questions': hide.QUESTIONS, 'cats': hide.CATS,
+                                                 'effects': cards.effects_public(), 'shop': list(tag_mode.SHOP)}, ensure_ascii=False, separators=(',', ':')).encode('utf8')
+            return self._send_blob(META_CACHE['meta'], 'application/json', False, 'meta')
         if parts == ['geo', 'municipalities'] and method == 'GET':
-            body = json.dumps(geo.MUNI_GEOJSON, ensure_ascii=False, separators=(',', ':')).encode('utf8')
-            return self._send_blob(body, 'application/json', False, 'muni')
+            if 'geo' not in META_CACHE:
+                META_CACHE['geo'] = json.dumps(geo.MUNI_GEOJSON, ensure_ascii=False, separators=(',', ':')).encode('utf8')
+            return self._send_blob(META_CACHE['geo'], 'application/json', True, 'muni', 200, '"muni-v1"')
         if parts == ['games'] and method == 'POST':
             if not rate_ok(('create', self.ip()), 20, 3600):
                 raise GameError('Too many games created from this address', 429)
@@ -200,9 +251,22 @@ class Handler(BaseHTTPRequestHandler):
         if not me:
             raise GameError('Not signed in to this game', 401)
         if sub == 'state' and method == 'GET':
+            try:
+                cv = int((q.get('cv') or [''])[0])
+            except ValueError:
+                cv = None
             with LOCK:
                 G.touch(g, me)
-                return self.send_json(G.view(g, me))
+                return self.send_json(G.view(g, me, cv))
+        if sub == 'push' and method == 'POST':
+            b = self.json_body()
+            with LOCK:
+                if len(rest) > 1 and rest[1] == 'off':
+                    G.remove_push(me, b.get('endpoint'))
+                else:
+                    G.add_push(g, me, b.get('subscription'), b.get('lang'))
+                STORE.mark()
+            return self.send_json({'ok': True})
         if sub == 'events' and method == 'GET':
             return self.sse(g, me)
         if sub == 'loc' and method == 'POST':
@@ -290,8 +354,9 @@ def background(stop):
 
 
 def make_server(host, port, store=None):
-    global STORE
+    global STORE, VAPID, PUSHER
     STORE = store or core.Store()
+    VAPID, PUSHER = push.init(STORE, STORE.dir)
     return Server((host, port), Handler)
 
 

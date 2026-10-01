@@ -46,7 +46,7 @@ def _build_questions():
 QUESTIONS = _build_questions()
 Q_BY_ID = {q['id']: q for q in QUESTIONS}
 
-DEFAULTS = {'hidesPerPlayer': 2, 'hideMinutes': 60, 'zoneRadiusM': 500, 'cooldownMin': 5, 'zonePenaltyMin': 15, 'handLimit': 6, 'reactSec': 45}
+DEFAULTS = {'hidesPerPlayer': 2, 'hideMinutes': 150, 'zoneRadiusM': 500, 'handLimit': 6, 'reactSec': 45, 'zoneAlerts': True}
 
 
 def default_settings():
@@ -57,10 +57,11 @@ def default_settings():
 
 def clean_settings(old, patch):
     s = dict(old)
-    for k, (lo, hi) in {'hidesPerPlayer': (1, 4), 'hideMinutes': (5, 240), 'zoneRadiusM': (100, 3000), 'cooldownMin': (0, 60),
-                        'zonePenaltyMin': (0, 120), 'handLimit': (2, 12), 'reactSec': (0, 300)}.items():
+    for k, (lo, hi) in {'hidesPerPlayer': (1, 4), 'hideMinutes': (5, 480), 'zoneRadiusM': (100, 3000), 'handLimit': (2, 12), 'reactSec': (0, 300)}.items():
         if k in patch:
             s[k] = int(core.num(patch[k], lo, hi, k))
+    if 'zoneAlerts' in patch:
+        s['zoneAlerts'] = bool(patch['zoneAlerts'])
     return s
 
 
@@ -111,7 +112,7 @@ def start(game, now):
             ids.append(ids.pop(0))
         order += ids
     game['data'] = {'rounds': [{'n': i + 1, 'hiderId': h, 'status': 'pending', 'questions': [], 'penaltyMin': 0, 'pausedMs': 0, 'giveUp': [],
-                                'events': [], 'zone': None, 'hand': [], 'draws': [], 'handBonus': 0, 'lockUntil': 0, 'lastAskAt': 0}
+                                'events': [], 'zone': None, 'hand': [], 'draws': [], 'handBonus': 0, 'lockUntil': 0}
                                for i, h in enumerate(order)]}
 
 
@@ -147,7 +148,7 @@ def _begin_seek(game, r, now):
         r['events'].append({'t': now, 'text': "No zone chosen - zone set around the hider's position"})
     r['status'], r['seekStartedAt'], r['pausedMs'] = 'seeking', now, 0
     log(game, 'round', 'Round %d: %s is hiding. The seeking phase begins.' % (r['n'], h['name']))
-    notice(game, '%s has hidden. Start seeking!' % h['name'], 'round')
+    notice(game, 'seek_begin', 'round', None, hider=h['name'])
     return True
 
 
@@ -165,14 +166,14 @@ def _end_round(game, r, now, outcome):
               'reveal': {'zone': r['zone'], 'trail': tr[-400:]}})
     text = {'found': 'was found after %s', 'gave_up': 'was not found - seekers gave up after %s', 'aborted': 'round aborted after %s'}[outcome] % _fmt(seek)
     log(game, 'round', 'Round %d over: %s %s. Hider score: %s' % (r['n'], h['name'] if h else '?', text, _fmt(ms)))
-    notice(game, 'Round %d over. %s %s. Score %s' % (r['n'], h['name'] if h else '?', text, _fmt(ms)), 'round')
+    notice(game, 'round_' + outcome, 'round', None, n=r['n'], hider=h['name'] if h else '?', time=_fmt(ms))
     if all(x['status'] == 'done' for x in _rounds(game)):
         game['status'] = 'finished'
         tot = _totals(game)
         best = max(tot.items(), key=lambda kv: kv[1]) if tot else None
         if best:
             log(game, 'system', 'All rounds played. Winner: %s with %s' % (game['members'][best[0]]['name'], _fmt(best[1])))
-            notice(game, 'All rounds played. Winner: %s' % game['members'][best[0]]['name'], 'round')
+            notice(game, 'all_done', 'round', None, winner=game['members'][best[0]]['name'])
 
 
 def _totals(game):
@@ -189,8 +190,8 @@ def _reveal(game, r, q, now):
     cat = game['settings']['cards']
     if cat:
         r['draws'].append({'did': core.new_id(3), 'options': cards.draw(cat, n), 'keep': keep})
-        notice(game, 'New cards to draw (keep %d of %d)' % (keep, n), 'cards', [r['hiderId']])
-    notice(game, 'Answer: %s - %s' % (q['text'], q['answer']['text']), 'answer', _seeker_ids(game, r))
+        notice(game, 'draw_ready', 'cards', [r['hiderId']], keep=keep, of=n)
+    notice(game, 'answer_ready', 'answer', _seeker_ids(game, r))
 
 
 def tick(game, now):
@@ -209,24 +210,6 @@ def tick(game, now):
             if q['status'] == 'pending' and now >= q['revealAt']:
                 _reveal(game, r, q, now)
                 game['version'] += 1
-
-
-def on_loc(game, m, now):
-    r = _cur(game)
-    if not r or r['status'] != 'seeking' or m['id'] != r['hiderId'] or not r['zone']:
-        return
-    s = game['settings']
-    d = geo.haversine(m['loc']['lat'], m['loc']['lng'], r['zone']['lat'], r['zone']['lng'])
-    if d > s['zoneRadiusM'] + max(30, m['loc']['acc']):
-        r['outSince'] = r.get('outSince') or now
-        if now - r['outSince'] > 180000 and not r.get('outPenalised'):
-            r['outPenalised'] = True
-            r['penaltyMin'] += s['zonePenaltyMin']
-            r['events'].append({'t': now, 'text': 'Hider left the zone for 3+ minutes: -%d min' % s['zonePenaltyMin']})
-            log(game, 'penalty', 'The hider left the hiding zone (penalty applied)')
-            notice(game, 'The hider left the hiding zone and got a penalty', 'round', _seeker_ids(game, r))
-    else:
-        r['outSince'], r['outPenalised'] = None, False
 
 
 # ---------------------------------------------------------------- answering
@@ -251,22 +234,22 @@ def _answer(qid, here, H):
     if cat == 'radar':
         km = int(qid.split(':')[1])
         hit = geo.haversine(*here, *H) <= km * 1000
-        return {'text': 'YES, the hider is within %d km of you' % km if hit else 'NO, the hider is not within %d km of you' % km, 'hit': hit}
+        return {'hit': hit}
     if cat == 'matching':
         f = _fns(qid)
         same = f(here) == f(H)
-        return {'text': 'YES, you are both %s' % MATCH[qid.split(':')[1]] if same else 'NO, you are not both %s' % MATCH[qid.split(':')[1]], 'same': same}
+        return {'same': same}
     if cat == 'measuring':
         f = _fns(qid)
         closer = f(H) < f(here)
-        return {'text': 'YES, the hider is closer' if closer else 'NO, the hider is not closer', 'closer': closer}
+        return {'closer': closer}
     if cat == 'tentacles':
         _, pool, km = qid.split(':')
         km = int(km)
         if geo.haversine(*here, *H) > km * 1000:
-            return {'text': 'The hider is outside %d km of you, so there is no answer' % km, 'city': None}
+            return {'city': None, 'outside': True}
         c = geo.nearest_city(*H, republic_only=(pool == 'republic'))[0]
-        return {'text': 'Within %d km of you, the hider is closest to %s' % (km, c['name']), 'city': c['id']}
+        return {'city': c['id'], 'outside': False}
     raise GameError('Cannot answer that question')
 
 
@@ -274,7 +257,8 @@ def _answer(qid, here, H):
 def _fresh(game, m, now, who, age=180000):
     loc = G.fresh_loc(m, now, age)
     if not loc:
-        raise GameError('%s GPS position is not fresh yet - wait a few seconds with location sharing on' % who)
+        raise GameError('Your GPS position is not fresh yet - wait a few seconds with location sharing on' if who == 'Your'
+                        else "The hider's GPS position is not fresh yet - wait a few seconds")
     return loc
 
 
@@ -293,7 +277,7 @@ def action(store, game, m, typ, p, now):
         r.update({'status': 'hiding', 'startedAt': now, 'hideEndsAt': now + s['hideMinutes'] * 60000})
         h = _hider(game, r)
         log(game, 'round', 'Round %d: %s goes hiding (%d min)' % (r['n'], h['name'], s['hideMinutes']))
-        notice(game, 'Round %d: %s is hiding. Seekers, stay put!' % (r['n'], h['name']), 'round')
+        notice(game, 'round_hiding', 'round', None, n=r['n'], hider=h['name'], min=s['hideMinutes'])
         G.bump(store, game)
         return
     r = _cur(game)
@@ -327,7 +311,7 @@ def action(store, game, m, typ, p, now):
         if not q or not f or f['owner'] != m['id']:
             raise GameError('Upload a photo first')
         f['scope'] = _seeker_ids(game, r) + [m['id']]
-        q['answer'] = {'text': q['text'], 'fid': p['fid']}
+        q['answer'] = {'fid': p['fid']}
         _reveal(game, r, q, now)
     elif typ == 'found':
         if not (is_seeker or is_hider) or r['status'] != 'seeking':
@@ -339,7 +323,7 @@ def action(store, game, m, typ, p, now):
             raise GameError('Not now')
         if m['id'] not in r['giveUp']:
             r['giveUp'].append(m['id'])
-        notice(game, '%s wants to give up (%d/%d)' % (m['name'], len(r['giveUp']), len(_seekers(game, r))), 'round', _seeker_ids(game, r))
+        notice(game, 'giveup', 'round', _seeker_ids(game, r), name=m['name'], n=len(r['giveUp']), total=len(_seekers(game, r)))
         if len(r['giveUp']) >= len(_seekers(game, r)):
             _end_round(game, r, now, 'gave_up')
     elif typ == 'force_found':
@@ -381,7 +365,7 @@ def _ask(game, r, m, is_seeker, typ, p, now):
         da, db = geo.haversine(a['lat'], a['lng'], *H), geo.haversine(me['lat'], me['lng'], *H)
         q['params']['end'] = {'lat': me['lat'], 'lng': me['lng']}
         q['askLoc'] = {'lat': me['lat'], 'lng': me['lng']}
-        q['answer'] = {'text': 'HOTTER - the hider is closer to where you are now' if db < da else 'COLDER - the hider is closer to where you started', 'hot': db < da}
+        q['answer'] = {'hot': db < da}
         _set_pending(game, r, q, now)
         return
     qd = Q_BY_ID.get(p.get('qid'))
@@ -393,8 +377,6 @@ def _ask(game, r, m, is_seeker, typ, p, now):
         raise GameError('That question was already asked this round')
     if any(x['status'] == 'thermo_open' for x in r['questions']):
         raise GameError('Finish your open thermometer first')
-    if now - r['lastAskAt'] < s['cooldownMin'] * 60000:
-        raise GameError('Cooldown: next question in %d s' % ((s['cooldownMin'] * 60000 - (now - r['lastAskAt'])) // 1000 + 1))
     q = {'id': core.new_id(3), 'n': len(r['questions']) + 1, 't': now, 'asker': m['id'], 'qid': qd['id'], 'cat': qd['cat'], 'text': qd['text'],
          'params': {}, 'status': 'pending', 'answer': None, 'askLoc': {'lat': me['lat'], 'lng': me['lng']}, 'revealAt': now}
     here = (me['lat'], me['lng'])
@@ -404,10 +386,10 @@ def _ask(game, r, m, is_seeker, typ, p, now):
     elif qd['cat'] == 'photo':
         q['status'] = 'waiting_photo'
     else:
+        q['params'] = {'center': {'lat': me['lat'], 'lng': me['lng']}}
         if qd['cat'] in ('radar', 'tentacles'):
-            q['params'] = {'center': {'lat': me['lat'], 'lng': me['lng']}, 'km': int(qd['id'].split(':')[-1])}
+            q['params']['km'] = int(qd['id'].split(':')[-1])
         q['answer'] = _answer(qd['id'], here, H)
-    r['lastAskAt'] = now
     r['questions'].append(q)
     log(game, 'question', '%s asked: %s' % (m['name'], qd['text']), m['id'])
     if q['status'] == 'pending':
@@ -417,7 +399,7 @@ def _ask(game, r, m, is_seeker, typ, p, now):
 def _set_pending(game, r, q, now):
     s = game['settings']
     q['status'], q['revealAt'] = 'pending', now + s['reactSec'] * 1000
-    notice(game, 'Question: %s' % q['text'], 'question', [r['hiderId']])
+    notice(game, 'question_in', 'question', [r['hiderId']])
     if s['reactSec'] == 0:
         _reveal(game, r, q, now)
 
@@ -435,8 +417,11 @@ def _cards_action(game, r, m, typ, p, now):
                 raise GameError('Bad choice')
             if len(idx) > dr['keep']:
                 raise GameError('You may keep at most %d' % dr['keep'])
-            if len(r['hand']) + len(idx) > limit:
-                raise GameError('Your hand is full (%d) - discard a card first' % limit)
+            drop = [i for i in r['hand'] if i['iid'] in (p.get('discard') or [])]
+            if len(r['hand']) - len(drop) + len(idx) > limit:
+                raise GameError('Your hand is full (%d) - discard a card or pass on the new ones' % limit)
+            for i in drop:
+                r['hand'].remove(i)
             for i in idx:
                 r['hand'].append({'iid': core.new_id(3), 'card': dr['options'][i]})
         r['draws'].remove(dr)
@@ -468,7 +453,7 @@ def _cards_action(game, r, m, typ, p, now):
     to = _seeker_ids(game, r)
     if t == 'veto':
         q['status'], q['answer'] = 'vetoed', None
-        notice(game, 'The hider played %s: your question was cancelled' % card['name'], 'card', to)
+        notice(game, 'h_veto', 'card', to, card=card['name'])
     elif t == 'randomize':
         pool = [x for x in QUESTIONS if x['cat'] == q['cat'] and x['id'] not in _used(r)]
         if not pool:
@@ -477,24 +462,26 @@ def _cards_action(game, r, m, typ, p, now):
         nq = random.choice(pool)
         hl = _fresh(game, _hider(game, r), now, 'Your', 600000)
         q['qid'], q['text'] = nq['id'], nq['text']
-        q['params'] = {'center': q['askLoc'], 'km': int(nq['id'].split(':')[-1])} if q['cat'] in ('radar', 'tentacles') else {}
+        q['params'] = {'center': q['askLoc']}
+        if q['cat'] in ('radar', 'tentacles'):
+            q['params']['km'] = int(nq['id'].split(':')[-1])
         q['answer'] = _answer(nq['id'], (q['askLoc']['lat'], q['askLoc']['lng']), (hl['lat'], hl['lng']))
         q['randomized'] = True
         _reveal(game, r, q, now)
-        notice(game, 'The hider played %s: your question became "%s"' % (card['name'], nq['text']), 'card', to)
+        notice(game, 'h_randomize', 'card', to, card=card['name'])
     elif t == 'question_lock':
         r['lockUntil'] = max(now, r['lockUntil']) + e['min'] * 60000
-        notice(game, 'The hider played %s: no questions for %d min' % (card['name'], e['min']), 'card', to)
+        notice(game, 'h_lock', 'card', to, card=card['name'], min=e['min'])
     elif t == 'hand_size':
         r['handBonus'] += e['n']
-        notice(game, 'The hider played %s' % card['name'], 'card', to)
+        notice(game, 'h_card', 'card', to, card=card['name'])
     elif t == 'discard_draw':
         r['hand'].remove(extra)
         cat = s['cards']
         r['draws'].append({'did': core.new_id(3), 'options': cards.draw(cat, e['draw']), 'keep': e['draw']})
-        notice(game, 'The hider played %s' % card['name'], 'card', to)
+        notice(game, 'h_card', 'card', to, card=card['name'])
     elif t == 'text':
-        notice(game, 'The hider played %s: %s' % (card['name'], card['desc']), 'card', to)
+        notice(game, 'h_text', 'card', to, card=card['name'], desc=card['desc'])
     log(game, 'card', 'The hider played "%s"' % card['name'], m['id'])
 
 
@@ -539,7 +526,6 @@ def view(game, me, now):
     cur['seekMsNow'] = _seek_ms(r, now)
     cur['questions'] = [_q_view(q, me, r, secret) for q in r['questions']]
     cur['used'] = sorted(_used(r))
-    cur['cooldownLeftMs'] = max(0, s['cooldownMin'] * 60000 - (now - r['lastAskAt'])) if r['status'] == 'seeking' and r['lastAskAt'] else 0
     cur['lockLeftMs'] = max(0, r['lockUntil'] - now)
     cur['giveUp'] = len(r['giveUp'])
     cur['seekers'] = len(_seekers(game, r))

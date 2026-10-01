@@ -6,7 +6,7 @@ import { html, useEffect, useRef } from '/vendor/preact.js';
 const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim() || '#888';
 const themeKey = () => document.documentElement.getAttribute('data-theme') || 'sakura';
 
-export function LMap({ items = [], munis, muniColor, onMuniClick, onMapClick, fitKey, fitTo, cls = '' }) {
+export function LMap({ items = [], munis, muniColor, onMuniClick, onMapClick, fitKey, fitTo, overlay, cls = '' }) {
   const el = useRef(), S = useRef({}), cb = useRef({});
   cb.current = { onMuniClick, onMapClick, muniColor };
 
@@ -66,6 +66,15 @@ export function LMap({ items = [], munis, muniColor, onMuniClick, onMapClick, fi
       layer.addTo(s.group);
     }
   }, [itemKey]);
+
+  // optional raster overlay (used for the seekers' "where can the hider be" picture)
+  const ovKey = overlay ? overlay.key : '';
+  useEffect(() => {
+    const s = S.current;
+    if (!s.map) return;
+    if (s.overlay) { s.map.removeLayer(s.overlay); s.overlay = null; }
+    if (overlay) { s.overlay = L.imageOverlay(overlay.url, overlay.bounds, { opacity: overlay.opacity ?? 1, interactive: false }).addTo(s.map); if (s.muni) s.muni.bringToBack(); }
+  }, [ovKey]);
 
   // fit view when fitKey changes
   useEffect(() => {
