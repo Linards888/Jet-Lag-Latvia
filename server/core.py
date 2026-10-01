@@ -178,6 +178,14 @@ def verify_log(game):
     return True
 
 
+def notice(game, text, kind='info', to=None):
+    """Short-lived pop-up message for players. `to` = None (everyone) or a list of member ids."""
+    n = game.setdefault('notices', [])
+    n.append({'id': (n[-1]['id'] + 1) if n else 1, 't': now_ms(), 'text': text, 'kind': kind, 'to': to})
+    if len(n) > 300:
+        del n[:100]
+
+
 # ---------------------------------------------------------------- validation helpers
 def clean_name(s, what='Name'):
     s = ' '.join(str(s or '').translate(_BAD_CHARS).split())[:MAX_NAME]

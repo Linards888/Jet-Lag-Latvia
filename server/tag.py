@@ -1,14 +1,14 @@
 """Mode 3: Tag across Latvia (optional All-Stars powers).
 
-One team is "It". It must physically tag another team; the SERVER verifies both teams' GPS are within the tag
-radius. The team that is It accumulates It-time (only during the daily play window); the lowest total wins.
+Tagging happens in real life: the IT team presses "Tag" when it has physically caught another team.
+The team that is IT accumulates IT-time (only during the daily play window); the lowest total wins.
+IT sees the runners live; runners see IT only if the admin enabled it (default: no).
 """
 import random
 
 import core
-import geo
 import game as G
-from core import GameError, log
+from core import GameError, log, notice
 
 POWERS = {
     'ghost': 'Ghost: your team vanishes from the tracker of others',
@@ -16,7 +16,7 @@ POWERS = {
     'radar': 'Radar: see every team live',
 }
 DEFAULTS = {
-    'days': 3, 'itDelayMin': 10, 'runnersSeeIt': 'live', 'tagRadiusM': 75, 'immunityMin': 10, 'useWindow': True,
+    'days': 3, 'cooldownMin': 5, 'runnersSeeIt': False, 'useWindow': True,
     'window': {'start': '09:00', 'end': '21:00'}, 'allStars': False, 'ghostMin': 20, 'shieldMin': 15, 'radarMin': 5,
 }
 
@@ -29,17 +29,12 @@ def default_settings():
 
 def clean_settings(old, patch):
     s = dict(old)
-    for k, (lo, hi) in {'days': (1, 14), 'itDelayMin': (0, 60), 'tagRadiusM': (20, 500), 'immunityMin': (0, 120),
-                        'ghostMin': (1, 120), 'shieldMin': (1, 120), 'radarMin': (1, 60)}.items():
+    for k, (lo, hi) in {'days': (1, 14), 'cooldownMin': (0, 120), 'ghostMin': (1, 120), 'shieldMin': (1, 120), 'radarMin': (1, 60)}.items():
         if k in patch:
             s[k] = int(core.num(patch[k], lo, hi, k))
-    for k in ('useWindow', 'allStars'):
+    for k in ('useWindow', 'allStars', 'runnersSeeIt'):
         if k in patch:
             s[k] = bool(patch[k])
-    if 'runnersSeeIt' in patch:
-        if patch['runnersSeeIt'] not in ('live', 'delayed'):
-            raise GameError('Bad visibility option')
-        s['runnersSeeIt'] = patch['runnersSeeIt']
     if 'window' in patch:
         w = patch['window']
         try:
@@ -76,8 +71,9 @@ def start(game, now):
     if game['settings']['allStars']:
         for tid in tids:
             powers[tid] = {p: {'used': False, 'until': 0} for p in random.sample(list(POWERS), 2)}
-    game['data'] = {'it': it, 'itMs': {t: 0 for t in tids}, 'last': now, 'totalEff': 0, 'immune': {}, 'tags': [], 'powers': powers}
-    log(game, 'tag', '%s starts as IT! Everybody else: run.' % game['teams'][it]['name'])
+    game['data'] = {'it': it, 'itMs': {t: 0 for t in tids}, 'last': now, 'totalEff': 0, 'itLockUntil': 0, 'tags': [], 'powers': powers}
+    log(game, 'tag', '%s starts as IT' % game['teams'][it]['name'])
+    notice(game, '%s starts as IT. Everybody else: run!' % game['teams'][it]['name'], 'tag')
 
 
 def accrue(game, now):
@@ -92,13 +88,16 @@ def accrue(game, now):
 
 def resume(game, now, paused_ms):
     game['data']['last'] = now
+    if game['data']['itLockUntil']:
+        game['data']['itLockUntil'] += paused_ms
 
 
 def finish(game, now):
     d = game['data']
     ranking = sorted(d['itMs'].items(), key=lambda kv: kv[1])
     if ranking:
-        log(game, 'system', 'Game over! Winner: %s (only %d min as IT)' % (game['teams'][ranking[0][0]]['name'], ranking[0][1] // 60000))
+        log(game, 'system', 'Game over. Winner: %s (%d min as IT)' % (game['teams'][ranking[0][0]]['name'], ranking[0][1] // 60000))
+        notice(game, 'Game over. Winner: %s' % game['teams'][ranking[0][0]]['name'], 'tag')
 
 
 def tick(game, now):
@@ -113,7 +112,7 @@ def action(store, game, m, typ, p, now):
     s, d = game['settings'], game['data']
     if game['status'] != 'running':
         raise GameError('The game is not running')
-    if not m['teamId']:
+    if not m['teamId'] or not G.plays(game, m):
         raise GameError('You are not on a team')
     if typ == 'tag':
         if m['teamId'] != d['it']:
@@ -121,43 +120,33 @@ def action(store, game, m, typ, p, now):
         open_, _ = core.window_state(now, _win(game))
         if not open_:
             raise GameError('Outside the daily play window')
+        if d['itLockUntil'] > now:
+            raise GameError('Tagger cooldown: wait %d more minutes' % ((d['itLockUntil'] - now) // 60000 + 1))
         target = game['teams'].get(p.get('targetTeamId'))
         if not target or target['id'] == d['it']:
             raise GameError('Pick another team')
         tid = target['id']
-        if d['immune'].get(tid, 0) > now:
-            raise GameError('%s is immune for %d more minutes' % (target['name'], (d['immune'][tid] - now) // 60000 + 1))
         pw = d['powers'].get(tid, {}).get('shield')
         if pw and pw['until'] > now:
-            raise GameError('%s is shielded!' % target['name'])
-        me = G.fresh_loc(m, now, 90000)
-        if not me:
-            raise GameError('No fresh GPS fix for you (need one within the last 90 s)')
-        best = None
-        for x in G.team_members(game, tid):
-            l = G.fresh_loc(x, now, 90000)
-            if l:
-                dist = geo.haversine(me['lat'], me['lng'], l['lat'], l['lng'])
-                best = dist if best is None or dist < best else best
-        G.attempt_ok(game, m, 'tag', 10)
-        if best is None:
-            raise GameError('%s has no fresh GPS position - they must have the app open' % target['name'])
-        if best > s['tagRadiusM'] + min(40, me['acc'] / 2):
-            raise GameError('Not close enough to %s - get within about %d m' % (target['name'], s['tagRadiusM']))
+            raise GameError('%s is shielded' % target['name'])
         accrue(game, now)
         prev = d['it']
         d['it'] = tid
-        d['immune'][prev] = now + s['immunityMin'] * 60000
+        d['itLockUntil'] = now + s['cooldownMin'] * 60000 if s['cooldownMin'] else 0
         d['tags'].append({'t': now, 'from': prev, 'to': tid, 'by': m['id']})
-        log(game, 'tag', '%s TAGGED %s! %s is now IT.' % (game['teams'][prev]['name'], target['name'], target['name']), m['id'])
+        log(game, 'tag', '%s tagged %s' % (game['teams'][prev]['name'], target['name']), m['id'])
+        notice(game, '%s tagged %s. %s is now IT.' % (game['teams'][prev]['name'], target['name'], target['name']), 'tag')
     elif typ == 'use_power':
         name = p.get('power')
         pw = d['powers'].get(m['teamId'], {}).get(name)
         if not pw or pw['used']:
             raise GameError('You do not have that power (or already used it)')
-        minutes = s[name + 'Min'] if name + 'Min' in s else 15
+        minutes = s[name + 'Min']
         pw['used'], pw['until'] = True, now + minutes * 60000
-        log(game, 'tag', '%s activated %s' % (game['teams'][m['teamId']]['name'], 'the %s power for %d min' % (name.upper(), minutes) if name != 'ghost' else 'a secret power'), m['id'])
+        team = game['teams'][m['teamId']]['name']
+        log(game, 'tag', '%s activated %s' % (team, name), m['id'])
+        if name != 'ghost':
+            notice(game, '%s activated %s for %d min' % (team, name.capitalize(), minutes), 'tag')
     else:
         raise GameError('Unknown action')
     G.bump(store, game)
@@ -170,38 +159,30 @@ def _power_on(d, tid, name, now):
 
 def _visible(game, me, now):
     s, d = game['settings'], game['data']
-    delay = s['itDelayMin'] * 60000
     out = []
     referee = G.is_referee(game, me)
+    mine = me['teamId'] if G.plays(game, me) else None
     for tid in game['teams']:
-        entry = {'teamId': tid, 'locs': [], 'hidden': False, 'live': False}
-        if referee or me['teamId'] == tid:
-            mode = 'live'
-        elif me['role'] == 'spectator':
-            mode = 'delayed'
-        elif _power_on(d, me['teamId'], 'radar', now):
-            mode = 'live'
+        entry = {'teamId': tid, 'locs': [], 'hidden': False}
+        if referee or mine == tid or (mine and _power_on(d, mine, 'radar', now)):
+            show = True
+        elif not mine:
+            show = False
         elif _power_on(d, tid, 'ghost', now):
-            mode = 'hidden'
-        elif me['teamId'] == d['it']:
-            mode = 'delayed'
+            show = False
+        elif mine == d['it']:
+            show = True
         elif tid == d['it']:
-            mode = 'live' if s['runnersSeeIt'] == 'live' else 'delayed'
+            show = bool(s['runnersSeeIt'])
         else:
-            mode = 'hidden'
-        if mode == 'hidden':
-            entry['hidden'] = True
-        else:
-            dl = delay + (300000 if me['role'] == 'spectator' and not referee and me['teamId'] != tid else 0)
+            show = False
+        if show:
             for x in G.team_members(game, tid):
-                if mode == 'live' and x.get('loc'):
+                if x.get('loc'):
                     l = x['loc']
                     entry['locs'].append({'id': x['id'], 'name': x['name'], 'lat': l['lat'], 'lng': l['lng'], 't': l['t']})
-                elif mode == 'delayed':
-                    pts = [q for q in x['trail'] if q[0] <= now - dl]
-                    if pts:
-                        entry['locs'].append({'id': x['id'], 'name': x['name'], 'lat': pts[-1][1], 'lng': pts[-1][2], 't': pts[-1][0]})
-            entry['live'] = mode == 'live'
+        else:
+            entry['hidden'] = True
         out.append(entry)
     return out
 
@@ -217,7 +198,7 @@ def view(game, me, now):
     if game['status'] == 'running':
         itMs[d['it']] += core.eff_elapsed(d['last'], now, _win(game))
     out.update({
-        'it': d['it'], 'itMs': itMs, 'immune': {t: u for t, u in d['immune'].items() if u > now},
+        'it': d['it'], 'itMs': itMs, 'itLockLeftMs': max(0, d['itLockUntil'] - now),
         'shielded': [t for t in game['teams'] if _power_on(d, t, 'shield', now)],
         'tags': d['tags'][-30:], 'remainingMs': max(0, s['days'] * _window_len(game) - d['totalEff']),
         'ranking': [t for t, _ in sorted(itMs.items(), key=lambda kv: kv[1])],

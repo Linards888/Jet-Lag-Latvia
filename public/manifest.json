@@ -3,7 +3,7 @@
   "short_name": "Jet Lag LV",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#14090b",
-  "theme_color": "#7a1f2b",
+  "background_color": "#fff3f6",
+  "theme_color": "#e2457f",
   "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
 }

@@ -3,6 +3,9 @@ import { html, useEffect, useRef } from '/vendor/preact.js';
 /*  Generic Leaflet wrapper.
     items: [{k:'marker'|'circle'|'line', ...}]   munis: GeoJSON (administrative units)   muniColor(props) -> colour
     Layers are rebuilt only when their content actually changes, so popups stay open while live data refreshes. */
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim() || '#888';
+const themeKey = () => document.documentElement.getAttribute('data-theme') || 'sakura';
+
 export function LMap({ items = [], munis, muniColor, onMuniClick, onMapClick, fitKey, fitTo, cls = '' }) {
   const el = useRef(), S = useRef({}), cb = useRef({});
   cb.current = { onMuniClick, onMapClick, muniColor };
@@ -12,19 +15,26 @@ export function LMap({ items = [], munis, muniColor, onMuniClick, onMapClick, fi
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; OpenStreetMap' }).addTo(map);
     S.current = { map, group: L.layerGroup().addTo(map), muni: null, fitted: null, muniKey: null, itemKey: null };
     map.on('click', (e) => cb.current.onMapClick && cb.current.onMapClick({ lat: e.latlng.lat, lng: e.latlng.lng }));
-    setTimeout(() => map.invalidateSize(), 200);
-    return () => map.remove();
+    const settle = () => { map.invalidateSize(); if (S.current.refit) S.current.refit(); };
+    let last = 0;
+    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { const w = el.current ? el.current.clientWidth : 0; if (w && Math.abs(w - last) > 1) { last = w; settle(); } }) : null;
+    if (ro) ro.observe(el.current);
+    const t1 = setTimeout(settle, 150);
+    return () => { clearTimeout(t1); if (ro) ro.disconnect(); map.remove(); };
   }, []);
 
   // municipalities (territory colouring)
-  const muniKey = munis ? JSON.stringify(munis.features.map((f) => (muniColor ? muniColor(f.properties) : '')))  : '';
+  const muniKey = munis ? themeKey() + JSON.stringify(munis.features.map((f) => (muniColor ? muniColor(f.properties) : '')))  : '';
   useEffect(() => {
     const s = S.current;
     if (!s.map || !munis || s.muniKey === muniKey) return;
     s.muniKey = muniKey;
     if (s.muni) s.map.removeLayer(s.muni);
     s.muni = L.geoJSON(munis, {
-      style: (f) => { const c = cb.current.muniColor ? cb.current.muniColor(f.properties) : '#888'; return { color: '#1a0d10', weight: 1, fillColor: c, fillOpacity: 0.42, opacity: 0.9 }; },
+      style: (f) => {
+        const c = cb.current.muniColor ? cb.current.muniColor(f.properties) : null;
+        return c ? { color: css('--text'), weight: 1, opacity: 0.35, fillColor: c, fillOpacity: 0.45 } : { color: css('--accent'), weight: 1, opacity: 0.5, fillColor: css('--accent'), fillOpacity: 0.1 };
+      },
       onEachFeature: (f, layer) => {
         layer.bindTooltip(Object.assign(document.createElement('span'), { textContent: f.properties.name }), { sticky: true, className: 'lbl' });
         layer.on('click', (e) => { if (cb.current.onMuniClick) { L.DomEvent.stopPropagation(e); cb.current.onMuniClick(f.properties); } });
@@ -62,8 +72,8 @@ export function LMap({ items = [], munis, muniColor, onMuniClick, onMapClick, fi
     const s = S.current;
     if (!s.map || s.fitted === fitKey) return;
     s.fitted = fitKey;
-    if (fitTo && fitTo.length) s.map.fitBounds(fitTo, { padding: [30, 30], maxZoom: 13 });
-    else s.map.fitBounds([[55.65, 20.9], [58.05, 28.3]]);
+    s.refit = () => { if (fitTo && fitTo.length) s.map.fitBounds(fitTo, { padding: [30, 30], maxZoom: 13 }); else s.map.fitBounds([[55.65, 20.9], [58.05, 28.3]]); };
+    s.refit();
   }, [fitKey]);
 
   return html`<div class="map ${cls}" ref=${el}></div>`;

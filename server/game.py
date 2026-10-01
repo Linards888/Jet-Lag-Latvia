@@ -4,25 +4,31 @@ Security model (anti-cheat):
   * Every member has a secret token; the server only stores its hash. Role/team are server-side state.
   * Exactly ONE admin exists per game (created with the game). The admin key is shown once and can be
     used to log in on another device, which revokes the previous admin token (still one admin).
-  * The admin may be a participant ("adminPlays"). Then the admin gets NO secret information and cannot
-    judge their own team; every override is written to the public, hash-chained log.
+  * The admin works in one of three modes (switchable any time, every switch is logged):
+        player - plays like everybody else; admin controls are locked (no accidental clicks)
+        fair   - all admin controls, but sees only what a player/spectator could see
+        full   - all admin controls and sees everything (only for an admin who does not play while a game runs)
   * Hidden information (hider position, answers computed from GPS, ...) never leaves the server except
-    through the rules of the game. Spectators only see what is public/delayed.
+    through the rules of the game.
+  * The hash-chained event log is visible to the admin only; players get short notices instead.
 """
 import os
 import secrets
 
+import cards
 import core
 import geo
-from core import GameError, log, now_ms, sha
+from core import GameError, log, notice, now_ms, sha
 
 import hide
 import race
 import tag
 
 MODES = {'race': race, 'hide': hide, 'tag': tag}
-PALETTE = ['#e63946', '#2a9d8f', '#e9c46a', '#457b9d', '#9b5de5', '#f4a261', '#06d6a0', '#ef476f']
+PALETTE = ['#e0457b', '#2f9e8f', '#e8a200', '#3b82c4', '#8d6ad9', '#f06d3c', '#3aa655', '#c2415a']
 ONLINE_MS = 75000
+SPEED_FLAG_MS = 140 / 3.6  # m/s; trains in Latvia top out below this
+ADMIN_MODES = ('player', 'fair', 'full')
 _FAILS = {}  # (kind, code, id) -> [timestamps]; in memory only, self-healing
 
 
@@ -33,7 +39,6 @@ def _throttle(key, limit, window_s, record=False):
         hits.append(now)
     _FAILS[key] = hits
     return len(hits) >= limit
-SPEED_FLAG_MS = 140 / 3.6  # m/s; trains in Latvia top out below this
 
 
 # ---------------------------------------------------------------- creation / membership
@@ -69,7 +74,8 @@ def create_game(store, mode, name, admin_name, admin_pin, admin_plays, settings)
         game = {
             'code': code, 'mode': mode, 'name': core.clean_name(name, 'Game name'), 'createdAt': now_ms(),
             'status': 'lobby', 'adminId': None, 'adminKeyHash': None, 'adminPlays': bool(admin_plays),
-            'members': {}, 'teams': {}, 'log': [], 'files': {}, 'version': 1, 'joinLocked': False,
+            'adminMode': 'fair' if admin_plays else 'full',
+            'members': {}, 'teams': {}, 'log': [], 'notices': [], 'files': {}, 'version': 1, 'joinLocked': False,
             'flags': [], 'data': {}, 'secret': {}, 'pausedAt': None,
         }
         game['settings'] = MODES[mode].default_settings()
@@ -81,9 +87,8 @@ def create_game(store, mode, name, admin_name, admin_pin, admin_plays, settings)
         game['adminKeyHash'] = sha(code + key)
         store.games[code] = game
         store.tokens[member['tokenHash']] = (code, member['id'])
-        log(game, 'system', 'Game "%s" created (%s). Admin: %s%s' % (
-            game['name'], mode, member['name'], ' (also plays - sees no secrets)' if admin_plays else ' (neutral referee)'))
-        store.mark()
+        log(game, 'system', 'Game "%s" created (%s). Admin: %s, mode: %s' % (game['name'], mode, member['name'], game['adminMode']))
+        store.mark(urgent=True)
         return game, key, token, member
 
 
@@ -156,22 +161,40 @@ def admin_login(store, game, key):
 
 
 def attempt_ok(game, m, what, cooldown_s):
-    """Throttle probing actions (endgame / found / tag attempts) so GPS checks cannot be used as a free oracle."""
+    """Throttle probing actions so GPS checks cannot be used as a free oracle."""
     k = ('try', game['code'], m['id'], what)
     if _throttle(k, 1, cooldown_s):
         raise GameError('Wait %d s before trying that again' % cooldown_s)
     _throttle(k, 1, cooldown_s, record=True)
 
 
-# ---------------------------------------------------------------- helpers used by modes
+# ---------------------------------------------------------------- roles (used by the modes)
+def admin_mode(game):
+    return game.get('adminMode') or ('fair' if game['adminPlays'] else 'full')
+
+
+def admin_active(game, m):
+    """Admin with admin controls unlocked (mode fair or full)."""
+    return bool(m) and m['role'] == 'admin' and admin_mode(game) != 'player'
+
+
 def is_referee(game, m):
-    """Neutral admin: may see everything. An admin who also plays is NOT a referee."""
-    return bool(m) and m['role'] == 'admin' and not game['adminPlays']
+    """Sees everything: the admin in full mode."""
+    return bool(m) and m['role'] == 'admin' and admin_mode(game) == 'full'
+
+
+def neutral_admin(game, m):
+    """Active admin who is not a participant: may settle disputes (force 'found', review proofs of anybody)."""
+    return admin_active(game, m) and not game['adminPlays']
 
 
 def participants(game):
     """Members who take part in play (players, plus the admin if adminPlays)."""
     return [m for m in game['members'].values() if m['role'] == 'player' or (m['role'] == 'admin' and game['adminPlays'])]
+
+
+def plays(game, m):
+    return m['role'] == 'player' or (m['role'] == 'admin' and game['adminPlays'])
 
 
 def fresh_loc(m, now, max_age=120000):
@@ -183,8 +206,8 @@ def team_members(game, tid):
     return [m for m in game['members'].values() if m['teamId'] == tid]
 
 
-def team_loc_fresh(game, tid, now, max_age=120000):
-    return [m['loc'] for m in team_members(game, tid) if fresh_loc(m, now, max_age)]
+def team_ids(game, tid):
+    return [m['id'] for m in team_members(game, tid)]
 
 
 def team_name(game, tid):
@@ -220,7 +243,7 @@ def can_read_file(game, m, f):
 def update_loc(game, m, lat, lng, acc):
     if game['status'] not in ('running', 'lobby', 'paused'):
         return
-    if m['role'] == 'spectator' or (m['role'] == 'admin' and not game['adminPlays']):
+    if not plays(game, m):
         raise GameError('Only participants share a location')
     lat, lng = core.num(lat, -90, 90, 'lat'), core.num(lng, -180, 180, 'lng')
     acc = core.num(acc or 0, 0, 100000, 'accuracy')
@@ -247,21 +270,45 @@ def update_loc(game, m, lat, lng, acc):
 
 
 # ---------------------------------------------------------------- lifecycle + common actions
-def _require_admin(m):
+def _require_admin(game, m):
     if m['role'] != 'admin':
         raise GameError('Only the admin can do that', 403)
+    if admin_mode(game) == 'player':
+        raise GameError('Switch to Admin mode first - you are currently playing as a normal player', 403)
+
+
+TEAM_ACTIONS = ('team_create', 'team_join', 'team_leave')
+ADMIN_ACTIONS = ('start', 'pause', 'resume', 'end', 'announce', 'update_settings', 'lock_join', 'assign_team', 'kick', 'rename_team', 'edit_catalog')
 
 
 def do_action(store, game, m, typ, p):
     mod = MODES[game['mode']]
     now = now_ms()
     p = p or {}
-    if typ in ('team_create', 'team_join', 'team_leave'):
+    if typ in TEAM_ACTIONS:
         return _team_action(game, m, typ, p)
-    if typ in ('start', 'pause', 'resume', 'end', 'announce', 'update_settings', 'lock_join', 'assign_team', 'kick', 'rename_team'):
-        _require_admin(m)
+    if typ == 'admin_mode':
+        return _set_admin_mode(game, m, p)
+    if typ in ADMIN_ACTIONS:
+        _require_admin(game, m)
         return _admin_action(store, game, m, typ, p, now)
     return mod.action(store, game, m, typ, p, now)
+
+
+def _set_admin_mode(game, m, p):
+    if m['role'] != 'admin':
+        raise GameError('Only the admin can do that', 403)
+    mode = p.get('mode')
+    if mode not in ADMIN_MODES:
+        raise GameError('Unknown admin mode')
+    if mode == 'player' and not game['adminPlays']:
+        raise GameError('You are not a player in this game')
+    if mode == 'full' and game['adminPlays'] and game['status'] in ('running', 'paused'):
+        raise GameError('You play in this game, so the all-seeing view is locked while it runs')
+    if mode == admin_mode(game):
+        return
+    game['adminMode'] = mode
+    log(game, 'system', 'Admin switched to "%s" mode' % mode, m['id'])
 
 
 def _team_action(game, m, typ, p):
@@ -269,7 +316,7 @@ def _team_action(game, m, typ, p):
         raise GameError('Hide & Seek has no teams')
     if game['status'] != 'lobby':
         raise GameError('Teams are locked once the game started')
-    if m['role'] == 'spectator' or (m['role'] == 'admin' and not game['adminPlays']):
+    if not plays(game, m):
         raise GameError('Only players can be on a team')
     if typ == 'team_create':
         if len(game['teams']) >= 8:
@@ -300,6 +347,18 @@ def _drop_empty_teams(game):
         del game['teams'][tid]
 
 
+def _edit_catalog(game, p):
+    kind = p.get('kind')
+    mode = game['mode']
+    s = game['settings']
+    if kind == 'cards' and mode in ('race', 'hide'):
+        s['cards'] = cards.default_cards(mode) if p.get('reset') else cards.clean_cards(mode, p.get('items'))
+    elif kind == 'tasks' and mode == 'race':
+        s['tasks'] = cards.default_tasks() if p.get('reset') else cards.clean_tasks(p.get('items'))
+    else:
+        raise GameError('This game has no such catalogue')
+
+
 def _admin_action(store, game, m, typ, p, now):
     mod = MODES[game['mode']]
     st = game['status']
@@ -308,6 +367,7 @@ def _admin_action(store, game, m, typ, p, now):
         if not text:
             raise GameError('Empty announcement')
         log(game, 'announce', text, m['id'])
+        notice(game, text, 'announce')
     elif typ == 'lock_join':
         game['joinLocked'] = bool(p.get('locked', True))
         log(game, 'system', 'Joining %s' % ('locked' if game['joinLocked'] else 'unlocked'), m['id'])
@@ -318,6 +378,11 @@ def _admin_action(store, game, m, typ, p, now):
         if p.get('name'):
             game['name'] = core.clean_name(p['name'], 'Game name')
         log(game, 'system', 'Admin updated the game settings', m['id'])
+    elif typ == 'edit_catalog':
+        if st == 'finished':
+            raise GameError('The game is over')
+        _edit_catalog(game, p)
+        log(game, 'system', 'Admin changed the %s list' % p.get('kind'), m['id'])
     elif typ == 'rename_team':
         t = game['teams'].get(p.get('teamId'))
         if not t or st != 'lobby':
@@ -328,7 +393,7 @@ def _admin_action(store, game, m, typ, p, now):
         if st != 'lobby':
             raise GameError('Teams are locked once the game started')
         t = game['members'].get(p.get('memberId'))
-        if not t or t['role'] == 'spectator' or (t['role'] == 'admin' and not game['adminPlays']):
+        if not t or not plays(game, t):
             raise GameError('Bad member')
         if p.get('teamId') and p['teamId'] not in game['teams']:
             raise GameError('No such team')
@@ -352,13 +417,17 @@ def _admin_action(store, game, m, typ, p, now):
         game['status'] = 'running'
         game['startedAt'] = now
         game['joinLocked'] = True
-        log(game, 'system', 'The game has started!', m['id'])
+        if game['adminPlays'] and admin_mode(game) == 'full':
+            game['adminMode'] = 'fair'
+        log(game, 'system', 'The game has started', m['id'])
+        notice(game, 'The game has started', 'info')
     elif typ == 'pause':
         if st != 'running':
             raise GameError('Not running')
         mod.accrue(game, now)
         game['status'], game['pausedAt'] = 'paused', now
         log(game, 'system', 'Game paused: %s' % (str(p.get('reason') or '')[:120] or 'no reason given'), m['id'])
+        notice(game, 'The game is paused', 'info')
     elif typ == 'resume':
         if st != 'paused':
             raise GameError('Not paused')
@@ -366,6 +435,7 @@ def _admin_action(store, game, m, typ, p, now):
         game['status'], game['pausedAt'] = 'running', None
         mod.resume(game, now, paused)
         log(game, 'system', 'Game resumed', m['id'])
+        notice(game, 'The game continues', 'info')
     elif typ == 'end':
         if st in ('lobby', 'finished'):
             raise GameError('Nothing to end')
@@ -373,6 +443,7 @@ def _admin_action(store, game, m, typ, p, now):
         mod.finish(game, now)
         game['status'] = 'finished'
         log(game, 'system', 'The admin ended the game', m['id'])
+        notice(game, 'The game is over', 'info')
 
 
 def tick(store, now):
@@ -398,24 +469,28 @@ def public_info(game):
 def view(game, me):
     now = now_ms()
     mod = MODES[game['mode']]
+    active = admin_active(game, me)
     members = []
     for x in game['members'].values():
-        members.append({'id': x['id'], 'name': x['name'], 'role': x['role'], 'teamId': x['teamId'],
-                        'plays': x['role'] == 'player' or (x['role'] == 'admin' and game['adminPlays']),
+        members.append({'id': x['id'], 'name': x['name'], 'role': x['role'], 'teamId': x['teamId'], 'plays': plays(game, x),
                         'online': now - x['lastSeen'] < ONLINE_MS, 'hasLoc': bool(fresh_loc(x, now, 300000))})
-    return {
+    notices = [{'id': n['id'], 't': n['t'], 'text': n['text'], 'kind': n['kind']}
+               for n in game.get('notices', [])[-60:] if n['to'] is None or me['id'] in n['to']]
+    out = {
         'now': now, 'code': game['code'], 'mode': game['mode'], 'name': game['name'], 'status': game['status'],
         'version': game['version'], 'joinLocked': game['joinLocked'], 'adminPlays': game['adminPlays'],
         'startedAt': game.get('startedAt'), 'pausedAt': game.get('pausedAt'),
-        'me': {'id': me['id'], 'name': me['name'], 'role': me['role'], 'teamId': me['teamId'],
-               'referee': is_referee(game, me), 'plays': me['role'] == 'player' or (me['role'] == 'admin' and game['adminPlays'])},
+        'me': {'id': me['id'], 'name': me['name'], 'role': me['role'], 'teamId': me['teamId'], 'plays': plays(game, me),
+               'adminMode': admin_mode(game) if me['role'] == 'admin' else None, 'canAdmin': active,
+               'referee': is_referee(game, me), 'neutral': neutral_admin(game, me)},
         'members': members,
         'teams': [{'id': t['id'], 'name': t['name'], 'color': t['color']} for t in game['teams'].values()],
-        'settings': game['settings'],
-        'log': game['log'][-150:], 'logTotal': len(game['log']), 'chainOk': core.verify_log(game),
-        'flags': game['flags'][-20:] if (is_referee(game, me) or me['role'] != 'spectator') else [],
+        'settings': game['settings'], 'notices': notices,
         'g': mod.view(game, me, now),
     }
+    if active:  # the event log is for the admin only
+        out.update({'log': game['log'][-150:], 'logTotal': len(game['log']), 'chainOk': core.verify_log(game), 'flags': game['flags'][-20:]})
+    return out
 
 
 def touch(game, m):
@@ -425,4 +500,3 @@ def touch(game, m):
 def bump(store, game):
     game['version'] += 1
     store.mark(urgent=True)
-

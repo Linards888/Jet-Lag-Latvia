@@ -8,7 +8,7 @@ export const saved = {
   remove(code) { const a = this.all(); delete a[code]; try { localStorage.setItem('jll.games', JSON.stringify(a)); } catch {} },
 };
 
-// ---------------------------------------------------------------- toasts
+// ---------------------------------------------------------------- toasts (errors / confirmations)
 const toastSubs = new Set();
 export function toast(msg, ok = false) { toastSubs.forEach((f) => f({ msg, ok, id: Math.random() })); }
 export function useToasts() {
@@ -28,20 +28,18 @@ export async function api(method, path, body, token, raw) {
   if (body && !raw) headers['Content-Type'] = 'application/json';
   let res;
   try { res = await fetch('/api' + path, { method, headers, body: raw ? body : body ? JSON.stringify(body) : undefined }); }
-  catch { const e = new Error('Cannot reach the server - check your connection'); e.status = 0; throw e; }
+  catch { const e = new Error('Cannot reach the server'); e.status = 0; throw e; }
   let data = {};
   try { data = await res.json(); } catch {}
   if (!res.ok) { const e = new Error(data.error || 'Request failed (' + res.status + ')'); e.status = res.status; throw e; }
   return data;
 }
 
-// ---------------------------------------------------------------- static meta (cities)
-export const META = { cities: [], byId: {}, munis: null };
+// ---------------------------------------------------------------- static meta (cities, question menu, effect catalogue)
+export const META = { cities: [], byId: {}, munis: null, questions: [], cats: [], effects: {}, powers: {} };
 export async function loadMeta() {
   const [m, g] = await Promise.all([api('GET', '/meta'), api('GET', '/geo/municipalities')]);
-  META.cities = m.cities;
-  META.byId = Object.fromEntries(m.cities.map((c) => [c.id, c]));
-  META.munis = g;
+  Object.assign(META, { cities: m.cities, byId: Object.fromEntries(m.cities.map((c) => [c.id, c])), munis: g, questions: m.questions, cats: m.cats, effects: m.effects, powers: m.powers });
 }
 export const cityName = (id) => (META.byId[id] ? META.byId[id].name : id);
 
@@ -51,6 +49,7 @@ export function useGame(code) {
   const token = tokenRef.current;
   const [st, setSt] = useState(null);
   const [err, setErr] = useState(null);
+  const [conn, setConn] = useState(navigator.onLine === false ? 'off' : 'wait');
   const skew = useRef(0);
   const busy = useRef(false);
   const load = useCallback(async () => {
@@ -59,24 +58,35 @@ export function useGame(code) {
     try {
       const d = await api('GET', `/games/${code}/state`, null, token);
       skew.current = d.now - Date.now();
-      setSt(d); setErr(null);
-    } catch (e) { setErr(e.status === 401 ? 'auth' : e.message); }
+      setSt(d); setErr(null); setConn('ok');
+    } catch (e) {
+      if (e.status === 0) setConn('off');
+      else { setConn('ok'); setErr(e.status === 401 ? 'auth' : e.status === 404 ? 'gone' : e.message); }
+    }
     busy.current = false;
   }, [code, token]);
   useEffect(() => {
     load();
     let es;
-    try { es = new EventSource(`/api/games/${code}/events?t=${encodeURIComponent(token || '')}`); es.onmessage = () => load(); } catch {}
-    const iv = setInterval(() => { if (!document.hidden) load(); }, 10000);
+    try {
+      es = new EventSource(`/api/games/${code}/events?t=${encodeURIComponent(token || '')}`);
+      es.onmessage = () => load();
+      es.onopen = () => setConn('ok');
+      es.onerror = () => setConn(navigator.onLine === false ? 'off' : 'wait');
+    } catch {}
+    const iv = setInterval(() => { if (!document.hidden) load(); }, 8000);
     const vis = () => { if (!document.hidden) load(); };
+    const on = () => { setConn('wait'); load(); };
+    const off = () => setConn('off');
     document.addEventListener('visibilitychange', vis);
-    return () => { es && es.close(); clearInterval(iv); document.removeEventListener('visibilitychange', vis); };
+    window.addEventListener('online', on); window.addEventListener('offline', off);
+    return () => { es && es.close(); clearInterval(iv); document.removeEventListener('visibilitychange', vis); window.removeEventListener('online', on); window.removeEventListener('offline', off); };
   }, [code, token]);
   const act = useCallback(async (type, payload, okMsg) => {
     try { await api('POST', `/games/${code}/action`, { type, payload }, token); if (okMsg) toast(okMsg, true); await load(); return true; }
     catch (e) { toast(e.message); load(); return false; }
   }, [code, token, load]);
-  return { st, err, act, load, skew, token };
+  return { st, err, conn, act, load, skew, token };
 }
 
 export function useClock(skew) {
@@ -92,7 +102,7 @@ export function useLocation(code, token, enabled) {
   useEffect(() => {
     if (!enabled) { setInfo({ status: 'off', pos: null }); return; }
     if (!navigator.geolocation) { setInfo({ status: 'error', msg: 'This browser has no GPS support' }); return; }
-    if (!window.isSecureContext) { setInfo({ status: 'error', msg: 'GPS needs HTTPS - see the README (Cloudflare Tunnel)' }); return; }
+    if (!window.isSecureContext) { setInfo({ status: 'error', msg: 'GPS needs HTTPS - open the game through the https:// address' }); return; }
     let wake;
     const getWake = async () => { try { if (navigator.wakeLock && !document.hidden) wake = await navigator.wakeLock.request('screen'); } catch {} };
     getWake();
@@ -120,7 +130,26 @@ export function useLocation(code, token, enabled) {
   return info;
 }
 
-// ---------------------------------------------------------------- photo upload (resize in the browser first)
+// ---------------------------------------------------------------- pop-up notices (card played, answer ready ...)
+export function useNotices(st) {
+  const lastId = useRef(null);
+  const [items, setItems] = useState([]);
+  useEffect(() => {
+    if (!st) return;
+    const list = st.notices || [];
+    const max = list.length ? list[list.length - 1].id : 0;
+    if (lastId.current === null) { lastId.current = max; return; }  // do not replay history on first load
+    const fresh = list.filter((n) => n.id > lastId.current);
+    lastId.current = Math.max(lastId.current, max);
+    if (!fresh.length) return;
+    setItems((cur) => [...cur, ...fresh].slice(-3));
+    fresh.forEach((n) => setTimeout(() => setItems((cur) => cur.filter((x) => x.id !== n.id)), 6500));
+    try { if (navigator.vibrate && fresh.some((n) => ['card', 'curse', 'question', 'answer', 'tag'].includes(n.kind))) navigator.vibrate(60); } catch {}
+  }, [st && st.notices && st.notices.length && st.notices[st.notices.length - 1].id]);
+  return [items, (id) => setItems((cur) => cur.filter((x) => x.id !== id))];
+}
+
+// ---------------------------------------------------------------- photo upload (resized in the browser first)
 export async function uploadPhoto(code, token, file) {
   const bmp = await new Promise((res, rej) => {
     const url = URL.createObjectURL(file); const img = new Image();

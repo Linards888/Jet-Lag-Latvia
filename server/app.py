@@ -14,9 +14,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import cards  # noqa: E402
 import core  # noqa: E402
 import game as G  # noqa: E402
 import geo  # noqa: E402
+import hide  # noqa: E402
+import tag as tag_mode  # noqa: E402
 from core import GameError, LOCK  # noqa: E402
 
 PUBLIC = os.path.realpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'public'))
@@ -57,15 +60,20 @@ class Handler(BaseHTTPRequestHandler):
     def end_headers(self):
         self.send_header('X-Content-Type-Options', 'nosniff')
         self.send_header('Referrer-Policy', 'no-referrer')
-        self.send_header('Content-Security-Policy', "default-src 'self'; img-src 'self' data: blob: https://tile.openstreetmap.org; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'")
+        self.send_header('Content-Security-Policy', "default-src 'self'; img-src 'self' data: blob: https://tile.openstreetmap.org; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self'; frame-ancestors 'none'")
         super().end_headers()
 
     def send_json(self, obj, status=200):
         body = json.dumps(obj, ensure_ascii=False, separators=(',', ':')).encode('utf8')
+        gz = len(body) > 2000 and 'gzip' in self.headers.get('Accept-Encoding', '')
+        if gz:
+            body = gzip.compress(body, 5)
         self.send_response(status)
         self.send_header('Content-Type', 'application/json; charset=utf-8')
         self.send_header('Content-Length', str(len(body)))
         self.send_header('Cache-Control', 'no-store')
+        if gz:
+            self.send_header('Content-Encoding', 'gzip')
         self.end_headers()
         self.wfile.write(body)
 
@@ -115,25 +123,26 @@ class Handler(BaseHTTPRequestHandler):
 
     # ------------------------------------------------------------ static
     def static(self, path):
-        path = '/index.html' if path in ('/', '') else path
-        full = os.path.realpath(os.path.join(PUBLIC, path.lstrip('/')))
+        spa = path in ('/', '', '/index.html')
+        full = os.path.realpath(os.path.join(PUBLIC, ('index.html' if spa else path.lstrip('/'))))
+        status = 200
         if os.path.commonpath([full, PUBLIC]) != PUBLIC or not os.path.isfile(full):
-            full = os.path.join(PUBLIC, 'index.html')  # SPA fallback
+            full, status = os.path.join(PUBLIC, '404.html'), 404
         ctype = mimetypes.guess_type(full)[0] or 'application/octet-stream'
         if full.endswith('.js'):
             ctype = 'text/javascript'
         with open(full, 'rb') as f:
             body = f.read()
-        self._send_blob(body, ctype, full.startswith(os.path.join(PUBLIC, 'vendor')), full)
+        self._send_blob(body, ctype, full.startswith(os.path.join(PUBLIC, 'vendor')), full, status)
 
-    def _send_blob(self, body, ctype, immutable, cache_key=None):
+    def _send_blob(self, body, ctype, immutable, cache_key=None, status=200):
         gz = 'gzip' in self.headers.get('Accept-Encoding', '') and len(body) > 1500 and not ctype.startswith('image/')
         if gz:
             key = (cache_key, len(body))
             body = GZ_CACHE.get(key) if cache_key and key in GZ_CACHE else gzip.compress(body, 6)
             if cache_key:
                 GZ_CACHE[key] = body
-        self.send_response(200)
+        self.send_response(status)
         self.send_header('Content-Type', ctype + ('; charset=utf-8' if ctype.startswith('text/') or 'json' in ctype else ''))
         self.send_header('Content-Length', str(len(body)))
         self.send_header('Cache-Control', 'public, max-age=86400' if immutable else 'no-cache')
@@ -147,7 +156,7 @@ class Handler(BaseHTTPRequestHandler):
         if parts == ['health']:
             return self.send_json({'ok': True, 'games': len(STORE.games)})
         if parts == ['meta'] and method == 'GET':
-            return self.send_json({'cities': geo.CITIES, 'modes': list(G.MODES)})
+            return self.send_json({'cities': geo.CITIES, 'modes': list(G.MODES), 'questions': hide.QUESTIONS, 'cats': hide.CATS, 'effects': cards.effects_public(), 'powers': tag_mode.POWERS})
         if parts == ['geo', 'municipalities'] and method == 'GET':
             body = json.dumps(geo.MUNI_GEOJSON, ensure_ascii=False, separators=(',', ':')).encode('utf8')
             return self._send_blob(body, 'application/json', False, 'muni')
@@ -215,7 +224,7 @@ class Handler(BaseHTTPRequestHandler):
         if sub == 'upload' and method == 'POST':
             data = self.read_body(8 * 1024 * 1024)
             with LOCK:
-                if me['role'] == 'spectator' or G.is_referee(g, me):
+                if not G.plays(g, me):
                     raise GameError('Only players upload photos')
                 fid = G.put_file(STORE, g, me, data, 'members' if g['mode'] == 'race' else [me['id']])
                 STORE.mark()
@@ -231,6 +240,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send_blob(body, mime, True)
         if sub == 'log' and method == 'GET':
             with LOCK:
+                if not G.admin_active(g, me):
+                    raise GameError('The log is for the admin', 403)
                 return self.send_json({'log': g['log'], 'chainOk': core.verify_log(g), 'code': g['code']})
         raise GameError('Not found', 404)
 
