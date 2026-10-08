@@ -257,8 +257,8 @@ def _answer(qid, here, H):
 def _fresh(game, m, now, who, age=180000):
     loc = G.fresh_loc(m, now, age)
     if not loc:
-        raise GameError('Your GPS position is not fresh yet - wait a few seconds with location sharing on' if who == 'Your'
-                        else "The hider's GPS position is not fresh yet - wait a few seconds")
+        raise GameError('Your position is not set - tap where you are (top right), then try again' if who == 'Your'
+                        else "The hider has not set their position - ask them to tap where they are")
     return loc
 
 

@@ -37,7 +37,7 @@ function Round(ctx) {
   </div>`;
 }
 
-const gps = (loc) => html`<span class="small ${loc.status === 'ok' ? 'good' : 'warn'}">${loc.status === 'ok' ? t('gps.ok', { m: Math.round(loc.pos.acc) }) : t('gps.wait')}</span>`;
+const gps = (loc) => html`<span class="small ${loc.status === 'ok' ? 'good' : 'warn'}">${loc.status === 'ok' ? t('pos.chip_set') : t('pos.chip_unset')}</span>`;
 
 // ---------------------------------------------------------------- hider
 function Hider(ctx) {

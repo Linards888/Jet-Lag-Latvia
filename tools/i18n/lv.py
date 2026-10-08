@@ -172,4 +172,10 @@ T = {
     'n.plan_end': 'Jauna diena: uzdevumi, kas sakrita ar citām komandām, tika pārvilkti',
     'set.task_picks': 'Uzdevumi komandai',
     'set.protect_sec': 'Aizsardzības laiks maisīšanai (s)',
+    'pos.chip_set': 'Vieta norādīta',
+    'pos.chip_unset': 'Norādīt vietu',
+    'pos.title': 'Kur tu esi?',
+    'pos.hint': 'Šajā versijā nav GPS. Pieskaries kartē tur, kur tu tagad atrodies, un saglabā. Atkārto to, kad pārvietojies.',
+    'pos.saved': 'Vieta saglabāta',
+    'pos.save': 'Saglabāt vietu',
 }

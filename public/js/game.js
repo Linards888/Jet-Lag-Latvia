@@ -16,10 +16,9 @@ export function GamePage({ code }) {
   const g = useGame(code);
   const { st, err, conn, act, load, token } = g;
   const now = useClock(g.skew);
-  const [gps, setGps] = useState(true);
   const [modal, setModal] = useState(null);
   const [notices, dismiss] = useNotices(st);
-  const sharing = !!(st && st.me.plays && st.status !== 'finished' && gps);
+  const sharing = !!(st && st.me.plays && st.status !== 'finished');
   const loc = useLocation(code, token, sharing);
   useEffect(() => { if (token) refreshPush(code, token); }, [code, token]);
 
@@ -37,25 +36,23 @@ export function GamePage({ code }) {
       <div class="left"><button class="ghost icon" aria-label=${t('home')} onClick=${() => go('#/')}><${Ico} n="back" /></button><span class="name">${st.name}</span><span class="chip plain mono">${st.code}</span></div>
       <div class="right"><${Conn} conn=${conn} />
         ${st.me.role === 'admin' && html`<button class="soft sm" onClick=${() => setModal('mode')}>${t('adminmode.short.' + st.me.adminMode)}</button>`}
-        ${st.me.plays && html`<button class="ghost sm" onClick=${() => setGps(!gps)}>${gpsLabel(gps, loc)}</button>`}
+        ${st.me.plays && html`<button class="ghost sm" onClick=${() => setModal('pos')}>${loc.pos ? t('pos.chip_set') : t('pos.chip_unset')}</button>`}
         <button class="ghost icon" aria-label=${t('settings')} onClick=${() => setModal('settings')}><${Ico} n="gear" /></button></div>
     </div></div>
     <div class="notices">${notices.map((n) => html`<div class="notice ${n.kind}" key=${n.id} onClick=${() => dismiss(n.id)}>${noticeText(n)}</div>`)}</div>
     <div class="wrap"><div class="stack">
       <${PushBanner} code=${code} token=${token} plays=${st.me.plays} />
-      ${st.me.plays && loc.status === 'error' && html`<div class="callout warn">${t('gps.err_' + loc.msg)}</div>`}
-      ${st.me.plays && loc.status === 'denied' && html`<div class="callout warn">${t('gps.denied_msg')}</div>`}
       ${st.status === 'paused' && html`<div class="callout warn">${t('paused_msg')}</div>`}
       ${st.status === 'finished' && html`<div class="callout good">${t('finished_msg')}</div>`}
       ${st.status === 'lobby' ? html`<${Lobby} ...${ctx} />` : html`<${P.Page} ...${ctx} />`}
     </div></div>
     ${modal === 'settings' && html`<${SettingsModal} game=${ctx} onClose=${() => setModal(null)} />`}
+    ${modal === 'pos' && html`<${PositionModal} loc=${loc} onClose=${() => setModal(null)} />`}
     ${modal === 'mode' && html`<${AdminModeModal} ...${ctx} onClose=${() => setModal(null)} />`}
     ${(modal === 'cards' || modal === 'tasks') && html`<${CatalogEditor} kind=${modal} ...${ctx} onClose=${() => setModal(null)} />`}
   </div>`;
 }
 
-const gpsLabel = (on, loc) => (!on ? t('gps.off') : loc.status === 'ok' ? t('gps.chip', { m: Math.round(loc.pos.acc) }) : loc.status === 'denied' ? t('gps.denied') : loc.status === 'error' ? t('gps.error') : t('gps.wait_chip'));
 
 function Conn({ conn }) {
   return html`<span class="conn ${conn}" title=${t('conn.title')}><i></i><span>${t('conn.' + conn)}</span></span>`;
@@ -236,4 +233,13 @@ function CatalogEditor({ kind, st, act, onClose }) {
       <button class="sm ghost icon" aria-label=${t('remove')} onClick=${() => setItems(items.filter((_, j) => j !== i))}><${Ico} n="trash" size=${15} /></button></div>`)}</div>
     <${AsyncBtn} class="block mt" onClick=${async () => { if (await act('edit_catalog', { kind, items }, t('saved'))) onClose(); }}>${t('ed.save')}<//>
   <//>`;
+}
+
+// no GPS in this version: tap on the map where you are now (and again whenever you move)
+function PositionModal({ loc, onClose }) {
+  const [pick, setPick] = useState(loc.pos ? { lat: loc.pos.lat, lng: loc.pos.lng } : null);
+  const items = pick ? [{ k: 'circle', lat: pick.lat, lng: pick.lng, r: 150, color: '#3b82c4' }, { k: 'marker', lat: pick.lat, lng: pick.lng, color: '#3b82c4', text: '*' }] : [];
+  return html`<${Modal} title=${t('pos.title')} onClose=${onClose} wide=${true}><p class="dim small" style="margin-top:0">${t('pos.hint')}</p>
+    <${LMap} items=${items} cls="short" onMapClick=${setPick} fitKey=${pick ? 'p' : 'none'} fitTo=${pick ? [[pick.lat, pick.lng]] : null} />
+    <button class="block mt" disabled=${!pick} onClick=${() => { loc.set(pick.lat, pick.lng); toast(t('pos.saved'), true); onClose(); }}>${t('pos.save')}</button><//>`;
 }

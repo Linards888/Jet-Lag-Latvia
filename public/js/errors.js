@@ -152,7 +152,7 @@ export const ERRORS = [
   ['Your\\ team\\ already\\ did\\ that\\ task', '150'],
   ['Your\\ team\\ is\\ frozen\\ for\\ (.+?)\\ more\\ minutes', '151'],
   ['The\\ game\\ is\\ paused', '152'],
-  ['Your\\ GPS\\ position\\ is\\ not\\ fresh\\ yet\\ \\-\\ wait\\ a\\ few\\ seconds\\ with\\ location\\ sharing\\ on', '153'],
-  ["The\\ hider's\\ GPS\\ position\\ is\\ not\\ fresh\\ yet\\ \\-\\ wait\\ a\\ few\\ seconds", '154'],
+  ['Your\\ position\\ is\\ not\\ set\\ \\-\\ tap\\ where\\ you\\ are\\ \\(top\\ right\\),\\ then\\ try\\ again', '153'],
+  ['The\\ hider\\ has\\ not\\ set\\ their\\ position\\ \\-\\ ask\\ them\\ to\\ tap\\ where\\ they\\ are', '154'],
   ['Server\\ error:\\ (.+?)', '155'],
 ];

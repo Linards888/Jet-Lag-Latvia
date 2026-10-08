@@ -110,39 +110,26 @@ export function useClock(skew) {
   return Date.now() + (skew.current || 0);
 }
 
-// ---------------------------------------------------------------- GPS sharing
+// ---------------------------------------------------------------- position (no GPS in this version: the player taps where they are on the map)
+const POS_ACC = 150; // metres: marks the spot as approximate and keeps the speed check quiet
 export function useLocation(code, token, enabled) {
-  const [info, setInfo] = useState({ status: enabled ? 'waiting' : 'off', pos: null });
-  const last = useRef({ pos: null, sent: 0 });
+  const key = 'jll.pos.' + code;
+  const read = () => { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; } };
+  const [pos, setPos] = useState(read);
+  const sent = useRef(0);
+  const send = async (p) => { sent.current = Date.now(); try { await api('POST', `/games/${code}/loc`, { lat: p.lat, lng: p.lng, acc: POS_ACC }, token); } catch {} };
+  const set = (lat, lng) => {
+    const p = { lat, lng, acc: POS_ACC, t: Date.now() };
+    try { localStorage.setItem(key, JSON.stringify(p)); } catch {}
+    setPos(p); send(p);
+  };
   useEffect(() => {
-    if (!enabled) { setInfo({ status: 'off', pos: null }); return; }
-    if (!navigator.geolocation) { setInfo({ status: 'error', msg: 'no-gps' }); return; }
-    if (!window.isSecureContext) { setInfo({ status: 'error', msg: 'https' }); return; }
-    let wake;
-    const getWake = async () => { try { if (navigator.wakeLock && !document.hidden) wake = await navigator.wakeLock.request('screen'); } catch {} };
-    getWake();
-    const vis = () => { if (!document.hidden) getWake(); };
-    document.addEventListener('visibilitychange', vis);
-    const send = async (p) => {
-      last.current.sent = Date.now();
-      try { await api('POST', `/games/${code}/loc`, { lat: p.lat, lng: p.lng, acc: p.acc }, token); } catch {}
-    };
-    const onPos = (g) => {
-      const p = { lat: g.coords.latitude, lng: g.coords.longitude, acc: g.coords.accuracy || 0, t: Date.now() };
-      last.current.pos = p;
-      setInfo({ status: 'ok', pos: p });
-      if (Date.now() - last.current.sent > 12000) send(p);
-    };
-    const onErr = (e) => setInfo({ status: e.code === 1 ? 'denied' : 'waiting', msg: e.message, pos: last.current.pos });
-    const id = navigator.geolocation.watchPosition(onPos, onErr, { enableHighAccuracy: true, maximumAge: 4000, timeout: 30000 });
-    const keep = setInterval(() => {
-      const p = last.current.pos;
-      if (p && Date.now() - last.current.sent > 18000 && Date.now() - p.t < 90000) send(p);
-      else if (!p || Date.now() - p.t >= 90000) navigator.geolocation.getCurrentPosition(onPos, () => {}, { enableHighAccuracy: true, timeout: 20000 });
-    }, 10000);
-    return () => { navigator.geolocation.clearWatch(id); clearInterval(keep); document.removeEventListener('visibilitychange', vis); try { wake && wake.release(); } catch {} };
-  }, [code, token, enabled]);
-  return info;
+    if (!enabled || !pos) return;
+    send(pos);
+    const keep = setInterval(() => send(pos), 45000); // keeps the position "fresh" for the server's checks
+    return () => clearInterval(keep);
+  }, [code, token, enabled, pos && pos.lat, pos && pos.lng]);
+  return { status: !enabled ? 'off' : pos ? 'ok' : 'unset', pos: enabled ? pos : null, set };
 }
 
 // ---------------------------------------------------------------- pop-up notices (card played, answer ready ...)

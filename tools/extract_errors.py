@@ -39,7 +39,7 @@ for path in sorted(glob.glob(os.path.join(ROOT, 'server', '*.py'))):
 
 fmts = sorted(msgs)
 # the server's validators build 'Name must be at least 2 characters' etc. from variables - listed explicitly
-extra = ['The game is paused', 'Your GPS position is not fresh yet - wait a few seconds with location sharing on', "The hider's GPS position is not fresh yet - wait a few seconds", '%s must be at least 2 characters', '%s must be between %s and %s', '%s must be a number', 'Server error: %r']
+extra = ['The game is paused', 'Your position is not set - tap where you are (top right), then try again', "The hider has not set their position - ask them to tap where they are", '%s must be at least 2 characters', '%s must be between %s and %s', '%s must be a number', 'Server error: %r']
 for e in extra:
     if e not in fmts:
         fmts.append(e)

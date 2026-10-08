@@ -190,4 +190,10 @@ T = {
     'n.plan_end': 'A new day: tasks matching other teams were redrawn',
     'set.task_picks': 'Tasks per team',
     'set.protect_sec': 'Protect time for shuffle (s)',
+    'pos.chip_set': 'Position set',
+    'pos.chip_unset': 'Set position',
+    'pos.title': 'Where are you?',
+    'pos.hint': 'There is no GPS in this version. Tap the map where you are now and save. Do this again whenever you move.',
+    'pos.saved': 'Position saved',
+    'pos.save': 'Save position',
 }

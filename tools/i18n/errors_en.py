@@ -152,7 +152,7 @@ ERR = {
     'e.150': 'Your team already did that task',
     'e.151': 'Your team is frozen for {1} more minutes',
     'e.152': 'The game is paused',
-    'e.153': 'Your GPS position is not fresh yet - wait a few seconds with location sharing on',
-    'e.154': "The hider's GPS position is not fresh yet - wait a few seconds",
+    'e.153': 'Your position is not set - tap where you are (top right), then try again',
+    'e.154': 'The hider has not set their position - ask them to tap where they are',
     'e.155': 'Server error: {1}',
 }
