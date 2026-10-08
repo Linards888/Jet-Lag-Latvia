@@ -2,9 +2,12 @@
 
 * Latvia is split into territories. A territory is a region you must get OUT of: to progress you check in (tap the
   city on the map) in the next territory. When every territory is reached, check in at the finish city.
-* All teams share the same N random tasks (default 5). A team presses "done" when it finished a task; an approved
-  task gives card picks = its difficulty (1-6). Photo proof is optional (lobby switch `requireProof`).
-* Cards belong to the team (max `handLimit` in hand). Each team may protect one task from the "shuffle" card.
+* A pool of N random tasks (default 5) is shared. Outside the daily play window every team secretly selects 3 of them;
+  when the window opens, tasks picked by two or more teams are redrawn. Inside the window a team plays its 3 tasks; a
+  finished task is replaced by a new one. An approved task gives card picks = its difficulty (1-6). Photo proof is
+  optional (lobby switch `requireProof`).
+* Cards belong to the team (max `handLimit` in hand). Playing "shuffle tasks" opens a short protect window in which each
+  team may protect one of its tasks (the Protect button exists only then); afterwards the unprotected ones are redrawn.
 """
 import random
 
@@ -24,7 +27,7 @@ TERRITORIES = [
 
 DEFAULTS = {
     'startCity': 'liepaja', 'finishCity': 'daugavpils', 'ordered': True, 'useWindow': True, 'window': {'start': '08:00', 'end': '21:00'},
-    'territoryBonusMin': 20, 'tasksEnabled': True, 'requireProof': False, 'taskSlots': 5, 'handLimit': 6, 'days': 5, 'disabledCities': [],
+    'territoryBonusMin': 20, 'tasksEnabled': True, 'requireProof': False, 'taskSlots': 5, 'taskPicks': 3, 'protectSec': 90, 'handLimit': 6, 'days': 5, 'disabledCities': [],
 }
 
 
@@ -48,7 +51,7 @@ def _recompute_city_territory(s):
 
 def clean_settings(old, patch):
     s = dict(old)
-    for k, (lo, hi) in {'territoryBonusMin': (0, 240), 'days': (1, 14), 'taskSlots': (1, 12), 'handLimit': (2, 12)}.items():
+    for k, (lo, hi) in {'territoryBonusMin': (0, 240), 'days': (1, 14), 'taskSlots': (1, 12), 'taskPicks': (1, 6), 'protectSec': (15, 600), 'handLimit': (2, 12)}.items():
         if k in patch:
             s[k] = int(core.num(patch[k], lo, hi, k))
     for k in ('ordered', 'useWindow', 'tasksEnabled', 'requireProof'):
@@ -175,18 +178,91 @@ def _draw_active(game, n, exclude=()):
     return pool[:n]
 
 
-def _refresh_finished_tasks(game):
-    """A task that every team has done is replaced by a new random one (same for everybody)."""
-    d = game['data']
-    teams = d['teams']
-    for i, tid in enumerate(list(d['active'])):
-        if all(tid in t['done'] and t['done'][tid] in ('approved', 'pending') for t in teams.values()):
-            new = _draw_active(game, 1, exclude=set(d['active']))
-            if new:
-                d['active'][i] = new[0]
-                for t in teams.values():
-                    if t['pin'] == tid:
-                        t['pin'] = None
+def _fresh_task(game, tid, avoid=()):
+    """A new random task for team `tid` that it has not done and is not in `avoid`."""
+    d = _td(game, tid)
+    pool = [t['id'] for t in game['settings']['tasks'] if t['id'] not in avoid and d['done'].get(t['id']) not in ('approved', 'pending')]
+    if not pool:
+        pool = [t['id'] for t in game['settings']['tasks'] if t['id'] not in avoid]
+    return random.choice(pool) if pool else None
+
+
+def _deal(game, tid, n):
+    out = []
+    for _ in range(n):
+        x = _fresh_task(game, tid, set(out))
+        if x:
+            out.append(x)
+    return out
+
+
+def _replace_mine(game, tid, task_id):
+    """A finished task is replaced by a fresh one for that team."""
+    d = _td(game, tid)
+    if task_id in d['mine']:
+        new = _fresh_task(game, tid, set(d['mine']))
+        i = d['mine'].index(task_id)
+        if new:
+            d['mine'][i] = new
+        else:
+            d['mine'].pop(i)
+        if d['pin'] == task_id:
+            d['pin'] = None
+
+
+def _sync(game, now):
+    """Move between the night planning phase and the play phase; resolve a pending shuffle. True if something changed."""
+    s, data = game['settings'], game['data']
+    if not s['tasksEnabled'] or game['status'] != 'running' or not data.get('teams'):
+        return False
+    changed = False
+    sh = data.get('shuffle')
+    if sh and now >= sh['until']:
+        for tid, d in data['teams'].items():
+            for i, task_id in enumerate(list(d['mine'])):
+                if task_id != d['pin']:
+                    new = _fresh_task(game, tid, set(d['mine']))
+                    if new:
+                        d['mine'][i] = new
+            d['pin'] = None
+        data['shuffle'] = None
+        notice(game, 'shuffled', 'cards', None)
+        log(game, 'system', 'Tasks were shuffled (protected ones kept)')
+        changed = True
+    open_, _ = core.window_state(now, _win(game))
+    if data['phase'] == 'play' and not open_:
+        data['phase'] = 'plan'
+        data['active'] = _draw_active(game, s['taskSlots'])
+        for d in data['teams'].values():
+            d['sel'] = None
+        notice(game, 'plan_start', 'cards', None, n=s['taskPicks'])
+        changed = True
+    elif data['phase'] == 'plan' and open_:
+        want = min(s['taskPicks'], len(data['active']))
+        chosen = {}
+        for tid, d in data['teams'].items():
+            sel = [x for x in (d['sel'] or []) if x in data['active']][:want]
+            rest = [x for x in data['active'] if x not in sel]
+            sel += random.sample(rest, min(len(rest), max(0, want - len(sel))))
+            chosen[tid] = sel
+        count = {}
+        for sel in chosen.values():
+            for x in sel:
+                count[x] = count.get(x, 0) + 1
+        taken = set(count)  # redraws must be new to everybody
+        for tid, sel in chosen.items():
+            for i, x in enumerate(sel):
+                if count[x] > 1:
+                    new = _fresh_task(game, tid, taken)
+                    if new:
+                        sel[i] = new
+                        taken.add(new)
+            data['teams'][tid]['mine'] = sel
+            data['teams'][tid]['sel'] = None
+        data['phase'] = 'play'
+        notice(game, 'plan_end', 'cards', None)
+        changed = True
+    return changed
 
 
 def _after_reach(game, tid, terr):
@@ -215,8 +291,13 @@ def start(game, now):
     if not s['cityTerritory'].get(s['finishCity']):
         raise GameError('The finish city is not inside any territory')
     game['data'] = {'teams': {tid: {'reached': [start_t], 'done': {}, 'proofs': [], 'pin': None, 'cards': [], 'picks': [], 'bonusMin': 0, 'penaltyMin': 0,
-                                    'finishedAt': None, 'finishEffMs': None, 'adjust': [], 'frozenUntil': 0, 'spyUntil': 0} for tid in teams},
-                    'claims': {}, 'active': _draw_active(game, s['taskSlots']) if s['tasksEnabled'] else []}
+                                    'finishedAt': None, 'finishEffMs': None, 'adjust': [], 'frozenUntil': 0, 'spyUntil': 0, 'mine': [], 'sel': None} for tid in teams},
+                    'claims': {}, 'active': _draw_active(game, s['taskSlots']) if s['tasksEnabled'] else [], 'phase': 'play', 'shuffle': None}
+    if s['tasksEnabled']:
+        for tid in teams:
+            game['data']['teams'][tid]['mine'] = _deal(game, tid, s['taskPicks'])
+        if not core.window_state(now, _win(game))[0]:
+            game['data']['phase'] = 'plan'
 
 
 def accrue(game, now):
@@ -232,6 +313,8 @@ def finish(game, now):
 
 
 def tick(game, now):
+    if _sync(game, now):
+        game['version'] += 1
     d = game['data']
     if d.get('teams') and all(t['finishedAt'] for t in d['teams'].values()):
         game['status'] = 'finished'
@@ -243,6 +326,8 @@ def tick(game, now):
 # ---------------------------------------------------------------- actions
 def action(store, game, m, typ, p, now):
     s = game['settings']
+    if game['status'] == 'running':
+        _sync(game, now)
     if typ == 'checkin':
         _need_running(game)
         _need_window(game, now)
@@ -298,7 +383,7 @@ def action(store, game, m, typ, p, now):
         tid = _my_team(game, m)
         d = _td(game, tid)
         task = _task(game, p.get('taskId'))
-        if not task or task['id'] not in game['data']['active']:
+        if not task or task['id'] not in d['mine'] or game['data']['phase'] != 'play':
             raise GameError('That task is not active')
         if d['done'].get(task['id']) in ('approved', 'pending'):
             raise GameError('Your team already did that task')
@@ -315,11 +400,24 @@ def action(store, game, m, typ, p, now):
             d['done'][task['id']] = 'approved'
             log(game, 'task', '%s completed "%s"' % (G.team_name(game, tid), task['title']), m['id'])
             _grant_picks(game, tid, task['difficulty'])
-            _refresh_finished_tasks(game)
+            _replace_mine(game, tid, task['id'])
+    elif typ == 'select_tasks':
+        _need_running(game)
+        tid = _my_team(game, m)
+        if game['data']['phase'] != 'plan':
+            raise GameError('Tasks can only be selected outside the playing time')
+        ids = list(dict.fromkeys(p.get('taskIds') or []))
+        want = min(s['taskPicks'], len(game['data']['active']))
+        if len(ids) != want or any(x not in game['data']['active'] for x in ids):
+            raise GameError('Select exactly %d tasks' % want)
+        _td(game, tid)['sel'] = ids
     elif typ == 'pin_task':
+        _need_running(game)
         tid = _my_team(game, m)
         task_id = p.get('taskId')
-        if task_id is not None and task_id not in game['data']['active']:
+        if not game['data'].get('shuffle'):
+            raise GameError('Protecting is only possible when a shuffle card was played')
+        if task_id is not None and task_id not in _td(game, tid)['mine']:
             raise GameError('That task is not active')
         _td(game, tid)['pin'] = task_id
     elif typ == 'review':
@@ -340,7 +438,7 @@ def action(store, game, m, typ, p, now):
         if verdict == 'approve' and not pr.get('granted'):
             pr['granted'] = True
             _grant_picks(game, team['id'], task['difficulty'])
-            _refresh_finished_tasks(game)
+            _replace_mine(game, team['id'], pr['taskId'])
         elif verdict == 'reject':
             notice(game, 'proof_rejected', 'review', G.team_ids(game, team['id']))
     elif typ == 'pick':
@@ -425,8 +523,11 @@ def _play_card(game, m, p, now):
     t = e['type']
     if t == 'steal' and not _td(game, target['id'])['cards']:
         raise GameError('That team has no cards to steal')
-    if t == 'shuffle_tasks' and not game['data']['active']:
-        raise GameError('There are no tasks to shuffle')
+    if t == 'shuffle_tasks':
+        if game['data']['phase'] != 'play' or not any(x['mine'] for x in game['data']['teams'].values()):
+            raise GameError('There are no tasks to shuffle')
+        if game['data'].get('shuffle'):
+            raise GameError('A shuffle is already pending')
     d['cards'].remove(inst)
     blocked = bool(target) and _blocked_by_shield(game, target['id'], card, tid)
     if not blocked:
@@ -440,13 +541,10 @@ def _play_card(game, m, p, now):
             td['frozenUntil'] = max(now, td['frozenUntil']) + e['min'] * 60000
             notice(game, 'curse_freeze', 'curse', G.team_ids(game, target['id']), min=e['min'])
         elif t == 'shuffle_tasks':
-            pinned = {x['pin'] for x in game['data']['teams'].values() if x['pin']}
-            active = game['data']['active']
-            pool = [x['id'] for x in game['settings']['tasks'] if x['id'] not in active]
-            random.shuffle(pool)
-            for i, task_id in enumerate(active):
-                if task_id not in pinned and pool:
-                    active[i] = pool.pop()
+            game['data']['shuffle'] = {'until': now + game['settings']['protectSec'] * 1000, 'by': tid}
+            for x in game['data']['teams'].values():
+                x['pin'] = None
+            notice(game, 'shuffle_pending', 'curse', None, team=me_name, sec=game['settings']['protectSec'])
         elif t == 'extra_picks':
             _grant_picks(game, tid, e['n'])
         elif t == 'steal':
@@ -490,7 +588,10 @@ def view(game, me, now):
     mine = _td(game, me['teamId']) if me['teamId'] in game['data']['teams'] else None
     spy = bool(mine and mine['spyUntil'] > now)
     referee = G.is_referee(game, me)
-    out['active'] = game['data']['active']
+    out['active'] = game['data']['active'] if game['data']['phase'] == 'plan' else []
+    out['phase'] = game['data']['phase']
+    sh = game['data'].get('shuffle')
+    out['shuffleUntil'] = sh['until'] if sh else None
     for t in game['teams'].values():
         d = _td(game, t['id'])
         own = me['teamId'] == t['id'] or referee
@@ -500,7 +601,7 @@ def view(game, me, now):
                'finishedAt': d['finishedAt'], 'scoreMs': sc, 'adjust': d['adjust'], 'frozenUntil': d['frozenUntil'], 'tasksDone': n_done,
                'locs': _visible_locs(game, me, t, spy)}
         if own:
-            row.update({'cards': d['cards'], 'picks': d['picks'], 'spyUntil': d['spyUntil'], 'done': d['done'], 'pin': d['pin']})
+            row.update({'cards': d['cards'], 'picks': d['picks'], 'spyUntil': d['spyUntil'], 'done': d['done'], 'pin': d['pin'], 'mine': d['mine'], 'sel': d['sel']})
         out['teams'].append(row)
         for pr in d['proofs']:
             if d['done'].get(pr['taskId']) == 'pending' and _can_review(game, me, t['id']):

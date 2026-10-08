@@ -152,7 +152,7 @@ function LobbySettings({ st, act, openModal }) {
       ${st.mode === 'race' && html`<div class="grid">
         <${Field} label=${t('set.start_city')}><${CitySelect} value=${s.startCity} onChange=${(v) => setS({ ...s, startCity: v })} /><//>
         <${Field} label=${t('set.finish_city')}><${CitySelect} value=${s.finishCity} onChange=${(v) => setS({ ...s, finishCity: v })} /><//>
-        ${num('territoryBonusMin', t('set.first_bonus'))}${num('taskSlots', t('set.task_slots'))}${num('handLimit', t('set.hand_limit'))}${num('days', t('set.days'))}</div>
+        ${num('territoryBonusMin', t('set.first_bonus'))}${num('taskSlots', t('set.task_slots'))}${num('taskPicks', t('set.task_picks'))}${num('protectSec', t('set.protect_sec'))}${num('handLimit', t('set.hand_limit'))}${num('days', t('set.days'))}</div>
         ${sw('ordered', t('set.ordered'))}${sw('tasksEnabled', t('set.tasks_cards'))}${sw('requireProof', t('set.require_proof'))}${win}
         ${editors(true, true)}<${TerritoryEditor} st=${st} act=${act} />`}
       ${st.mode === 'hide' && html`<div class="grid">${num('hidesPerPlayer', t('set.hides_per'))}${num('hideMinutes', t('set.hide_minutes'))}${num('zoneRadiusM', t('set.zone_radius'))}

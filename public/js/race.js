@@ -4,7 +4,7 @@ import { t } from './i18n.js';
 import { AsyncBtn, Chip, Empty, fmtDur, muniAt, esc } from './ui.js';
 import { LMap } from './map.js';
 import { GCard, PickModal, RaceCardModal, Hand } from './cards-ui.js';
-import { ActiveTasks, Reviews, teamOf } from './tasks-ui.js';
+import { ActiveTasks, Reviews, TaskRow, taskOf, teamOf } from './tasks-ui.js';
 
 const terr = (st, id) => st.settings.territories.find((x) => x.id === id) || { name: '?', color: '#888' };
 const row = (st, id) => st.g.teams.find((x) => x.id === id);
@@ -17,11 +17,34 @@ export function Page(ctx) {
     <${Status} ...${ctx} my=${my} />
     <${MapCard} ...${ctx} my=${my} />
     <${Reviews} st=${st} reviews=${st.g.reviews} act=${ctx.act} code=${ctx.code} token=${ctx.token} />
-    <${ActiveTasks} st=${st} ctx=${ctx} active=${st.g.active} doneMap=${my && my.done} canDo=${!!my && st.me.plays} pin=${my && my.pin}
-      onPin=${st.me.plays && my ? (id) => ctx.act('pin_task', { taskId: id }) : null} title=${t('race.tasks')} reward=${(task) => t('task.reward_picks', { n: task.difficulty })} />
+    <${RaceTasks} ...${ctx} my=${my} />
     ${my && html`<${Cards} ...${ctx} my=${my} />`}
     <${Standings} ...${ctx} />
   </div>`;
+}
+
+// night: pick 3 of the shared pool (matching picks are redrawn at sunrise); day: play your own tasks
+function RaceTasks(ctx) {
+  const { st, my, now } = ctx;
+  const g = st.g, n = Math.min(st.settings.taskPicks || 3, g.active.length);
+  const [sel, setSel] = useState(null);
+  if (!st.settings.tasksEnabled) return null;
+  const cur = sel || (my && my.sel) || [];
+  if (g.phase === 'plan') {
+    const toggle = (id) => setSel(cur.includes(id) ? cur.filter((x) => x !== id) : cur.length < n ? [...cur, id] : cur);
+    const saved = my && my.sel && my.sel.length === n && my.sel.every((x) => cur.includes(x)) && cur.length === n;
+    return html`<section class="card"><div class="sec-h"><h2>${t('task.plan_title')}</h2><span class="chip plain">${cur.length}/${n}</span></div>
+      <p class="dim small" style="margin-top:0">${t('task.plan_hint', { n })}</p>
+      ${g.active.map((id) => { const task = taskOf(st, id); if (!task) return null; const on = cur.includes(id);
+        return html`<${TaskRow} key=${id} task=${task} status=${on ? 'chosen' : ''} reward=${t('task.reward_picks', { n: task.difficulty })}
+          action=${my && st.me.plays && html`<button class="sm ${on ? '' : 'ghost'}" onClick=${() => toggle(id)}>${on ? t('task.deselect') : t('task.select')}</button>`} />`; })}
+      ${my && st.me.plays && html`<${AsyncBtn} class="block mt" disabled=${cur.length !== n || saved} onClick=${async () => { const ok = await ctx.act('select_tasks', { taskIds: cur }, t('task.selected_toast')); if (ok) setSel(null); }}>${saved ? t('task.selected') : t('task.confirm_selection')}<//>`}
+    </section>`;
+  }
+  const left = g.shuffleUntil ? Math.max(0, g.shuffleUntil - now) : null;
+  return html`<div class="stack">${g.shuffleUntil && html`<div class="callout warn">${t('task.shuffle_banner', { t: fmtDur(left || 0) })}</div>`}
+    <${ActiveTasks} st=${st} ctx=${ctx} active=${(my && my.mine) || []} doneMap=${my && my.done} canDo=${!!my && st.me.plays} pin=${my && my.pin}
+      onPin=${st.me.plays && my && g.shuffleUntil ? (id) => ctx.act('pin_task', { taskId: id }) : null} title=${t('race.tasks')} reward=${(task) => t('task.reward_picks', { n: task.difficulty })} /></div>`;
 }
 
 function Status({ st, now, my }) {

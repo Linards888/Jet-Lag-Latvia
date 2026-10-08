@@ -150,4 +150,8 @@ E = {
     'Your GPS position is not fresh yet - wait a few seconds with location sharing on': 'Ваша GPS-позиция ещё не обновилась - подождите несколько секунд при включённой передаче местоположения',
     "The hider's GPS position is not fresh yet - wait a few seconds": 'GPS-позиция прячущегося ещё не обновилась - подождите несколько секунд',
     'Server error: {1}': 'Ошибка сервера: {1}',
+    'Tasks can only be selected outside the playing time': 'Задания можно выбирать только вне игрового времени',
+    'Select exactly {1} tasks': 'Выберите ровно {1} заданий',
+    'Protecting is only possible when a shuffle card was played': 'Защищать можно только после сыгранной карты перемешивания',
+    'A shuffle is already pending': 'Перемешивание уже ожидается',
 }

@@ -82,16 +82,20 @@ class RaceTests(unittest.TestCase):
 
     def test_shared_tasks_picks_and_hand_limit(self):
         g, store, a, b = self.g, self.store, self.a, self.b
-        active = G.view(g, a)['g']['active']
-        self.assertEqual(len(active), 5)
-        self.assertEqual(active, G.view(g, b)['g']['active'])  # same tasks for every team
-        task = next(t for t in g['settings']['tasks'] if t['id'] == active[0])
-        act(store, g, a, 'complete_task', taskId=active[0])  # no start, no proof by default
+        mine = list(self.d['teams'][self.ta]['mine'])
+        self.assertEqual(len(mine), 3)
+        self.assertEqual(len(set(mine)), 3)
+        self.assertEqual(team_row(G.view(g, b), self.ta).get('mine'), None)  # rivals do not see my tasks
+        task = next(t for t in g['settings']['tasks'] if t['id'] == mine[0])
+        act(store, g, a, 'complete_task', taskId=mine[0])  # no start, no proof by default
+        self.assertEqual(len(self.d['teams'][self.ta]['mine']), 3)  # a new one is drawn
+        self.assertNotIn(mine[0], self.d['teams'][self.ta]['mine'])
+        active = [mine[0]]
         row = team_row(G.view(g, a), self.ta)
         self.assertEqual(len(row['picks']), task['difficulty'])
         self.assertEqual(len(row['picks'][0]['options']), 3)
         with self.assertRaises(GameError):
-            act(store, g, a, 'complete_task', taskId=active[0])
+            act(store, g, a, 'complete_task', taskId=active[0])  # no longer one of my tasks
         with self.assertRaises(GameError):
             act(store, g, a, 'complete_task', taskId='nope')
         self.assertNotIn('picks', team_row(G.view(g, b), self.ta))  # rivals cannot see them
@@ -108,22 +112,60 @@ class RaceTests(unittest.TestCase):
         act(store, g, a, 'pick', pid='p2', **{'pass': True})
         self.assertEqual((len(d['cards']), len(d['picks'])), (6, 0))
 
-    def test_shuffle_card_keeps_protected_tasks_and_finished_tasks_refresh(self):
+    def test_shuffle_card_opens_protect_window(self):
         g, store, a, b = self.g, self.store, self.a, self.b
-        before = list(self.d['active'])
-        act(store, g, a, 'pin_task', taskId=before[0])
-        act(store, g, b, 'pin_task', taskId=before[1])
+        da, db = self.d['teams'][self.ta], self.d['teams'][self.tb]
+        with self.assertRaises(GameError):
+            act(store, g, a, 'pin_task', taskId=da['mine'][0])  # Protect only exists after a shuffle card
+        ma, mb = list(da['mine']), list(db['mine'])
         act(store, g, a, 'play_card', iid=give(g, self.ta, 'shuffle_tasks'))
-        after = self.d['active']
-        self.assertEqual(after[:2], before[:2])  # protected by me and by the other team
-        self.assertTrue(all(x not in before[2:] for x in after[2:]))  # the other 3 changed
-        self.assertEqual(len(set(after)), 5)
-        # a task done by every team is replaced for everybody
-        t0 = after[3]
-        act(store, g, a, 'complete_task', taskId=t0)
-        self.assertIn(t0, self.d['active'])
-        act(store, g, b, 'complete_task', taskId=t0)
-        self.assertNotIn(t0, self.d['active'])
+        self.assertEqual(da['mine'], ma)  # nothing changes until the protect window ends
+        self.assertTrue(G.view(g, a)['g']['shuffleUntil'])
+        with self.assertRaises(GameError):
+            act(store, g, a, 'play_card', iid=give(g, self.ta, 'shuffle_tasks'))
+        act(store, g, a, 'pin_task', taskId=ma[0])
+        act(store, g, b, 'pin_task', taskId=mb[1])
+        self.d['shuffle']['until'] = 0
+        act(store, g, b, 'discard', iid=give(g, self.tb, 'shield'))  # any action resolves it
+        self.assertEqual(da['mine'][0], ma[0])
+        self.assertEqual(db['mine'][1], mb[1])
+        self.assertTrue(all(x not in ma[1:] for x in da['mine'][1:]))
+        self.assertIsNone(self.d['shuffle'])
+        self.assertIsNone(da['pin'])
+        with self.assertRaises(GameError):
+            act(store, g, a, 'pin_task', taskId=da['mine'][0])
+
+    def test_night_planning_redraws_matching_selections(self):
+        store, g, admin, key, tok, (a, b) = mk('race', {'useWindow': True, 'window': {'start': '08:00', 'end': '21:00'}}, n=2)
+        act(store, g, a, 'team_create', name='Red')
+        act(store, g, b, 'team_create', name='Blue')
+        act(store, g, admin, 'start')
+        d, ta, tb = g['data'], a['teamId'], b['teamId']
+        day = core.local_day_start(core.now_ms())
+        night, morning = day + 23 * 3600000, day + 24 * 3600000 + 9 * 3600000
+        race = G.MODES['race']
+        g['startedAt'] = night - 3600000
+        race._sync(g, night)
+        self.assertEqual(d['phase'], 'plan')
+        self.assertEqual(len(d['active']), 5)
+        view = G.view(g, a)['g']
+        self.assertEqual(view['active'], d['active'])
+        with self.assertRaises(GameError):
+            race.action(store, g, a, 'select_tasks', {'taskIds': d['active'][:2]}, night)  # exactly 3
+        race.action(store, g, a, 'select_tasks', {'taskIds': d['active'][:3]}, night)
+        race.action(store, g, b, 'select_tasks', {'taskIds': d['active'][1:4]}, night)  # overlap: tasks 1 and 2
+        with self.assertRaises(GameError):
+            race.action(store, g, a, 'complete_task', {'taskId': d['active'][0]}, night)  # no tasks at night
+        race._sync(g, morning)
+        self.assertEqual(d['phase'], 'play')
+        ma, mb = d['teams'][ta]['mine'], d['teams'][tb]['mine']
+        self.assertEqual((len(ma), len(mb)), (3, 3))
+        pool = d['active']
+        self.assertEqual(ma[0], pool[0])  # unique picks stay
+        self.assertEqual(mb[2], pool[3])
+        self.assertFalse((set(ma) | set(mb)) & set(pool[1:3]) & (set(ma) & set(mb)))
+        self.assertNotEqual(ma[1:], pool[1:3])  # matching picks were redrawn
+        self.assertFalse(set(ma) & set(mb))
 
     def test_card_effects(self):
         g, store, a, b = self.g, self.store, self.a, self.b
@@ -163,7 +205,7 @@ class RaceProofTests(unittest.TestCase):
         act(store, g, b, 'team_create', name='Blue')
         act(store, g, admin, 'start')
         ta = a['teamId']
-        t0 = g['data']['active'][0]
+        t0 = g['data']['teams'][ta]['mine'][0]
         with self.assertRaises(GameError):
             act(store, g, a, 'complete_task', taskId=t0)  # a photo is required in this lobby setting
         fid = G.put_file(store, g, a, JPEG, 'members')

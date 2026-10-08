@@ -150,4 +150,8 @@ E = {
     'Your GPS position is not fresh yet - wait a few seconds with location sharing on': 'Tava GPS pozīcija vēl nav svaiga - pagaidi pāris sekundes ar ieslēgtu atrašanās vietas kopīgošanu',
     "The hider's GPS position is not fresh yet - wait a few seconds": 'Slēpēja GPS pozīcija vēl nav svaiga - pagaidi pāris sekundes',
     'Server error: {1}': 'Servera kļūda: {1}',
+    'Tasks can only be selected outside the playing time': 'Uzdevumus var izvēlēties tikai ārpus spēles laika',
+    'Select exactly {1} tasks': 'Izvēlies tieši {1} uzdevumus',
+    'Protecting is only possible when a shuffle card was played': 'Aizsargāt var tikai tad, kad izspēlēta maisīšanas kārts',
+    'A shuffle is already pending': 'Maisīšana jau gaida',
 }
