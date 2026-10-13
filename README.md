@@ -17,7 +17,8 @@ Spēles, kas iedvesmotas no **Jet Lag: The Game**, bet pielāgotas Latvijai: vil
 1. [Ātrā sākšana](#ātrā-sākšana)
 2. [Kā pieslēgties spēlei](#kā-pieslēgties-spēlei)
 3. [Iestatījumi (zobrats), valodas, tēmas](#iestatījumi-zobrats-valodas-tēmas)
-4. [Paziņojumi telefonā](#paziņojumi-telefonā)
+4. [Konti, sasniegumi un kolekcija](#konti-sasniegumi-un-kolekcija)
+5. [Paziņojumi telefonā](#paziņojumi-telefonā)
 5. [Lomas un admin režīmi](#lomas-un-admin-režīmi)
 6. [Lobby](#lobby)
 7. [Race](#race-across-latvia)
@@ -56,11 +57,27 @@ Nekādu cilņu nav: viss ir vienā logā. Augšējā labajā stūrī ir **zobrat
 
 * **Kā spēlēt**: visa īsā instrukcija vienā logā.
 * **Valoda**: angļu, latviešu, krievu, ukraiņu. Valoda tiek atcerēta ierīcē. Spēles noklusējuma uzdevumi un kartiņas ir tulkoti uz angļu un krievu valodu (ukraiņu valodā tie rādās angliski). Tavi paša uzdevumi un kartiņas paliek tavā rakstītajā valodā.
-* **Izskats**: 7 tēmas, kas atšķiras ne tikai pēc krāsām, bet arī pēc formas, burtu veida un izkārtojuma: *Sakura* (mīksta kawaii), *Matcha*, *Sora*, *Yuzu* (rupjas melnas apmales un ēnas), *Latvija* (grāmatas stils ar serifiem), *Yoru* (tumša "terminālis"), *Sumi* (melnbalta, žurnāla stils). Papildus var mainīt akcenta krāsu, noapaļojumu, teksta izmēru, blīvumu, fonu, kartiņu un pogu stilu, kartes izskatu un animācijas.
+* **Izskats**: 3 bezmaksas tēmas (*Sakura*, *Sora*, *Latvija*), kas atšķiras ne tikai pēc krāsām, bet arī pēc formas, burtu veida un izkārtojuma, un 3 ekskluzīvas tēmas, ko var iegūt ar kontu (*Hoshi*, *Kintsugi*, *Hanabi*). Papildus var mainīt akcenta krāsu, noapaļojumu, teksta izmēru, blīvumu, fonu, kartiņu un pogu stilu, kartes izskatu, animācijas un fontu. Anime fonti ir pieejami tikai ar kontu (skat. zemāk).
 * **Paziņojumi**: telefona paziņojumi (skat. zemāk).
 * **Cilvēki** un **Admins** (tikai adminam): admin režīms, pauze, beigt spēli, paziņojums visiem, kartiņu un uzdevumu redaktors, žurnāls.
 
 Augšā redzams **savienojuma indikators** (zaļš = savienots) un GPS stāvoklis.
+
+---
+
+## Konti, sasniegumi un kolekcija
+
+Konts (poga **Konts** sākuma ekrānā) saglabā tavu profilu visās spēlēs. Nav e-pasta un nav maksājumu: viss tiek nopelnīts spēlējot.
+
+* **Reģistrācija:** konta vārds (3-16 simboli) un parole (6+). Kad pieslēdzies kontam un pievienojies spēlei, spēle tiek piesaistīta kontam automātiski.
+* **Statistika un līmenis:** spēles, uzvaras, izpildītie uzdevumi, pirmie, kas tika ārā no teritorijas, nospēlētās kārtis, jautājumi, atrastie slēpēji, noķertie, mērķi, pirkumi u.c.
+* **Sasniegumi (39):** katrs dod zvaigžņu putekļus, dažkārt biļetes vai priekšmetu. Redzams progress, un publiskajā profilā redz tikai atvērtos.
+* **Zvaigžņu putekļi** (spēlējot ir dienas limits) maksā par **standarta izsaukumu**: tēmas (*Hoshi*, *Kintsugi*), tituli, avatāra rāmji, talismana izskati, nozīmītes un profila logrīki. Reti: Common, Rare, Epic, Legendary. Garantēts epic ik pa 30 izsaukumiem un leģendārs ik pa 90.
+* **Anime kolekcija:** **vienīgā vieta, kur var iegūt anime fontus** (Zen Maru, RocknRoll, Reggae, Dot Gothic, Dela Gothic, Potta, Mochiy Pop, Hachi Maru), tēmu *Hanabi*, rāmi *Sakura storm* un slepenos priekšmetus. Vajag **Sakura biļetes**, ko dod tikai reti sasniegumi un **reti notikumi spēles laikā** (nejauši, ļoti reti). Leģendārs garantēts ik pa 10 izsaukumiem, mītisks ik pa 40.
+* **Slepeni priekšmeti** (Rainbow Mochi, One of One, titulu *The Chosen One*) var iegūt tikai ļoti retos gadījumos.
+* **Profils:** avatārs ar rāmi, tituls, nozīmītes, izvēlēti logrīki (statistika, sasniegumi, kolekcija, sērija, pēdējie atradumi, trofeju skapis, retākie atradumi, veiksmes radars), un publiska saite `/#/u/<vārds>`. Publisko profilu var izslēgt.
+* **Ikdienas sērija:** katra diena dod putekļus, ik pa 7 dienām izsaukuma biļeti.
+* **Pret krāpšanu:** sasniegumu un uzvaru atlīdzības dod tikai spēles ar vismaz diviem dažādiem kontiem un vismaz 15 minūtēm spēles laika, un putekļi no darbībām ir ierobežoti dienā.
 
 ---
 

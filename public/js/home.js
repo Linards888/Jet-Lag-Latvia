@@ -4,6 +4,7 @@ import { t } from './i18n.js';
 import { AsyncBtn, Field, Switch, Mochi, Ico, copy } from './ui.js';
 import { MODE_IDS, KANJI } from './guide.js';
 import { SettingsModal } from './settings.js';
+import { AccountButton } from './account.js';
 
 export const go = (h) => { location.hash = h; };
 
@@ -11,7 +12,7 @@ export function Home() {
   const mine = Object.entries(saved.all());
   const [m, setM] = useState(null);
   return html`<div class="wrap">
-    <div class="row" style="justify-content:flex-end;padding-top:8px"><button class="ghost icon" aria-label=${t('settings')} onClick=${() => setM(true)}><${Ico} n="gear" /></button></div>
+    <div class="row" style="justify-content:flex-end;padding-top:8px;gap:8px"><${AccountButton} /><button class="ghost icon" aria-label=${t('settings')} onClick=${() => setM(true)}><${Ico} n="gear" /></button></div>
     <div class="hero"><${Mochi} size=${108} /><div class="jp">ジェットラグ</div><h1>Jet Lag: Latvia</h1>
       <p class="dim" style="margin:0">${t('home.tagline')}</p></div>
     <div class="stack mt2">

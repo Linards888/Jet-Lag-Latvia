@@ -20,6 +20,7 @@ import core
 import geo
 from core import GameError, log, notice, now_ms, sha
 
+import accounts
 import hide
 import race
 import tag
@@ -292,7 +293,28 @@ def do_action(store, game, m, typ, p):
     if typ in ADMIN_ACTIONS:
         _require_admin(game, m)
         return _admin_action(store, game, m, typ, p, now)
-    return mod.action(store, game, m, typ, p, now)
+    out = mod.action(store, game, m, typ, p, now)
+    accounts.on_action(game, m, typ)
+    _settle(game, now)
+    return out
+
+
+def _winners(game, now):
+    try:
+        if game['mode'] == 'hide':
+            tot = MODES['hide']._totals(game)
+            return {max(tot.items(), key=lambda kv: kv[1])[0]} if tot else set()
+        me = next(iter(game['members'].values()))
+        ranking = MODES[game['mode']].view(game, me, now).get('ranking') or []
+        return {m['id'] for m in team_members(game, ranking[0])} if ranking else set()
+    except Exception as e:  # rewards must never break a game
+        print('winner error', repr(e))
+        return set()
+
+
+def _settle(game, now):
+    if game['status'] == 'finished' and not game.get('settled'):
+        accounts.on_finish(game, _winners(game, now))
 
 
 def _set_admin_mode(game, m, p):
@@ -423,6 +445,7 @@ def _admin_action(store, game, m, typ, p, now):
             game['adminMode'] = 'fair'
         log(game, 'system', 'The game has started', m['id'])
         notice(game, 'started', 'round')
+        accounts.on_start(game, participants(game))
     elif typ == 'pause':
         if st != 'running':
             raise GameError('Not running')
@@ -446,6 +469,7 @@ def _admin_action(store, game, m, typ, p, now):
         game['status'] = 'finished'
         log(game, 'system', 'The admin ended the game', m['id'])
         notice(game, 'ended', 'info')
+        _settle(game, now)
 
 
 def tick(store, now):
@@ -458,6 +482,7 @@ def tick(store, now):
                     MODES[g['mode']].tick(g, now)
                 except Exception as e:  # never let one game kill the loop
                     print('tick error', g['code'], repr(e))
+                _settle(g, now)
                 store.mark(urgent=g['version'] != before)
 
 

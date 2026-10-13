@@ -15,11 +15,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import accounts  # noqa: E402
 import cards  # noqa: E402
 import core  # noqa: E402
 import game as G  # noqa: E402
 import geo  # noqa: E402
 import hide  # noqa: E402
+import loot  # noqa: E402
 import push  # noqa: E402
 import tag as tag_mode  # noqa: E402
 from core import GameError, LOCK  # noqa: E402
@@ -211,6 +213,8 @@ class Handler(BaseHTTPRequestHandler):
             if 'geo' not in META_CACHE:
                 META_CACHE['geo'] = json.dumps(geo.MUNI_GEOJSON, ensure_ascii=False, separators=(',', ':')).encode('utf8')
             return self._send_blob(META_CACHE['geo'], 'application/json', True, 'muni', 200, '"muni-v1"')
+        if parts and parts[0] == 'account':
+            return self.account_api(method, parts[1:], q)
         if parts == ['games'] and method == 'POST':
             if not rate_ok(('create', self.ip()), 20, 3600):
                 raise GameError('Too many games created from this address', 429)
@@ -218,10 +222,62 @@ class Handler(BaseHTTPRequestHandler):
             with LOCK:
                 g, key, token, member = G.create_game(STORE, b.get('mode'), b.get('name'), b.get('adminName'), b.get('adminPin'),
                                                       b.get('adminPlays'), b.get('settings'))
+                self.link_account(g, member)
             notify()
             return self.send_json({'code': g['code'], 'adminKey': key, 'token': token, 'memberId': member['id']}, 201)
         if len(parts) >= 2 and parts[0] == 'games':
             return self.game_api(method, parts[1].upper(), parts[2:], q)
+        raise GameError('Not found', 404)
+
+    def link_account(self, game, member, force=False):
+        """Attach the logged-in account (X-Account header) to this game member. One account per game."""
+        acc = accounts.ACC.by_token(self.headers.get('X-Account')) if accounts.ACC else None
+        if not acc or member.get('acct') == acc['id']:
+            return bool(acc)
+        if member.get('acct') and not force:
+            return True
+        if any(x.get('acct') == acc['id'] and x['id'] != member['id'] for x in game['members'].values()):
+            return False
+        if game['status'] != 'lobby' and member.get('acct'):
+            return False
+        member['acct'] = acc['id']
+        return True
+
+    def account_api(self, method, rest, q):
+        A = accounts.ACC
+        sub = rest[0] if rest else ''
+        if sub == 'catalog' and method == 'GET':
+            if 'loot' not in META_CACHE:
+                META_CACHE['loot'] = json.dumps(loot.catalog(), ensure_ascii=False, separators=(',', ':')).encode('utf8')
+            return self._send_blob(META_CACHE['loot'], 'application/json', False, 'loot')
+        if sub == 'u' and len(rest) == 2 and method == 'GET':
+            return self.send_json(A.public(rest[1]))
+        if sub in ('register', 'login') and method == 'POST':
+            if not rate_ok(('acct-' + sub, self.ip()), 30 if sub == 'login' else 10, 3600):
+                raise GameError('Too many attempts - wait a few minutes', 429)
+            b = self.json_body()
+            if sub == 'login' and not rate_ok(('acct-user', str(b.get('name') or '').lower()), 12, 900):
+                raise GameError('Too many wrong PINs - try again in 10 minutes', 429)
+            a, token = A.register(b.get('name'), b.get('password')) if sub == 'register' else A.login(b.get('name'), b.get('password'))
+            return self.send_json({'token': token, 'me': A.me(a)}, 201 if sub == 'register' else 200)
+        token = self.headers.get('X-Account')
+        a = A.by_token(token)
+        if not a:
+            raise GameError('Log in to your account first', 401)
+        if sub == 'me' and method == 'GET':
+            return self.send_json(A.me(a))
+        if sub == 'logout' and method == 'POST':
+            A.logout(a, token)
+            return self.send_json({'ok': True})
+        if sub == 'equip' and method == 'POST':
+            A.equip(a, self.json_body())
+            return self.send_json({'ok': True})
+        if sub == 'summon' and method == 'POST':
+            if not rate_ok(('summon', a['id']), 60, 60):
+                raise GameError('Too many attempts - wait a few minutes', 429)
+            b = self.json_body()
+            res = A.summon(a, b.get('banner'), int(core.num(b.get('count'), 1, 10, 'count')))
+            return self.send_json({'results': res, 'me': A.me(a)})
         raise GameError('Not found', 404)
 
     def game_api(self, method, code, rest, q):
@@ -238,10 +294,13 @@ class Handler(BaseHTTPRequestHandler):
             with LOCK:
                 if sub == 'join':
                     m, tok = G.join(STORE, g, b.get('name'), b.get('role'), b.get('pin'))
+                    self.link_account(g, m)
                 elif sub == 'rejoin':
                     m, tok = G.rejoin(STORE, g, b.get('name'), b.get('pin'))
+                    self.link_account(g, m)
                 else:
                     m, tok = G.admin_login(STORE, g, b.get('key'))
+                self.link_account(g, m)
                 G.bump(STORE, g)
             notify()
             return self.send_json({'token': tok, 'memberId': m['id'], 'role': m['role']})
@@ -250,6 +309,12 @@ class Handler(BaseHTTPRequestHandler):
             me = G.authenticate(STORE, g, self.token(q))
         if not me:
             raise GameError('Not signed in to this game', 401)
+        if sub == 'link' and method == 'POST':
+            with LOCK:
+                if not self.link_account(g, me, force=True):
+                    raise GameError('Log in to your account first')
+                STORE.mark()
+            return self.send_json({'ok': True})
         if sub == 'state' and method == 'GET':
             try:
                 cv = int((q.get('cv') or [''])[0])
@@ -341,7 +406,7 @@ class Server(ThreadingHTTPServer):
 
 
 def background(stop):
-    last_flush, seen = 0, None
+    last_flush, seen, last_acct = 0, None, 0
     while not stop.wait(2):
         G.tick(STORE, core.now_ms())
         versions = sum(g['version'] for g in STORE.games.values())
@@ -351,11 +416,15 @@ def background(stop):
         if STORE.due(time.time(), last_flush):
             STORE.flush()
             last_flush = time.time()
+        if time.time() - last_acct > 5:
+            accounts.ACC.flush()
+            last_acct = time.time()
 
 
 def make_server(host, port, store=None):
     global STORE, VAPID, PUSHER
     STORE = store or core.Store()
+    accounts.init(os.path.join(STORE.dir, 'accounts.json'))
     VAPID, PUSHER = push.init(STORE, STORE.dir)
     return Server((host, port), Handler)
 
@@ -372,6 +441,7 @@ def main():
     def bye(*_):
         stop.set()
         STORE.flush(force=True)
+        accounts.ACC.flush(force=True)
         print('\nSaved. Bye.')
         os._exit(0)
 

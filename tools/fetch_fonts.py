@@ -1,6 +1,7 @@
 """Downloads the self-hosted fonts (fontsource CDN, SIL OFL) and writes public/css/fonts.css.
 Every family covers Latin, Latin-Extended (Latvian, Lithuanian, Estonian, German) and Cyrillic (Russian, Ukrainian)."""
 import os
+import urllib.error
 import urllib.request
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'public')
@@ -18,6 +19,15 @@ FAMILIES = {  # css name -> (fontsource id, weights)
     'JetBrains Mono': ('jetbrains-mono', (400, 700)),
     'Playfair Display': ('playfair-display', (700,)),
     'IBM Plex Sans': ('ibm-plex-sans', (400, 700)),
+    # anime collection (exclusive unlocks, Latin glyphs; Cyrillic only where the font has it, else the UI font fills in)
+    'Zen Maru Gothic': ('zen-maru-gothic', (700,)),
+    'RocknRoll One': ('rocknroll-one', (400,)),
+    'Reggae One': ('reggae-one', (400,)),
+    'DotGothic16': ('dotgothic16', (400,)),
+    'Dela Gothic One': ('dela-gothic-one', (400,)),
+    'Potta One': ('potta-one', (400,)),
+    'Mochiy Pop One': ('mochiy-pop-one', (400,)),
+    'Hachi Maru Pop': ('hachi-maru-pop', (400,)),
 }
 RANGES = {
     'latin': 'U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD',
@@ -33,8 +43,13 @@ for name, (fid, weights) in FAMILIES.items():
     for w in weights:
         for sub, rng in RANGES.items():
             fn = '%s-%s-%d.woff2' % (fid, sub, w)
-            with urllib.request.urlopen(BASE % (fid, sub, w)) as r, open(os.path.join(FONTS, fn), 'wb') as out:
-                out.write(r.read())
+            try:
+                with urllib.request.urlopen(BASE % (fid, sub, w)) as r:
+                    data = r.read()
+            except urllib.error.HTTPError:
+                continue  # this font has no such subset
+            with open(os.path.join(FONTS, fn), 'wb') as out:
+                out.write(data)
             css.append("@font-face{font-family:'%s';font-weight:%d;font-display:swap;src:url(/vendor/fonts/%s) format('woff2');unicode-range:%s}" % (name, w, fn, rng))
 with open(os.path.join(ROOT, 'css', 'fonts.css'), 'w', encoding='utf8') as f:
     f.write('\n'.join(css) + '\n')

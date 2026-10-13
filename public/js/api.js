@@ -26,6 +26,7 @@ export function useToasts() {
 export async function api(method, path, body, token, raw) {
   const headers = {};
   if (token) headers['X-Token'] = token;
+  try { const a = localStorage.getItem('jll.acct'); if (a) headers['X-Account'] = a; } catch {}
   if (body && !raw) headers['Content-Type'] = 'application/json';
   let res;
   try { res = await fetch('/api' + path, { method, headers, body: raw ? body : body ? JSON.stringify(body) : undefined }); }

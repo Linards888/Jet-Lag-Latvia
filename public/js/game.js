@@ -1,4 +1,5 @@
 import { html, useState, useEffect } from '/vendor/preact.js';
+import { linkGame } from './account.js';
 import { useGame, useClock, useLocation, useNotices, saved, toast, META, useGeo, pushStatus, refreshPush, enablePush } from './api.js';
 import { t, tx, noticeText } from './i18n.js';
 import { AsyncBtn, Chip, Field, Switch, Seg, Modal, Ico, Empty, Mochi, copy } from './ui.js';
@@ -21,7 +22,7 @@ export function GamePage({ code }) {
   const [notices, dismiss] = useNotices(st);
   const sharing = !!(st && st.me.plays && st.status !== 'finished' && gps);
   const loc = useLocation(code, token, sharing);
-  useEffect(() => { if (token) refreshPush(code, token); }, [code, token]);
+  useEffect(() => { if (token) { refreshPush(code, token); linkGame(code, token); } }, [code, token]);
 
   if (!token) { go('#/join/' + code); return null; }
   if (err === 'gone') return html`<${NotFound} what=${t('nf.game_gone')} />`;
