@@ -275,12 +275,6 @@ class Handler(BaseHTTPRequestHandler):
         if sub == 'equip' and method == 'POST':
             A.equip(a, self.json_body())
             return self.send_json({'ok': True})
-        if sub == 'summon' and method == 'POST':
-            if not rate_ok(('summon', a['id']), 60, 60):
-                raise GameError('Too many attempts - wait a few minutes', 429)
-            b = self.json_body()
-            res = A.summon(a, b.get('banner'), int(core.num(b.get('count'), 1, 10, 'count')))
-            return self.send_json({'results': res, 'me': A.me(a)})
         raise GameError('Not found', 404)
 
     def game_api(self, method, code, rest, q):

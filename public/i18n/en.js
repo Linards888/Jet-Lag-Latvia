@@ -47,7 +47,7 @@
 "acct.owned": "{a} of {b} owned",
 "acct.owner": "Owner tools",
 "acct.owner_ach": "Achievements (tap to toggle)",
-"acct.owner_hint": "Only you can see this. Give yourself anything: stardust, tickets, any item or achievement.",
+"acct.owner_hint": "Only you can see this. Give yourself any item or achievement. Typing coc in the browser console unlocks every item.",
 "acct.owner_items": "Items (tap to add or remove)",
 "acct.owner_stat": "Set a statistic",
 "acct.password": "Password (6+ characters)",

@@ -36,41 +36,6 @@ class AccountTests(unittest.TestCase):
         self.A.logout(a, tok)
         self.assertIsNone(self.A.by_token(tok))
 
-    def test_pools_keep_anime_fonts_exclusive(self):
-        std_kinds = {(i['kind'], i['id']) for i in loot.POOLS['std']}
-        self.assertFalse([k for k in std_kinds if k[0] == 'font'])
-        self.assertEqual({i['id'] for i in loot.ITEMS if i['kind'] == 'font'}, {i['id'] for i in loot.POOLS['anime'] if i['kind'] == 'font'})
-        a, _ = self.A.register('Rich', 'secret1')
-        a['dust'] = 10 ** 6
-        for _ in range(300):
-            for r in self.A.summon(a, 'std', 10):
-                self.assertNotEqual(loot.BY_ID[r['item']]['kind'], 'font')
-        self.assertFalse([f for f in loot.ANIME_FONTS if f in a['inv']])
-
-    def test_summon_costs_pity_and_duplicates(self):
-        a, _ = self.A.register('Pull', 'secret1')
-        a['dust'] = 100
-        with self.assertRaises(GameError):
-            self.A.summon(a, 'std', 10)  # 900 needed
-        with self.assertRaises(GameError):
-            self.A.summon(a, 'anime', 1)  # needs a Sakura ticket
-        self.A.summon(a, 'std', 1)
-        self.assertEqual(a['dust'], 0)
-        a['dust'] = 10 ** 6
-        legendary_gap, worst = 0, 0
-        for _ in range(400):
-            r = self.A.summon(a, 'std', 1)[0]
-            legendary_gap = 0 if loot.RARITIES.index(r['rarity']) >= 3 else legendary_gap + 1
-            worst = max(worst, legendary_gap)
-        self.assertLess(worst, 91)  # hard pity: a legendary at least every 90 pulls
-        a['tickets']['sakura'] = 10
-        first = a['dust']
-        res = self.A.summon(a, 'anime', 10)
-        self.assertEqual(len(res), 10)
-        self.assertGreaterEqual(a['tickets']['sakura'], 0)  # spent 10 (achievement rewards may give a few back)
-        self.assertTrue(any(loot.RARITIES.index(r['rarity']) >= 3 for r in res))  # anime pity: legendary within 10
-        self.assertGreaterEqual(a['dust'], first)  # duplicates only ever add stardust
-
     def test_equip_needs_ownership(self):
         a, _ = self.A.register('Look', 'secret1')
         with self.assertRaises(GameError):
@@ -95,8 +60,6 @@ class AccountTests(unittest.TestCase):
             self.A.event(a['id'], 'tasks_done')
         self.assertIn('task_master', a['ach'])
         self.assertLessEqual(a['earnedToday']['n'], accounts.DAILY_EVENT_DUST_CAP)  # farming is capped per day
-        self.A.event(a['id'], 'summons', 10)
-        self.assertIn('summoner', a['ach'])
         self.assertTrue(self.A.public('ach')['ach'])
         a['public'] = False
         with self.assertRaises(GameError):

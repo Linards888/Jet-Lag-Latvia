@@ -47,7 +47,7 @@
 "acct.owned": "Savākti {a} no {b}",
 "acct.owner": "Īpašnieka rīki",
 "acct.owner_ach": "Sasniegumi (pieskaries, lai pārslēgtu)",
-"acct.owner_hint": "Tikai tu to redzi. Dod sev jebko: putekļus, biļetes, jebkuru priekšmetu vai sasniegumu.",
+"acct.owner_hint": "Tikai tu to redzi. Dod sev jebkuru priekšmetu vai sasniegumu. Ierakstot konsolē coc, tiek atvērti visi priekšmeti.",
 "acct.owner_items": "Priekšmeti (pieskaries, lai pievienotu vai noņemtu)",
 "acct.owner_stat": "Iestatīt statistiku",
 "acct.password": "Parole (6+ simboli)",

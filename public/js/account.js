@@ -81,7 +81,7 @@ export function Avatar({ name, frame = 'f_plain', skin = 's_peach', size = 64 })
 }
 const Badge = ({ id }) => html`<span class="badge ${id}" title=${itemName(id)}></span>`;
 const Tile = ({ it, owned, on, onClick, children }) => html`<button class="tile r-${it.rarity} ${owned ? '' : 'locked'} ${on ? 'on' : ''}" onClick=${onClick} disabled=${!onClick}>
-  <span class="tn" style=${it.kind === 'font' ? { fontFamily: fontCss(it.id) } : null}>${owned || it.pool === 'std' ? it.name : '???'}</span>
+  <span class="tn" style=${it.kind === 'font' ? { fontFamily: fontCss(it.id) } : null}>${owned || it.pool === 'std' || it.pool === 'achv' ? it.name : '???'}</span>
   <span class="tr">${rarName(it.rarity)}</span>${children}</button>`;
 export const fontCss = (id) => ({ zenmaru: "'Zen Maru Gothic'", rocknroll: "'RocknRoll One'", reggae: "'Reggae One'", dotgothic: "'DotGothic16'", dela: "'Dela Gothic One'", potta: "'Potta One'", mochiy: "'Mochiy Pop One'", hachi: "'Hachi Maru Pop'" }[id] || 'inherit') + ', Nunito, sans-serif';
 
@@ -105,32 +105,8 @@ export function AccountButton() {
   return html`<span><button class="ghost sm" onClick=${() => (m ? go('#/me') : setOpen(true))}>${m ? m.name : t('acct.title')}</button>${open && html`<${AuthModal} onClose=${() => setOpen(false)} />`}</span>`;
 }
 
-// ---------------------------------------------------------------- summon
-function SummonResults({ results, onClose }) {
-  return html`<${Modal} title=${t('acct.summon')} onClose=${onClose} wide=${true}><div class="pulls">${results.map((r, i) => { const it = cat.byId[r.item];
-    return html`<div class="pull r-${r.rarity}" style=${{ animationDelay: i * 0.12 + 's' }} key=${i}><span class="tr">${rarName(r.rarity)}</span><b style=${it.kind === 'font' ? { fontFamily: fontCss(it.id) } : null}>${it.name}</b>
-      <span class="small">${t('acct.kind_' + it.kind)}</span>${r.new ? html`<${Chip} cls="good">${t('acct.new')}<//>` : html`<span class="small dim">${t('acct.dupe', { n: cat.shards[r.rarity] })}</span>`}</div>`; })}</div><//>`;
-}
-function Summon({ me: m }) {
-  const [res, setRes] = useState(null);
-  const pull = async (banner, count) => {
-    try { const d = await call('POST', '/summon', { banner, count }); setRes(d.results); await loadMe(true); announceLater(d.me); } catch (e) { toast(e.message); }
-  };
-  const announceLater = (v) => { const keep = (v.pending || []).filter((e) => e.k === 'ach' || e.k === 'encounter'); announce(keep); };
-  const std = (n) => (m.tickets.std >= n ? t('acct.cost_tickets', { n }) : t('acct.cost_dust', { n: n === 10 ? 900 : 100 * n }));
-  return html`<section class="card"><div class="sec-h"><h2>${t('acct.summon')}</h2></div>
-    <div class="banners">
-      <div class="banner std"><b>${t('acct.banner_std')}</b><p class="small dim">${t('acct.banner_std_d')}</p>
-        <p class="small">${t('acct.pity_std', { a: 30 - m.pity.se, b: 90 - m.pity.sl })}</p>
-        <div class="row"><${AsyncBtn} class="sm" onClick=${() => pull('std', 1)}>x1 (${std(1)})<//><${AsyncBtn} class="sm" onClick=${() => pull('std', 10)}>x10 (${std(10)})<//></div></div>
-      <div class="banner anime"><b>${t('acct.banner_anime')}</b><p class="small dim">${t('acct.banner_anime_d')}</p>
-        <p class="small">${t('acct.pity_anime', { a: 10 - m.pity.al, b: 40 - m.pity.am })}</p>
-        <div class="row"><${AsyncBtn} class="sm" disabled=${m.tickets.sakura < 1} onClick=${() => pull('anime', 1)}>x1 (1 Sakura)<//><${AsyncBtn} class="sm" disabled=${m.tickets.sakura < 10} onClick=${() => pull('anime', 10)}>x10 (10 Sakura)<//></div></div>
-    </div>${res && html`<${SummonResults} results=${res} onClose=${() => setRes(null)} />`}</section>`;
-}
-
 // ---------------------------------------------------------------- widgets
-const STAT_KEYS = ['games_played', 'wins', 'tasks_done', 'territories', 'first_claims', 'cards_played', 'questions_asked', 'found', 'tags_made', 'dest_claims', 'shop_buys', 'summons', 'encounters', 'best_streak'];
+const STAT_KEYS = ['games_played', 'wins', 'tasks_done', 'territories', 'first_claims', 'cards_played', 'questions_asked', 'found', 'tags_made', 'dest_claims', 'shop_buys', 'encounters', 'best_streak'];
 function WStats({ v }) { return html`<div class="statgrid">${STAT_KEYS.map((k) => html`<div class="stat" key=${k}><b>${v.stats[k] || 0}</b><span>${t('acct.s_' + k)}</span></div>`)}</div>`; }
 function WAch({ v }) {
   const done = cat.ach.filter((a) => v.ach[a.id]);
@@ -177,7 +153,7 @@ function Collection({ v }) {
       return html`<div key=${k}><p class="eyebrow mt">${t('acct.kind_' + k)}</p>
         ${k === 'font' && html`<button class="tile ${eq.font === 'theme' ? 'on' : ''}" onClick=${() => equip({ kind: 'font', item: null })}><span class="tn">${t('ap.theme_default')}</span></button>`}
         <div class="tiles">${list.filter((i) => owned.has(i.id) || i.rarity !== 'secret' || owned.has(i.id)).map((it) => html`<${Tile} key=${it.id} it=${it} owned=${owned.has(it.id)} on=${isOn(it)} onClick=${owned.has(it.id) ? () => click(it) : null}>
-          ${!owned.has(it.id) && html`<span class="small dim">${it.pool === 'anime' ? t('acct.how_anime') : it.pool === 'achv' ? t('acct.how_ach') : t('acct.how_std')}</span>`}
+          ${!owned.has(it.id) && it.pool === 'achv' && html`<span class="small dim">${t('acct.how_ach')}</span>`}
           ${k === 'badge' && html`<${Badge} id=${it.id} />`}<//>`)}</div></div>`; })}</section>`;
 }
 
@@ -196,29 +172,23 @@ function Header({ v, own }) {
     <div class="grow"><h1 style="margin:0;font-size:1.5rem">${v.name}</h1>${e.title && html`<div class="title-tag">${itemName(e.title)}</div>`}
       <div class="small dim">${t('acct.level', { n: v.level })}</div><i class="pbar"><u style=${{ width: Math.min(100, (v.xp - curLv) / (nextLv - curLv) * 100) + '%' }}></u></i></div></div>
     ${(e.badges || []).length > 0 && html`<div class="row mt" style="gap:8px">${e.badges.map((b) => html`<${Badge} id=${b} key=${b} />`)}</div>`}
-    ${own && html`<div class="row mt" style="gap:10px;flex-wrap:wrap"><${Chip}>${t('acct.stardust')}: ${v.dust}<//><${Chip}>${t('acct.tickets_std')}: ${v.tickets.std}<//><${Chip} cls="warn">${t('acct.tickets_sakura')}: ${v.tickets.sakura}<//>
-      <span class="small dim">${t('acct.today', { a: v.todayEarned, b: v.dailyCap })}</span></div>`}</section>`;
+</section>`;
 }
 
 // owner tools: only shown for the account(s) the server owner names (JETLAG_OWNER or data/owner.json); the server checks it again
 function OwnerTools({ v }) {
-  const [dust, setDust] = useState('1000'), [std, setStd] = useState('5'), [sak, setSak] = useState('5');
   const [stat, setStat] = useState('tasks_done'), [val, setVal] = useState('100');
   const run = async (body, ok) => { try { await call('POST', '/owner', body); await loadMe(true); if (ok) toast(ok, true); return true; } catch (e) { toast(e.message); return false; } };
   const owned = ownedSet();
   return html`<section class="card accent"><div class="sec-h"><h2>${t('acct.owner')}</h2></div><p class="small dim" style="margin-top:0">${t('acct.owner_hint')}</p>
-    <div class="row" style="flex-wrap:wrap;gap:8px"><${Field} label=${t('acct.stardust')}><input type="number" value=${dust} onInput=${(e) => setDust(e.target.value)} /><//>
-      <${Field} label=${t('acct.tickets_std')}><input type="number" value=${std} onInput=${(e) => setStd(e.target.value)} /><//>
-      <${Field} label=${t('acct.tickets_sakura')}><input type="number" value=${sak} onInput=${(e) => setSak(e.target.value)} /><//></div>
-    <div class="row mt" style="flex-wrap:wrap"><${AsyncBtn} class="sm" onClick=${() => run({ action: 'give', dust: +dust || 0, std: +std || 0, sakura: +sak || 0 }, t('saved'))}>${t('acct.give')}<//>
-      <${AsyncBtn} class="sm soft" onClick=${() => run({ action: 'all_items' }, t('saved'))}>${t('acct.all_items')}<//>
+    <div class="row mt" style="flex-wrap:wrap"><${AsyncBtn} class="sm soft" onClick=${() => run({ action: 'all_items' }, t('saved'))}>${t('acct.all_items')}<//>
       <${AsyncBtn} class="sm soft" onClick=${() => run({ action: 'ach', id: 'all' }, t('saved'))}>${t('acct.all_ach')}<//></div>
     <p class="eyebrow mt">${t('acct.owner_items')}</p>
     <div class="tiles">${cat.items.filter((i) => i.pool !== 'base').map((it) => html`<${Tile} key=${it.id} it=${it} owned=${owned.has(it.id)} on=${owned.has(it.id)} onClick=${() => run({ action: 'item', id: it.id, have: !owned.has(it.id) })}><//>`)}</div>
     <p class="eyebrow mt">${t('acct.owner_ach')}</p>
     <div class="chips">${cat.ach.map((a) => html`<button class="sm ${v.ach[a.id] ? '' : 'ghost'}" key=${a.id} onClick=${() => run({ action: 'ach', id: a.id, have: !v.ach[a.id] })}>${achText(a).name}</button>`)}</div>
     <p class="eyebrow mt">${t('acct.owner_stat')}</p>
-    <div class="row nw"><select value=${stat} onChange=${(e) => setStat(e.target.value)}>${['games_played', 'wins', 'tasks_done', 'territories', 'first_claims', 'cards_played', 'picks_taken', 'questions_asked', 'found', 'tags_made', 'dest_claims', 'shop_buys', 'summons', 'encounters', 'night'].map((k) => html`<option value=${k} key=${k}>${k}</option>`)}</select>
+    <div class="row nw"><select value=${stat} onChange=${(e) => setStat(e.target.value)}>${['games_played', 'wins', 'tasks_done', 'territories', 'first_claims', 'cards_played', 'picks_taken', 'questions_asked', 'found', 'tags_made', 'dest_claims', 'shop_buys', 'encounters', 'night'].map((k) => html`<option value=${k} key=${k}>${k}</option>`)}</select>
       <input type="number" value=${val} onInput=${(e) => setVal(e.target.value)} /><${AsyncBtn} class="sm" onClick=${() => run({ action: 'stat', stat, value: +val || 0 }, t('saved'))}>${t('acct.give')}<//></div>
     <${AsyncBtn} class="danger block mt" confirm=${t('acct.reset_confirm')} onClick=${() => run({ action: 'reset' }, t('saved'))}>${t('acct.reset')}<//></section>`;
 }
@@ -231,7 +201,7 @@ export function ProfilePage() {
   if (!m) return html`<div class="wrap"><div class="row"><button class="ghost icon" aria-label=${t('back')} onClick=${() => go('#/')}><${Ico} n="back" /></button><h2 style="margin:0">${t('acct.title')}</h2></div><div class="card mt"><${AuthForm} /></div></div>`;
   return html`<div class="wrap"><div class="row sp"><button class="ghost icon" aria-label=${t('back')} onClick=${() => go('#/')}><${Ico} n="back" /></button>
       <span class="row"><button class="ghost sm" onClick=${() => { const url = location.origin + '/#/u/' + m.name; copy(url); toast(t('copied'), true); }}>${t('acct.share')}</button></span></div>
-    <div class="stack mt"><${Header} v=${m} own=${true} /><${Widgets} v=${m} own=${true} /><${Summon} me=${m} /><${Collection} v=${m} /><${Achievements} v=${m} />
+    <div class="stack mt"><${Header} v=${m} own=${true} /><${Widgets} v=${m} own=${true} /><${Collection} v=${m} /><${Achievements} v=${m} />
       ${m.owner && html`<${OwnerTools} v=${m} />`}
       <section class="card"><${Switch} checked=${m.public} onChange=${(val) => equip({ kind: 'public', value: val })}>${t('acct.public')}<//>
         <button class="ghost block mt" onClick=${() => { logout(); go('#/'); }}>${t('acct.logout')}</button></section></div></div>`;
@@ -250,3 +220,15 @@ export function PublicProfile({ name }) {
       <section class="card"><div class="sec-h"><h2>${t('acct.achievements', { a: Object.keys(v.ach).length, b: cat.ach.length })}</h2></div>
         <div class="achs">${cat.ach.filter((a) => v.ach[a.id]).map((a) => html`<div class="ach done" key=${a.id}><b>${achText(a).name}</b><span class="small">${achText(a).desc}</span><span class="small dim">${fmtDateTime(v.ach[a.id])}</span></div>`)}</div></section></div></div>`;
 }
+
+// Console command: type  coc  in the browser console (F12) on this website. Works only for the owner account (the server checks it).
+let cocBusy = 0;
+const COC = { help: 'coc = unlock every collectible on the logged-in owner account' };
+async function cocRun() {
+  if (Date.now() - cocBusy < 3000) return;
+  cocBusy = Date.now();
+  if (!token) { console.warn('coc: log in to your account first (#/me)'); return; }
+  try { await call('POST', '/owner', { action: 'all_items' }); await loadMe(true); console.log('coc: every item is unlocked - open your profile (#/me)'); }
+  catch (e) { console.warn('coc: ' + (e.status === 403 ? 'this account is not the owner' : e.message)); }
+}
+try { Object.defineProperty(window, 'coc', { configurable: true, get() { cocRun(); return COC; } }); } catch {}

@@ -264,7 +264,7 @@ T = {
     'acct.s_encounters': 'Rare encounters',
     'acct.s_best_streak': 'Best streak',
     'acct.owner': 'Owner tools',
-    'acct.owner_hint': 'Only you can see this. Give yourself anything: stardust, tickets, any item or achievement.',
+    'acct.owner_hint': 'Only you can see this. Give yourself any item or achievement. Typing coc in the browser console unlocks every item.',
     'acct.give': 'Give / set',
     'acct.all_items': 'Give every item',
     'acct.all_ach': 'Unlock every achievement',

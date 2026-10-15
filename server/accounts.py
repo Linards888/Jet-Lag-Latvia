@@ -1,7 +1,7 @@
 """Player accounts: a persistent profile across games with stats, achievements, collectibles and cosmetics.
 
 * No e-mail, no real money. Register with a name + password; the profile is public (achievements, collection) unless hidden.
-* Game events (task done, tag, ...) feed counters -> achievements -> rewards. Stardust (earned by playing) buys standard
+* Game events (task done, tag, ...) feed counters -> achievements -> rewards. Stardust (earned by playing) used to buy standard
   summons; Sakura tickets (rare achievements / rare encounters only) buy the Anime banner, the ONLY place anime fonts drop.
 * Server-side RNG and bookkeeping only: the client never decides what drops.
 """

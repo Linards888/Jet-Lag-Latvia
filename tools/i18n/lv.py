@@ -246,7 +246,7 @@ T = {
     'acct.s_encounters': 'Reti notikumi',
     'acct.s_best_streak': 'Labākā sērija',
     'acct.owner': 'Īpašnieka rīki',
-    'acct.owner_hint': 'Tikai tu to redzi. Dod sev jebko: putekļus, biļetes, jebkuru priekšmetu vai sasniegumu.',
+    'acct.owner_hint': 'Tikai tu to redzi. Dod sev jebkuru priekšmetu vai sasniegumu. Ierakstot konsolē coc, tiek atvērti visi priekšmeti.',
     'acct.give': 'Pievienot / iestatīt',
     'acct.all_items': 'Dot visus priekšmetus',
     'acct.all_ach': 'Atvērt visus sasniegumus',

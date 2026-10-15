@@ -110,8 +110,6 @@ ACH = [
     ('streak3', 'streak', 3, {'dust': 60}, {'en': ('Warming Up', 'Log in 3 days in a row.'), 'lv': ('Iesilšanās', 'Pieslēdzies 3 dienas pēc kārtas.'), 'ru': ('Разогрев', 'Заходите 3 дня подряд.')}),
     ('streak7', 'streak', 7, {'dust': 200, 'std': 1}, {'en': ('Weekly Habit', 'Log in 7 days in a row.'), 'lv': ('Nedēļas ieradums', 'Pieslēdzies 7 dienas pēc kārtas.'), 'ru': ('Недельная привычка', 'Заходите 7 дней подряд.')}),
     ('streak30', 'streak', 30, {'dust': 900, 'sakura': 2, 'item': 'b_void'}, {'en': ('Unbreakable', 'Log in 30 days in a row.'), 'lv': ('Nesalaužamais', 'Pieslēdzies 30 dienas pēc kārtas.'), 'ru': ('Несокрушимый', 'Заходите 30 дней подряд.')}),
-    ('summoner', 'summons', 10, {'dust': 50}, {'en': ('Summoner', 'Do 10 summons.'), 'lv': ('Izsaucējs', 'Veic 10 izsaukumus.'), 'ru': ('Призыватель', 'Сделайте 10 призывов.')}),
-    ('gacha', 'summons', 100, {'dust': 400, 'sakura': 1}, {'en': ('Gacha Addict', 'Do 100 summons.'), 'lv': ('Izsaukumu atkarīgais', 'Veic 100 izsaukumus.'), 'ru': ('Гача-зависимый', 'Сделайте 100 призывов.')}),
     ('collector', 'items', 15, {'dust': 200, 'item': 't_collector'}, {'en': ('Collector', 'Own 15 collectibles.'), 'lv': ('Kolekcionārs', 'Savāc 15 priekšmetus.'), 'ru': ('Коллекционер', 'Соберите 15 предметов.')}),
     ('hoarder', 'items', 40, {'dust': 800, 'sakura': 2}, {'en': ('Dragon Hoard', 'Own 40 collectibles.'), 'lv': ('Pūķa krājums', 'Savāc 40 priekšmetus.'), 'ru': ('Сокровища дракона', 'Соберите 40 предметов.')}),
     ('otaku', 'anime_fonts', 1, {'dust': 300, 'item': 't_otaku'}, {'en': ('Otaku', 'Win an anime font.'), 'lv': ('Otaku', 'Laimē anime fontu.'), 'ru': ('Отаку', 'Получите аниме-шрифт.')}),
