@@ -24,7 +24,6 @@ import geo  # noqa: E402
 import hide  # noqa: E402
 import loot  # noqa: E402
 import owner  # noqa: E402
-import secretart  # noqa: E402
 import push  # noqa: E402
 import tag as tag_mode  # noqa: E402
 from core import GameError, LOCK  # noqa: E402
@@ -300,15 +299,6 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json({'ok': True})
         if sub == 'owner':
             return self.owner_api(a, method, rest[1:])
-        if sub == 'secret-art' and len(rest) == 2:  # holders read, only the owner writes; everybody else gets the same 404 as for any unknown route
-            if method == 'GET' and A.holds_secret(a):
-                f = secretart.find(rest[1])
-                if f:
-                    with open(f, 'rb') as fh:
-                        return self._send_blob(fh.read(), mimetypes.guess_type(f)[0] or 'image/jpeg', False, f)
-            elif method == 'POST' and A.is_owner(a):
-                return self.send_json({'ok': secretart.save(rest[1], self.read_body(secretart.MAX_BYTES))})
-            raise GameError('Not found', 404)
         if sub == 'secret' and method == 'POST':
             return self.send_json(A.secret_action(a, self.json_body()))
         if sub == 'social' and method == 'GET':

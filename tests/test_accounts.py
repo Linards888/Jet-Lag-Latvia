@@ -188,36 +188,6 @@ class AccountTests(unittest.TestCase):
         finally:
             del os.environ['JETLAG_OWNER']
 
-    def test_secret_pictures_are_validated_and_listed_for_holders_only(self):
-        import secretart
-        owner, _ = reg(self.A, 'Boss2')
-        x, _ = reg(self.A, 'Alice2')
-        os.environ['JETLAG_OWNER'] = 'boss2'
-        try:
-            png = bytes([0x89, 0x50, 0x4E, 0x47]) + b'0' * 50
-            with self.assertRaises(GameError):
-                secretart.save('hero', b'not an image')
-            with self.assertRaises(GameError):
-                secretart.save('../etc', png)  # only the fixed slots
-            secretart.save('hero', png)
-            self.assertIn('hero', secretart.listing())
-            with self.assertRaises(GameError):
-                secretart.save('hero', b'broken')
-            self.assertIn('hero', secretart.listing())  # a bad upload does not destroy the picture that is there
-            self.assertFalse(self.A.holds_secret(x))
-            self.assertNotIn('secretArt', self.A.me(x))
-            self.A.secret_action(owner, {'action': 'claim'})
-            self.assertIn('hero', self.A.me(owner)['secretArt'])
-            self.assertTrue(self.A.holds_secret(owner))
-            secretart.save('hero', b'')  # an empty body removes it
-            self.assertNotIn('hero', secretart.listing())
-            import owner as owner_mod
-            self.assertIsNone(owner_mod.find_art('onimai', os.path.join(os.path.dirname(__file__), '..', 'public')))  # never via the public art route
-            with self.assertRaises(GameError):
-                owner_mod.save_art('onimai', png)
-        finally:
-            del os.environ['JETLAG_OWNER']
-
     def test_equip_needs_ownership_and_owner_owns_everything(self):
         a, _ = reg(self.A, 'Look')
         with self.assertRaises(GameError):

@@ -466,13 +466,4 @@ T = {
     'secret.done': 'Gatavs',
     'secret.drop': 'Noņemt slepeno izskatu no manas izvēlnes',
     'secret.drop_confirm': 'Noņemt to no tavām izvēlnēm? Atpakaļ to var iedot tikai īpašnieks.',
-    'secret.art': 'Bildes',
-    'secret.art_hint': 'Šīs bildes redz tikai konti, kuriem ir šis izskats, un tikai kamēr tas ir viņu aktīvā tēma. Tās nekad neparādās publiskos profilos vai sarakstos.',
-    'secret.set': 'ir',
-    'secret.slot_hero': 'Sākumlapa',
-    'secret.slot_profile': 'Profila lapa',
-    'secret.slot_game': 'Spēles laikā',
-    'secret.slot_settings': 'Iestatījumi',
-    'secret.slot_community': 'Kopiena',
-    'secret.slot_sticker': 'Stikers {n}',
 }
