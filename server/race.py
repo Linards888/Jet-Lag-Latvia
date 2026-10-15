@@ -1,14 +1,15 @@
 """Mode 1: Race across Latvia.
 
-* Latvia is split into territories. A territory is a region you must get OUT of: to progress you check in (tap the
-  city on the map) in the next territory. When every territory is reached, check in at the finish city. Time is not
-  scored: the first team to reach the finish wins.
+* Latvia is split into regions (territories) made of novadi (municipalities). A team starts in the start city's novads.
+  To travel on it must complete ONE task in the novads it is in; that opens the novadi bordering it, and checking in
+  (tapping a novads on the map) moves the team there. Every region must be visited at least once, then the team checks
+  in at the finish city. Time is not scored: the first team to reach the finish wins.
 * A list of N tasks (default 5) is SHARED by every team. When a team completes one it disappears for everybody and a
-  new shared task appears. Completing a task gives the team 1 card (2 for difficulty 4-6) straight into its hand.
+  new shared task appears. A finished task gives the team ONE card pick: it shows as many random cards as the task's
+  difficulty (1-6) and the team keeps one (with a full hand it may swap one of its cards, or take none).
   Photo proof is optional (lobby switch `requireProof`).
 * When the daily play window closes, every team votes for the tasks it wants replaced; when the window opens again the
   tasks voted for by ALL teams are swapped for new ones.
-* Cards belong to the team (max `handLimit` in hand; when it is full the oldest card is dropped).
 """
 import random
 
@@ -27,7 +28,7 @@ TERRITORIES = [
 ]
 
 DEFAULTS = {
-    'startCity': 'liepaja', 'finishCity': 'daugavpils', 'ordered': True, 'useWindow': True, 'window': {'start': '08:00', 'end': '21:00'},
+    'startCity': 'liepaja', 'finishCity': 'daugavpils', 'useWindow': True, 'window': {'start': '08:00', 'end': '21:00'},
     'tasksEnabled': True, 'requireProof': False, 'taskSlots': 5, 'taskVotes': 3, 'handLimit': 6, 'days': 5, 'disabledCities': [],
 }
 
@@ -37,7 +38,6 @@ def default_settings():
     s['window'] = dict(DEFAULTS['window'])
     s['disabledCities'] = []
     s['territories'] = [dict(t) for t in TERRITORIES]
-    s['territoryOrder'] = [t['id'] for t in TERRITORIES]
     s['muniTerritory'] = dict(geo.DEFAULT_MUNI_TERRITORY)
     s['cityTerritory'] = {}
     s['cards'] = cards.default_cards('race')
@@ -55,7 +55,7 @@ def clean_settings(old, patch):
     for k, (lo, hi) in {'days': (0, 14), 'taskSlots': (1, 12), 'taskVotes': (1, 6), 'handLimit': (2, 12)}.items():  # days 0 = no limit
         if k in patch:
             s[k] = int(core.num(patch[k], lo, hi, k))
-    for k in ('ordered', 'useWindow', 'tasksEnabled', 'requireProof'):
+    for k in ('useWindow', 'tasksEnabled', 'requireProof'):
         if k in patch:
             s[k] = bool(patch[k])
     if 'window' in patch:
@@ -86,13 +86,7 @@ def clean_settings(old, patch):
             seen.add(tid)
             out.append({'id': tid, 'name': core.clean_name(t.get('name'), 'Territory name'), 'color': core.color_ok(t.get('color'), '#888888')})
         s['territories'] = out
-        s['territoryOrder'] = [t['id'] for t in out]
         s['muniTerritory'] = {m: (t if t in seen else out[0]['id']) for m, t in s['muniTerritory'].items()}
-    if 'territoryOrder' in patch and 'territories' not in patch:
-        order = patch['territoryOrder']
-        if sorted(order) != sorted(t['id'] for t in s['territories']):
-            raise GameError('Bad territory order')
-        s['territoryOrder'] = list(order)
     if 'muniTerritory' in patch:
         ids = {t['id'] for t in s['territories']}
         mt = dict(s['muniTerritory'])
@@ -118,16 +112,42 @@ def _terr_name(game, tid):
     return next((t['name'] for t in game['settings']['territories'] if t['id'] == tid), tid)
 
 
-def available(game, tid):
-    """Territories the team may still move into (ordered race: only the next one)."""
-    s = game['settings']
+def _city_muni(city_id):
+    return geo.CITY_BY_ID[city_id].get('muni')
+
+
+def _muni_name(mid):
+    return geo.MUNI_BY_ID[mid]['name'] if mid in geo.MUNI_BY_ID else mid
+
+
+def novads_open(game, tid):
+    """Novadi the team may check in to: the neighbours of every novads where it completed a task (all of them when tasks are off)."""
+    d = _td(game, tid)
+    seen = set(d['visited'])
+    if not game['settings']['tasksEnabled']:
+        return sorted(m for m in geo.MUNI_BY_ID if m not in seen)
+    out = set()
+    for u in d['unlocked']:
+        out |= geo.ADJ.get(u, set())
+    return sorted(out - seen)
+
+
+def _novads_of(game, p):
+    """The novads a check-in or finish points at: tapped on the map (muniId) or the novads of a checkpoint city (cityId)."""
+    mid = p.get('muniId')
+    if mid is None:
+        city = geo.CITY_BY_ID.get(p.get('cityId'))
+        if not city or city['id'] in game['settings']['disabledCities']:
+            raise GameError('That city is not a checkpoint')
+        mid = _city_muni(city['id'])
+    if mid not in geo.MUNI_BY_ID:
+        raise GameError('Choose a novads on the map')
+    return mid
+
+
+def _regions_left(game, tid):
     reached = set(_td(game, tid)['reached'])
-    if s['ordered']:
-        for t in s['territoryOrder']:
-            if t not in reached:
-                return [t]
-        return []
-    return [t['id'] for t in s['territories'] if t['id'] not in reached]
+    return [t['id'] for t in game['settings']['territories'] if t['id'] not in reached]
 
 
 def _task(game, task_id):
@@ -217,12 +237,8 @@ def _fill_shared(game):
         data['shared'].append(new)
 
 
-def _reward(task):
-    return 1 if task['difficulty'] <= 3 else 2
-
-
 def _add_card(game, tid, card):
-    """Put a card into a team's hand; with a full hand the oldest card is dropped."""
+    """Put a card into a team's hand; with a full hand the oldest card is dropped (used for stolen cards)."""
     d = _td(game, tid)
     if len(d['cards']) >= game['settings']['handLimit']:
         dropped = d['cards'].pop(0)
@@ -230,32 +246,42 @@ def _add_card(game, tid, card):
     d['cards'].append({'iid': core.new_id(3), 'card': card, 't': core.now_ms()})
 
 
-def _grant_cards(game, tid, n):
+def _grant_pick(game, tid, options):
+    """One card pick: `options` random cards of which the team keeps one."""
     cat = game['settings']['cards']
-    if not cat or n <= 0:
+    if not cat:
         return
-    got = cards.draw(cat, n)
-    for c in got:
-        _add_card(game, tid, c)
-    notice(game, 'cards_got', 'cards', G.team_ids(game, tid), n=len(got))
+    _td(game, tid)['picks'].append({'pid': core.new_id(3), 'options': cards.draw(cat, max(1, options))})
+    notice(game, 'picks', 'cards', G.team_ids(game, tid), n=1)
 
 
 def _task_done(game, tid, task):
     """A team finished a shared task: it is gone for everybody, replaced by a new one, and the team gets its cards."""
     d = _td(game, tid)
     d['done'][task['id']] = 'approved'
+    if d['at'] not in d['unlocked']:  # a task done here opens the novadi next to it
+        d['unlocked'].append(d['at'])
+        notice(game, 'novads_open', 'checkin', G.team_ids(game, tid), novads=_muni_name(d['at']))
     _replace_shared(game, task['id'])
-    _grant_cards(game, tid, _reward(task))
+    _grant_pick(game, tid, task['difficulty'])
     log(game, 'task', '%s completed "%s"' % (G.team_name(game, tid), task['title']))
     notice(game, 'task_done', 'claim', None, team=G.team_name(game, tid))
 
 
 def _ensure(game):
-    """Games saved by an older version get the fields of the shared task list."""
+    """Games saved by an older version get the fields of the shared task list and of the novads rules."""
     s, data = game['settings'], game['data']
     s.setdefault('taskVotes', 3)
-    if not data.get('teams') or 'shared' in data:
+    if not data.get('teams'):
         return
+    if 'shared' in data:
+        return
+    start = _city_muni(s['startCity'])
+    for d in data['teams'].values():
+        d.setdefault('at', start)
+        d.setdefault('visited', [d['at']])
+        d.setdefault('unlocked', [])
+        d.setdefault('picks', [])
     data['shared'], data['used'] = [], []
     if data.get('phase') == 'plan':
         data['phase'] = 'vote'
@@ -307,12 +333,13 @@ def start(game, now):
         raise GameError('Everyone who plays must be on a team')
     s = game['settings']
     start_t = s['cityTerritory'].get(s['startCity'])
-    if not start_t:
+    start_m = _city_muni(s['startCity'])
+    if not start_t or not start_m:
         raise GameError('The start city is not inside any territory')
     if not s['cityTerritory'].get(s['finishCity']):
         raise GameError('The finish city is not inside any territory')
-    game['data'] = {'teams': {tid: {'reached': [start_t], 'done': {}, 'proofs': [], 'cards': [], 'finishedAt': None, 'frozenUntil': 0, 'spyUntil': 0, 'vote': None}
-                              for tid in teams},
+    game['data'] = {'teams': {tid: {'reached': [start_t], 'at': start_m, 'visited': [start_m], 'unlocked': [], 'done': {}, 'proofs': [], 'cards': [], 'picks': [],
+                                    'finishedAt': None, 'frozenUntil': 0, 'spyUntil': 0, 'vote': None} for tid in teams},
                     'shared': [], 'used': [], 'phase': 'play'}
     if s['tasksEnabled']:
         _fill_shared(game)
@@ -371,21 +398,22 @@ def action(store, game, m, typ, p, now):
             raise GameError('That team already finished')
         if d['frozenUntil'] > now and not manual:
             raise GameError('Your team is frozen for %d more minutes' % ((d['frozenUntil'] - now) // 60000 + 1))
-        city = geo.CITY_BY_ID.get(p.get('cityId'))
-        if not city or city['id'] in s['disabledCities']:
-            raise GameError('That city is not a checkpoint')
-        terr = s['cityTerritory'].get(city['id'])
-        if not terr:
-            raise GameError('That city is not in any territory')
-        if terr in d['reached']:
-            raise GameError('You already reached %s' % _terr_name(game, terr))
-        if terr not in available(game, tid):
-            raise GameError('%s is in %s - not open to you yet. Next: %s.' % (city['name'], _terr_name(game, terr), ', '.join(_terr_name(game, t) for t in available(game, tid))))
-        d['reached'].append(terr)
+        mid = _novads_of(game, p)
+        if mid in d['visited']:
+            raise GameError('You already visited %s' % _muni_name(mid))
+        if not manual and mid not in novads_open(game, tid):
+            if d['at'] not in d['unlocked']:
+                raise GameError('Complete a task in %s first to open the neighbouring novadi' % _muni_name(d['at']))
+            raise GameError('%s does not border a novads where you completed a task' % _muni_name(mid))
+        d['visited'].append(mid)
+        d['at'] = mid
+        terr = s['muniTerritory'].get(mid)
+        if terr and terr not in d['reached']:
+            d['reached'].append(terr)
         if manual:
-            log(game, 'override', 'Admin manually moved %s to %s' % (G.team_name(game, tid), _terr_name(game, terr)), m['id'])
-        log(game, 'checkin', '%s reached %s via %s' % (G.team_name(game, tid), _terr_name(game, terr), city['name']), m['id'])
-        notice(game, 'reached', 'checkin', None, team=G.team_name(game, tid), terr=_terr_name(game, terr), city=city['name'])
+            log(game, 'override', 'Admin manually moved %s to %s' % (G.team_name(game, tid), _muni_name(mid)), m['id'])
+        log(game, 'checkin', '%s reached %s' % (G.team_name(game, tid), _muni_name(mid)), m['id'])
+        notice(game, 'reached', 'checkin', None, team=G.team_name(game, tid), terr=_terr_name(game, terr), city=_muni_name(mid))
     elif typ == 'finish':
         _need_running(game)
         _need_window(game, now)
@@ -397,13 +425,31 @@ def action(store, game, m, typ, p, now):
             raise GameError('Your team is frozen for %d more minutes' % ((d['frozenUntil'] - now) // 60000 + 1))
         if p.get('cityId') != s['finishCity']:
             raise GameError('That is not the finish city')
-        if available(game, tid):
+        if _regions_left(game, tid):
             raise GameError('Reach every territory first')
+        fm = _city_muni(s['finishCity'])
+        if fm not in d['visited'] and fm not in novads_open(game, tid):
+            raise GameError('The finish is not open to you yet: complete a task in a novads next to it')
         d['finishedAt'] = now
         place = sum(1 for x in game['data']['teams'].values() if x['finishedAt'])
         fc = geo.CITY_BY_ID[s['finishCity']]['name']
         log(game, 'finish', '%s reached %s (finisher #%d)' % (G.team_name(game, tid), fc, place), m['id'])
         notice(game, 'finished', 'claim', None, team=G.team_name(game, tid), place=place)
+    elif typ == 'pick':
+        tid = _my_team(game, m)
+        d = _td(game, tid)
+        pk = next((x for x in d['picks'] if x['pid'] == p.get('pid')), None)
+        if not pk:
+            raise GameError('That pick is gone')
+        if not p.get('pass'):
+            idx = int(core.num(p.get('index'), 0, len(pk['options']) - 1, 'index'))
+            if len(d['cards']) >= s['handLimit']:
+                drop = next((i for i in d['cards'] if i['iid'] == p.get('discardIid')), None)
+                if not drop:
+                    raise GameError('Your hand is full (%d) - discard a card or pass on the new one' % s['handLimit'])
+                d['cards'].remove(drop)
+            d['cards'].append({'iid': core.new_id(3), 'card': pk['options'][idx], 't': now})
+        d['picks'].remove(pk)
     elif typ == 'complete_task':
         _need_running(game)
         tid = _my_team(game, m)
@@ -518,7 +564,8 @@ def _play_card(game, m, p, now):
             _replace_shared(game, p['taskId'])
             notice(game, 'task_swapped', 'cards', None, team=me_name)
         elif t == 'extra_card':
-            _grant_cards(game, tid, e['n'])
+            for _ in range(e['n']):
+                _grant_pick(game, tid, 3)
         elif t == 'steal':
             stolen = random.choice(td['cards'])
             td['cards'].remove(stolen)
@@ -568,15 +615,17 @@ def view(game, me, now):
         d = _td(game, t['id'])
         own = me['teamId'] == t['id'] or referee
         n_done = sum(1 for v in d['done'].values() if v == 'approved')
-        row = {'id': t['id'], 'reached': d['reached'], 'available': available(game, t['id']), 'finishedAt': d['finishedAt'], 'frozenUntil': d['frozenUntil'],
-               'tasksDone': n_done, 'cardCount': len(d['cards']), 'locs': _visible_locs(game, me, t, spy)}
+        row = {'id': t['id'], 'reached': d['reached'], 'finishedAt': d['finishedAt'], 'frozenUntil': d['frozenUntil'], 'tasksDone': n_done, 'locs': _visible_locs(game, me, t, spy)}
         if own:
-            row.update({'cards': d['cards'], 'spyUntil': d['spyUntil'], 'done': d['done'], 'vote': d['vote']})
+            row.update({'cards': d['cards'], 'picks': d['picks'], 'spyUntil': d['spyUntil'], 'done': d['done'], 'vote': d['vote'],
+                        'at': d['at'], 'visited': d['visited'], 'unlocked': d['unlocked']})
+            if me['teamId'] == t['id']:
+                row['open'] = novads_open(game, t['id'])
         out['teams'].append(row)
         for pr in d['proofs']:
             if d['done'].get(pr['taskId']) == 'pending' and _can_review(game, me, t['id']):
                 out['reviews'].append({'teamId': t['id'], 'taskId': pr['taskId'], 'fid': pr['fid'], 'note': pr['note']})
-        ranking.append(((0, d['finishedAt']) if d['finishedAt'] else (1, -(len(d['reached']) * 1000 + n_done)), t['id']))
+        ranking.append(((0, d['finishedAt']) if d['finishedAt'] else (1, -(len(d['reached']) * 1000 + len(d['visited']) * 10 + n_done)), t['id']))
     ranking.sort()
     out['ranking'] = [r[1] for r in ranking]
     return out

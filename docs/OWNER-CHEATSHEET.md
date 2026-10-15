@@ -45,11 +45,12 @@ Jāspēlē kā dalībnieks, kas ir komandā. Kartes un uzdevumu ID redzami Raw g
 
 | Nosaukums / ceļš | Piemērs | Ko dara |
 |---|---|---|
-| `checkin` | `{"cityId":"jelgava"}` | Atzīmēties pilsētā (iziet no teritorijas). Admins: {"manual":true,"teamId":"...","cityId":"..."} |
+| `checkin` | `{"muniId":"liepajas"} vai {"cityId":"jelgava"}` | Atzīmēties atvērtā novadā (vispirms jāizpilda uzdevums blakus novadā). Admins: {"manual":true,"teamId":"...","muniId":"..."} |
 | `finish` | `{"cityId":"daugavpils"}` | Finišēt finiša pilsētā (pirmā komanda uzvar) |
 | `complete_task` | `{"taskId":"t07"}` | Izpildīt kopīgu uzdevumu (ar foto: pievieno fid un note). Uzdevums pazūd visām komandām |
 | `vote_tasks` | `{"taskIds":["t01","t02","t03"]}` | Vakara balsojums: 3 uzdevumi, ko nomainīt (nomaina tos, ko izvēlējās visas komandas) |
 | `review` | `{"teamId":"...","taskId":"t07","verdict":"approve"}` | Apstiprina vai noraida pierādījumu (approve/reject) |
+| `pick` | `{"pid":"...","index":0,"discardIid":"..."}` | Paņem vienu no piedāvātajām kārtīm (discardIid vajadzīgs, ja roka pilna; "pass":true = neņemt nevienu) |
 | `discard` | `{"iid":"..."}` | Izmet kārti no rokas |
 | `play_card` | `{"iid":"...","targetTeamId":"..."}` | Izspēlē kārti (targetTeamId pret citu komandu; swap_task kārtij {"taskId":"..."}) |
 
@@ -109,6 +110,8 @@ Ieraksti ceļu un JSON vērtību (skaitlis 10, teksts "abc", true/false, null, m
 | `data.shared` | `["t01","t02","t03","t04","t05"]` | Race: pašreizējie kopīgie uzdevumi |
 | `data.teams.<teamId>.finishedAt` | `1790000000000` | Race: komandas finiša laiks (null = vēl nav finišējusi) |
 | `settings.days` | `0` | Race: plānotās dienas (0 = bez ierobežojuma) |
+| `data.teams.<teamId>.unlocked` | `["liepajas"]` | Race: novadi, kuros komanda izpildījusi uzdevumu (to kaimiņi ir atvērti) |
+| `data.teams.<teamId>.at` | `"liepajas"` | Race: novads, kurā komanda atrodas |
 
 ## Konti (Owner console, Visi konti)
 

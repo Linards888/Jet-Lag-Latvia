@@ -3,7 +3,7 @@ import { linkGame, AccountButton } from './account.js';
 import { FriendsButton } from './friends.js';
 import { useGame, useClock, useLocation, useNotices, saved, toast, META, useGeo, pushStatus, refreshPush, enablePush } from './api.js';
 import { t, tx, noticeText } from './i18n.js';
-import { AsyncBtn, Chip, Field, Switch, Seg, Modal, Ico, Empty, Mochi, copy } from './ui.js';
+import { AsyncBtn, Chip, Field, Switch, Seg, Modal, Portal, Ico, Empty, Mochi, copy } from './ui.js';
 import { LMap } from './map.js';
 import { WEIGHT_OF, rarity, effectSummary } from './cards-ui.js';
 import { NotFound, go } from './home.js';
@@ -42,7 +42,7 @@ export function GamePage({ code }) {
         ${st.me.plays && html`<button class="ghost sm" onClick=${() => setGps(!gps)}>${gpsLabel(gps, loc)}</button>`}
         <${FriendsButton} /><${AccountButton} /><button class="ghost icon" aria-label=${t('settings')} onClick=${() => setModal('settings')}><${Ico} n="gear" /></button></div>
     </div></div>
-    <div class="notices">${notices.map((n) => html`<div class="notice ${n.kind}" key=${n.id} onClick=${() => dismiss(n.id)}>${noticeText(n)}</div>`)}</div>
+    ${notices.length > 0 && html`<${Portal} z=${5000}><div class="notices">${notices.map((n) => html`<div class="notice ${n.kind}" key=${n.id} onClick=${() => dismiss(n.id)}>${noticeText(n)}</div>`)}</div><//>`}
     <div class="wrap"><div class="stack">
       <${PushBanner} code=${code} token=${token} plays=${st.me.plays} />
       ${st.me.plays && loc.status === 'error' && html`<div class="callout warn">${t('gps.err_' + loc.msg)}</div>`}
@@ -157,7 +157,7 @@ function LobbySettings({ st, act, openModal }) {
         <${Field} label=${t('set.start_city')}><${CitySelect} value=${s.startCity} onChange=${(v) => setS({ ...s, startCity: v })} /><//>
         <${Field} label=${t('set.finish_city')}><${CitySelect} value=${s.finishCity} onChange=${(v) => setS({ ...s, finishCity: v })} /><//>
         ${num('taskSlots', t('set.task_slots'))}${num('taskVotes', t('set.task_votes'))}${num('handLimit', t('set.hand_limit'))}${num('days', t('set.days'))}</div>
-        ${sw('ordered', t('set.ordered'))}${sw('tasksEnabled', t('set.tasks_cards'))}${sw('requireProof', t('set.require_proof'))}${win}
+        ${sw('tasksEnabled', t('set.tasks_cards'))}${sw('requireProof', t('set.require_proof'))}${win}
         ${editors(true, true)}<${TerritoryEditor} st=${st} act=${act} />`}
       ${st.mode === 'hide' && html`<div class="grid">${num('hidesPerPlayer', t('set.hides_per'))}${num('hideMinutes', t('set.hide_minutes'))}${num('zoneRadiusM', t('set.zone_radius'))}
         ${num('reactSec', t('set.react'))}${num('handLimit', t('set.hand_limit'))}</div>${sw('zoneAlerts', t('set.zone_alerts'))}${editors(false, true)}`}
@@ -190,8 +190,6 @@ function TerritoryEditor({ st, act }) {
     <div class="card flat">${ts.map((x, i) => { const cs = META.cities.filter((c) => st.settings.cityTerritory[c.id] === x.id).sort((a, b) => b.pop - a.pop);
       return html`<div key=${x.id}><div class="row nw"><input type="color" value=${x.color} onChange=${(e) => patchTerr(ts.map((y) => y.id === x.id ? { ...y, color: e.target.value } : y))} />
         <input class="grow" value=${x.name} onChange=${(e) => patchTerr(ts.map((y) => y.id === x.id ? { ...y, name: e.target.value } : y))} />
-        <button class="sm ghost icon" disabled=${i === 0} aria-label="Up" onClick=${() => { const a = ts.slice(); [a[i - 1], a[i]] = [a[i], a[i - 1]]; patchTerr(a); }}>&uarr;</button>
-        <button class="sm ghost icon" disabled=${i === ts.length - 1} aria-label="Down" onClick=${() => { const a = ts.slice(); [a[i + 1], a[i]] = [a[i], a[i + 1]]; patchTerr(a); }}>&darr;</button>
         ${ts.length > 2 && html`<button class="sm ghost icon" aria-label=${t('remove')} onClick=${() => patchTerr(ts.filter((y) => y.id !== x.id))}><${Ico} n="close" size=${14} /></button>`}</div>
         <div class="small dim" style="margin:6px 0 14px">${t('terr.cities', { n: cs.length })} ${cs.map((c) => html`<button class="sm ghost" key=${c.id} style=${{ margin: '3px', opacity: dis.has(c.id) ? 0.4 : 1, textDecoration: dis.has(c.id) ? 'line-through' : '' }}
           onClick=${() => act('update_settings', { settings: { disabledCities: dis.has(c.id) ? [...dis].filter((y) => y !== c.id) : [...dis, c.id] } })}>${c.name}</button>`)}</div></div>`; })}

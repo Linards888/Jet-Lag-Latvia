@@ -15,7 +15,7 @@ export function LMap({ items = [], munis, muniColor, onMuniClick, onMapClick, fi
   cb.current = { onMuniClick, onMapClick, muniColor };
 
   useEffect(() => {
-    const map = L.map(el.current, { zoomControl: true, worldCopyJump: false, minZoom: 6, maxBounds: LV_BOUNDS, maxBoundsViscosity: 1 }).setView([56.88, 24.9], 7);
+    const map = L.map(el.current, { zoomControl: true, worldCopyJump: false, minZoom: 5.5, zoomSnap: 0.25, maxBounds: LV_BOUNDS, maxBoundsViscosity: 1 }).setView([56.88, 24.9], 7);
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; OpenStreetMap' }).addTo(map);
     S.current = { map, group: L.layerGroup().addTo(map), muni: null, fitted: null, muniKey: null, itemKey: null };
     map.on('click', (e) => cb.current.onMapClick && cb.current.onMapClick({ lat: e.latlng.lat, lng: e.latlng.lng }));

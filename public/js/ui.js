@@ -1,4 +1,4 @@
-import { html, useState, useEffect } from '/vendor/preact.js';
+import { html, render, useState, useEffect, useRef } from '/vendor/preact.js';
 import { useToasts } from './api.js';
 import { getLocale, t } from './i18n.js';
 
@@ -34,15 +34,35 @@ export function Mochi({ size = 96, mood = 'happy' }) {
 export function Empty({ children, mood }) { return html`<div class="empty"><${Mochi} size=${72} mood=${mood || 'sleepy'} /><div>${children}</div></div>`; }
 
 // ---------------------------------------------------------------- basics
+// Renders its children at the end of <body>: a fixed overlay inside a bar with backdrop-filter (the top bars) would be
+// confined to that bar and slide off the screen on phones. z: 4000 modals, 5000 notices, 6000 toasts.
+export function Portal({ z = 4000, children }) {
+  const [host] = useState(() => { const d = document.createElement('div'); d.style.cssText = 'position:relative;z-index:' + z; document.body.appendChild(d); return d; });
+  // preact runs pending effects inside the next component's render, so a nested render() must wait for a microtask or it clobbers that render's hooks
+  useEffect(() => () => { Promise.resolve().then(() => { render(null, host); host.remove(); }); }, []);
+  useEffect(() => { let live = true; Promise.resolve().then(() => live && render(children, host)); return () => { live = false; }; });
+  return null;
+}
+
 export function Toasts() {
   const t = useToasts();
-  return t ? html`<div class="toast ${t.ok ? 'ok' : ''}" key=${t.id}>${t.msg}</div>` : null;
+  return t ? html`<${Portal} z=${6000}><div class="toast ${t.ok ? 'ok' : ''}" key=${t.id}>${t.msg}</div><//>` : null;
 }
 
 export function Modal({ title, onClose, children, wide }) {
+  // the phone's Back button closes the modal instead of leaving the page: each modal owns one history entry
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  useEffect(() => {
+    const id = Date.now() + Math.random();
+    try { history.pushState({ jllModal: id }, ''); } catch {}
+    const pop = () => { if (!history.state || history.state.jllModal !== id) closeRef.current(); };
+    window.addEventListener('popstate', pop);
+    return () => { window.removeEventListener('popstate', pop); try { if (history.state && history.state.jllModal === id) history.back(); } catch {} };
+  }, []);
   useEffect(() => { const f = (e) => e.key === 'Escape' && onClose(); window.addEventListener('keydown', f); const prev = document.body.style.overflow; document.body.style.overflow = 'hidden'; return () => { window.removeEventListener('keydown', f); document.body.style.overflow = prev; }; }, []);
-  return html`<div class="modal-bg" onClick=${(e) => e.target === e.currentTarget && onClose()}>
-    <div class="modal ${wide ? 'wide' : ''}" role="dialog" aria-modal="true"><div class="modal-h"><h2>${title}</h2><button class="ghost icon" onClick=${onClose} aria-label=${t('close')}><${Ico} n="close" /></button></div>${children}</div></div>`;
+  return html`<${Portal}><div class="modal-bg" onClick=${(e) => e.target === e.currentTarget && onClose()}>
+    <div class="modal ${wide ? 'wide' : ''}" role="dialog" aria-modal="true"><div class="modal-h"><h2>${title}</h2><button class="ghost icon" onClick=${onClose} aria-label=${t('close')}><${Ico} n="close" /></button></div>${children}</div></div><//>`;
 }
 
 // a card with a title row (and optional controls on the right)
@@ -67,7 +87,6 @@ export function Seg({ options, value, onChange }) {
   return html`<div class="seg">${options.map(([v, l]) => html`<button class=${value === v ? 'on' : ''} onClick=${() => onChange(v)} key=${v}>${l}</button>`)}</div>`;
 }
 
-export function Dots({ n, max = 6 }) { return html`<span class="dots" title=${n + ' of ' + max}>${Array.from({ length: max }, (_, i) => html`<i class=${i < n ? 'on' : ''}></i>`)}</span>`; }
 
 // a <button> that runs an async handler and disables itself meanwhile
 export function AsyncBtn({ onClick, children, confirm, ...rest }) {

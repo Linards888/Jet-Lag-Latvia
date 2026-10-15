@@ -1,7 +1,7 @@
 import { html, useState, useEffect } from '/vendor/preact.js';
 import { saved, toast } from './api.js';
 import { t } from './i18n.js';
-import { AsyncBtn, Field, Modal, Ico, fmtDateTime } from './ui.js';
+import { AsyncBtn, Modal, Ico, fmtDateTime } from './ui.js';
 import { call, accountToken, useAccount } from './account.js';
 import { go } from './home.js';
 
@@ -43,6 +43,7 @@ export function FriendsButton() {
 function Chat({ friend, onBack, onClose }) {
   const [chat, setChat] = useState(null);
   const [text, setText] = useState('');
+  const [pick, setPick] = useState(false);
   const mine = Object.entries(saved.all());
   const load = () => call('GET', '/chat/' + encodeURIComponent(friend.name)).then((c) => { setChat(c); refreshSocial(); }).catch((e) => toast(e.message));
   useEffect(() => { load(); const id = setInterval(() => document.hidden || load(), 8000); return () => clearInterval(id); }, [friend.name]);
@@ -54,8 +55,8 @@ function Chat({ friend, onBack, onClose }) {
         : html`<div class="msg ${m.f ? '' : 'me'}" key=${i}>${m.x}<small>${fmtDateTime(m.t)}</small></div>`))}</div>
     <div class="row nw"><input value=${text} maxlength="500" placeholder=${t('friends.write')} onInput=${(e) => setText(e.target.value)} onKeyDown=${(e) => e.key === 'Enter' && text.trim() && send({ text })} />
       <${AsyncBtn} class="sm" disabled=${!text.trim()} onClick=${() => send({ text })}>${t('send')}<//></div>
-    ${mine.length > 0 && html`<${Field} label=${t('friends.invite')}><select onChange=${(e) => { const g = saved.get(e.target.value); if (g) send({ invite: { code: e.target.value, game: g.gameName, mode: g.mode } }); e.target.value = ''; }}>
-      <option value="">${t('choose')}</option>${mine.map(([code, g]) => html`<option key=${code} value=${code}>${g.gameName || code} (${code})</option>`)}</select><//>`}</div>`;
+    ${mine.length > 0 && html`<div><button class="ghost block" onClick=${() => setPick(!pick)}>${t('friends.invite')}</button>
+      ${pick && html`<div class="list mt">${mine.map(([code, g]) => html`<button class="ghost block" key=${code} style="text-align:left" onClick=${async () => { if (await send({ invite: { code, game: g.gameName, mode: g.mode } })) setPick(false); }}>${g.gameName || code} (${code})</button>`)}</div>`}</div>`}</div>`;
 }
 
 function FriendsModal({ onClose }) {

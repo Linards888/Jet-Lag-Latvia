@@ -104,3 +104,23 @@ def dist_to_border(lat, lng):
                 if d < best:
                     best = d
     return best * 111195.0
+
+
+def _build_adjacency():
+    """Municipalities that share a border vertex are neighbours."""
+    owners = {}
+    for mid, _p, geom, _b in MUNIS:
+        for poly in _polys(geom):
+            for ring in poly:
+                for x, y in ring:
+                    owners.setdefault((round(x, 4), round(y, 4)), set()).add(mid)
+    adj = {mid: set() for mid in MUNI_BY_ID}
+    for ms in owners.values():
+        for a in ms:
+            adj[a] |= ms - {a}
+    return adj
+
+
+ADJ = _build_adjacency()
+for _c in CITIES:
+    _c['muni'] = muni_at(_c['lat'], _c['lng'])  # the municipality a checkpoint city lies in

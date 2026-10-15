@@ -177,4 +177,9 @@ E = {
     'Only the game creator can add admins': 'Добавлять админов может только создатель игры',
     'That task is not available': 'Это задание недоступно',
     'Voting is only open outside the daily play window': 'Голосовать можно только вне игрового окна',
+    'Choose a novads on the map': 'Выберите новад на карте',
+    'You already visited {1}': 'Вы уже были в: {1}',
+    'Complete a task in {1} first to open the neighbouring novadi': 'Сначала выполните задание в {1}, чтобы открыть соседние новады',
+    '{1} does not border a novads where you completed a task': '{1} не граничит с новадом, где вы выполнили задание',
+    'The finish is not open to you yet: complete a task in a novads next to it': 'Финиш пока закрыт: выполните задание в соседнем новаде',
 }

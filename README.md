@@ -93,6 +93,14 @@ Augšā redzams **savienojuma indikators** (zaļš = savienots) un GPS stāvokli
 
 ---
 
+## Telefonā
+
+* Visi logi (draugi, čats, iestatījumi, profils, uzaicinājumi) atveras **ekrāna apakšā** un ritinās; telefona **Atpakaļ poga aizver logu**, nevis iziet no lapas.
+* Spēles augšējā josla telefonā ir divās rindās (nosaukums + statusa pogas), lai nekas neaiziet ārpus ekrāna.
+* Kartei ir **pilnekrāna** poga, un spēli var instalēt kā **aplikāciju** (pārlūkā "Add to Home screen" / "Pievienot sākuma ekrānam").
+
+---
+
 ## Paziņojumi telefonā
 
 Spēle var sūtīt **paziņojumus un vibrāciju arī tad, kad lapa ir aizvērta** (kāds izspēlēja kartiņu, nāk jautājums, tevi noķēra utt.). Ieslēdz tos zobrata logā sadaļā *Paziņojumi*.
@@ -142,21 +150,25 @@ Drošība: visu noteikumu pārbaudi un atbildes rēķina serveris; nepareizi iev
 
 ### Ideja
 
-Komandas ar **sabiedrisko transportu** (vilciens, tramvajs, autobuss, kājām; bez auto un taksometra) sacenšas, kura pirmā tiek **ārā no visām teritorijām** un nonāk finišā. **Laiks netiek skaitīts: uzvar pirmā komanda, kas finišē.** Pārējās komandas sarindo pēc finiša secības, bet kas vēl nav finišējis, pēc tā, cik tālu tikuši. Spēlēt var **dienas spēles logā** (pēc noklusējuma 08:00-21:00), naktī visi atpūšas un balso par uzdevumiem.
+Komandas ar **sabiedrisko transportu** (vilciens, tramvajs, autobuss, kājām; bez auto un taksometra) sacenšas, kura pirmā tiek **ārā no visām teritorijām** un nonāk finišā. **Laiks netiek skaitīts: uzvar pirmā komanda, kas finišē.** Spēlēt var **dienas spēles logā** (pēc noklusējuma 08:00-21:00), naktī visi atpūšas un balso par uzdevumiem.
 
-Spēles augšējā kartītē redzams: kura **diena** (piem. "2 no 5"), **cik ilgi līdz spēles beigām**, izpildītie uzdevumi un kārtis rokā. Ja **plānotās dienas = 0**, laika ierobežojuma nav; citādi spēle beidzas, kad pagājušas visas plānotās dienas (tad uzvar tālāk tikusī komanda).
+Spēles augšējā kartītē redzams: kur tu esi (novads), **kura diena** (piem. "2 no 5"), **cik ilgi līdz spēles beigām**, izpildītie uzdevumi un kārtis rokā. Atsevišķas rezultātu kartītes nav. Ja **plānotās dienas = 0**, laika ierobežojuma nav; citādi spēle beidzas, kad pagājušas visas plānotās dienas (tad uzvar tālāk tikusī komanda).
 
-### Teritorijas
+### Reģioni un novadi
 
-Latvija ir sadalīta krāsainās teritorijās (Kurzeme, Zemgale un Sēlija, Rīga un Pierīga, Vidzeme, Latgale). **Teritorija ir reģions, no kura tev jātiek ārā.** Tu esi pirmajā, un kad ieraksti kādu pilsētu nākamajā teritorijā, tu esi "tikusi ārā" un sākas nākamā teritorija. Pirmajam sasniedzējam bonusa vairs nav.
+Latvija ir sadalīta **novados**, un novadi ir sagrupēti **krāsainos reģionos** (Kurzeme, Zemgale un Sēlija, Rīga un Pierīga, Vidzeme, Latgale). **Lai uzvarētu, katrā reģionā jābūt vismaz vienu reizi un tad jāfinišē.** Reģionu secības nav.
 
-Admins lobby var pārkrāsot novadus, pārdēvēt un pārkārtot teritorijas, pievienot jaunas un izslēgt atsevišķas pilsētas.
+* Tu sāc **starta pilsētas novadā**; visi pārējie novadi kartē ir **pelēki (slēgti)**.
+* Lai brauktu tālāk, **izpildi vienu uzdevumu novadā, kurā tu esi**. Tas atver **visus novadus, kas robežojas** ar šo novadu.
+* Pieskaries atvērtam (iekrāsotam) novadam kartē un spied **Atzīmēties šeit**: tu esi tur, un nākamajam solim atkal vajag vienu uzdevumu jaunajā novadā.
+* Ja uzdevumi un kārtis ir izslēgti lobby, visi novadi ir atvērti.
+
+Admins lobby var pārkrāsot novadus, pārdēvēt un pārkārtot reģionus un pievienot jaunus.
 
 ### Reģistrēšanās
 
-* Nav "reģistrēšanās rādiusa" un nav GPS pārbaudes: **tu pats pieskaries pilsētai kartē** (vai ieraksti meklēšanas laukā) un spied **Atzīmēties šeit**. Spēle balstās uz godaprātu, un žurnālā viss redzams.
-* Ja ieslēgta secība, vari atzīmēties tikai nākamajā teritorijā.
-* Kad visas teritorijas izietas, pieskaries finiša pilsētai un spied **Finišēt**. Pirmā komanda, kas finišē, uzvar.
+* Nav "reģistrēšanās rādiusa" un nav GPS pārbaudes: **tu pats pieskaries novadam kartē** (vai pilsētai meklēšanas laukā) un spied **Atzīmēties šeit**. Spēle balstās uz godaprātu, un žurnālā viss redzams.
+* Kad katrs reģions ir apmeklēts, atver finiša pilsētas novadu (tam jābūt atvērtam vai apmeklētam) un spied **Finišēt**. Pirmā komanda, kas finišē, uzvar.
 
 ### Karte
 
@@ -167,22 +179,23 @@ Admins lobby var pārkrāsot novadus, pārdēvēt un pārkārtot teritorijas, pi
 
 * Visas komandas redz **tos pašus 5 uzdevumus** (visiem vienādi). Nav pogas "sākt uzdevumu": izdari to un spied **Mēs izdarījām**. Pēc noklusējuma pierādījums (foto) nav vajadzīgs; adminam to var ieslēgt lobby, tad citas komandas vai admins to apstiprina.
 * **Kad kāda komanda izpilda uzdevumu, tas pazūd visām komandām** un visiem parādās jauns, atkal vienāds uzdevums. Kas ātrāk, tas ņem.
+* Izpildīts uzdevums **atver blakus esošos novadus** (skat. augstāk).
 * **Dienas beigās (kad aizveras spēles logs) katra komanda nobalso par 3 uzdevumiem, ko vēlas nomainīt.** Kad no rīta logs atveras, tiek nomainīti tie uzdevumi, ko izvēlējās **visas komandas**.
-* Katram uzdevumam ir grūtība 1-6: grūtība 1-3 dod **1 kārti**, grūtība 4-6 dod **2 kārtis**.
+* Katram uzdevumam ir grūtība 1-6, kas redzama kā **cipars**.
 
 ### Kārtis
 
-* Par izpildītu uzdevumu kārts nonāk **tieši rokā** (nav izvēļu un nav jāizlemj; nav pogas "izlaist").
-* Kārtis pieder **komandai**, un jebkurš komandas biedrs tās var izspēlēt. Citas komandas tavas kārtis neredz (redz tikai, cik to ir).
-* **Kāršu limits rokā: 6.** Ja roka pilna un nāk jauna kārts, **vecākā kārts tiek izmesta** (tu par to saņem paziņojumu).
+* **Par katru uzdevumu komanda saņem tieši vienu kārts izvēli.** Izvēle parāda **tik nejaušu kāršu, cik grūts ir uzdevums** (6. grūtības uzdevums = izvēlies 1 no 6), un tu paturi vienu.
+* Ja **roka ir pilna** (limits 6), vispirms redzi visas piedāvātās kārtis, un tad izlem: paņemt vienu un **nomainīt** pret kādu savu kārti, vai **neņemt nevienu**.
+* Kārtis pieder **komandai**, un jebkurš komandas biedrs tās var izspēlēt. Citas komandas tavas kārtis neredz (redz tikai, cik to ir). Kārtis izskatās pēc izvēlētās tēmas (kārts mugurpuse rāda tēmas ainavu).
 * Kad kāds izspēlē kārti, **visi dabū paziņojumu**.
 
 | Efekts | Ko dara |
 |---|---|
 | Freeze | Cita komanda X minūtes nevar atzīmēties vai finišēt |
 | Swap task | Aizstāj vienu no kopīgajiem uzdevumiem ar jaunu (izvēlies, kuru) |
-| Extra card | Uzreiz vēl viena kārts |
-| Steal | Nozog nejaušu kārti no citas komandas |
+| Extra card | Uzreiz vēl viena kāršu izvēle (no 3 kārtīm) |
+| Steal | Nozog nejaušu kārti no citas komandas (ja roka pilna, vecākā tiek izmesta) |
 | Spy | X minūtes redzi visu komandu atrašanās vietu |
 | Shield | Pats bloķē nākamo pret tevi vērsto kārti |
 | Custom text | Jautra kārts ar tavu tekstu (izaicinājums citai komandai vai visiem) |

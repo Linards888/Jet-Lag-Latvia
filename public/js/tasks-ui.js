@@ -1,7 +1,7 @@
 import { html, useState } from '/vendor/preact.js';
 import { cityName, fileUrl, uploadPhoto, toast } from './api.js';
 import { t, tx } from './i18n.js';
-import { AsyncBtn, Chip, Dots, Empty, Field, Modal } from './ui.js';
+import { AsyncBtn, Chip, Empty, Field, Modal } from './ui.js';
 
 export const taskOf = (st, id) => st.settings.tasks.find((x) => x.id === id);
 export const teamOf = (st, id) => st.teams.find((x) => x.id === id) || { name: '?', color: '#888' };
@@ -9,7 +9,7 @@ export const teamOf = (st, id) => st.teams.find((x) => x.id === id) || { name: '
 // one task: collapsed title row, tap to read exactly how to do it
 export function TaskRow({ task, status, reward, action }) {
   return html`<details class="task ${status === 'done' ? 'done' : ''}"><summary><span class="t">${tx(task, 'title')}</span>
-    ${status && html`<${Chip} cls=${status === 'done' ? 'good' : ''}>${t('task.' + status)}<//>`}<${Dots} n=${task.difficulty} /></summary>
+    ${status && html`<${Chip} cls=${status === 'done' ? 'good' : ''}>${t('task.' + status)}<//>`}<span class="diffnum" title=${t('ed.diff_n', { n: task.difficulty })}>${task.difficulty}</span></summary>
     <div class="body"><p style="margin-top:0">${tx(task, 'desc')}</p>
       <div class="row sp"><span class="small dim">${reward}</span><span class="row" style="gap:8px">${action}</span></div></div></details>`;
 }

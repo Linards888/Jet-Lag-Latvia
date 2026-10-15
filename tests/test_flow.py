@@ -10,6 +10,7 @@ os.environ['JETLAG_PUSH'] = 'off'
 import cards  # noqa: E402
 import core  # noqa: E402
 import game as G  # noqa: E402
+import geo  # noqa: E402
 import hide  # noqa: E402
 from core import GameError  # noqa: E402
 
@@ -59,26 +60,70 @@ class RaceTests(unittest.TestCase):
         self.ta, self.tb = self.a['teamId'], self.b['teamId']
         self.d = self.g['data']
 
-    def test_territory_is_a_region_you_must_get_out_of(self):
+    def travel(self, member, tid, target):
+        """Walk a team to the novads `target`: one task in each novads on the way, then a check-in next door."""
+        g, race = self.g, G.MODES['race']
+        d = self.d['teams'][tid]
+        prev = {d['at']: None}
+        queue = [d['at']]
+        while queue:  # shortest path over the novads borders
+            cur = queue.pop(0)
+            for nb in sorted(geo.ADJ[cur]):
+                if nb not in prev:
+                    prev[nb] = cur
+                    queue.append(nb)
+        path, cur = [], target
+        while cur != d['at']:
+            path.append(cur)
+            cur = prev[cur]
+        for step in reversed(path):
+            if step in d['visited']:
+                d['at'] = step
+                continue
+            if d['at'] not in d['unlocked']:
+                act(self.store, g, member, 'complete_task', taskId=self.d['shared'][0])
+            act(self.store, g, member, 'checkin', muniId=step)
+
+    def test_novadi_unlock_by_doing_a_task_next_door(self):
         g, store, a = self.g, self.store, self.a
+        d = self.d['teams'][self.ta]
+        start = d['at']
+        self.assertEqual((d['visited'], d['unlocked']), ([start], []))
         row = team_row(G.view(g, a), self.ta)
-        self.assertEqual(row['reached'], ['kurzeme'])  # start territory
-        self.assertEqual(row['available'], ['zemgale'])
+        self.assertEqual((row['reached'], row['open']), (['kurzeme'], []))  # nothing open before a task is done here
+        nb = sorted(geo.ADJ[start])[0]
         with self.assertRaises(GameError):
-            act(store, g, a, 'checkin', cityId='daugavpils')  # not the next territory
+            act(store, g, a, 'checkin', muniId=nb)  # do a task first
+        act(store, g, a, 'complete_task', taskId=self.d['shared'][0])
+        self.assertEqual(d['unlocked'], [start])
+        self.assertEqual(team_row(G.view(g, a), self.ta)['open'], sorted(geo.ADJ[start]))
+        far = next(m for m in geo.MUNI_BY_ID if m != start and m not in geo.ADJ[start])
         with self.assertRaises(GameError):
-            act(store, g, a, 'checkin', cityId='liepaja')  # already in it
-        act(store, g, a, 'checkin', cityId='jelgava')  # no GPS needed
-        self.assertNotIn('claims', self.d)  # no bonus for being first
+            act(store, g, a, 'checkin', muniId=far)  # only the neighbours of where the task was done
+        act(store, g, a, 'checkin', muniId=nb)
+        self.assertEqual((d['at'], d['visited']), (nb, [start, nb]))
         with self.assertRaises(GameError):
-            act(store, g, a, 'finish', cityId='daugavpils')  # not all territories reached yet
-        for city in ('riga', 'valmiera', 'rezekne'):
-            act(store, g, a, 'checkin', cityId=city)
+            act(store, g, a, 'checkin', muniId=nb)  # already visited
+        with self.assertRaises(GameError):
+            act(store, g, a, 'checkin', muniId=sorted(geo.ADJ[nb] - {start})[0])  # nothing done in the new novads yet
+        self.assertIn('novads_open', keys(g, a))
+        json.dumps(G.view(g, self.b))
+
+    def test_every_region_then_the_finish_wins_the_race(self):
+        g, store, a = self.g, self.store, self.a
+        terr = g['settings']['muniTerritory']
+        with self.assertRaises(GameError):
+            act(store, g, a, 'finish', cityId='daugavpils')  # no regions visited yet
+        for region in ('zemgale', 'pieriga', 'vidzeme', 'latgale'):
+            target = next(m for m in sorted(geo.MUNI_BY_ID) if terr[m] == region and m not in self.d['teams'][self.ta]['visited'])
+            self.travel(a, self.ta, target)
+            self.assertIn(region, self.d['teams'][self.ta]['reached'])
+        self.travel(a, self.ta, geo.CITY_BY_ID['daugavpils']['muni'])
+        act(store, g, a, 'complete_task', taskId=self.d['shared'][0])  # (a task is not needed to finish)
         act(store, g, a, 'finish', cityId='daugavpils')
         self.assertTrue(self.d['teams'][self.ta]['finishedAt'])
         self.assertEqual(G.view(g, self.b)['g']['ranking'][0], self.ta)  # first to the finish wins, no clock involved
         self.assertTrue(core.verify_log(g))
-        json.dumps(G.view(g, self.b))
 
     def test_teams_are_just_colours(self):
         g = self.g
@@ -87,7 +132,7 @@ class RaceTests(unittest.TestCase):
         with self.assertRaises(GameError):
             act(self.store, g, self.a, 'team_join', cid='magenta')  # only the main colours
 
-    def test_shared_tasks_disappear_for_everybody_and_pay_cards(self):
+    def test_shared_tasks_disappear_for_everybody_and_give_one_pick(self):
         g, store, a, b = self.g, self.store, self.a, self.b
         shared = list(self.d['shared'])
         self.assertEqual(len(shared), 5)
@@ -100,21 +145,30 @@ class RaceTests(unittest.TestCase):
         self.assertEqual(len(now_shared), 5)
         self.assertNotIn(shared[0], now_shared)  # gone for the rival too
         self.assertEqual(now_shared[1:], shared[1:])  # and a new one took its place
-        self.assertEqual(len(self.d['teams'][self.ta]['cards']), 1 if task['difficulty'] <= 3 else 2)  # cards straight into the hand
-        self.assertEqual(len(self.d['teams'][self.tb]['cards']), 0)
+        picks = team_row(G.view(g, a), self.ta)['picks']
+        self.assertEqual(len(picks), 1)  # ONE pick per task...
+        self.assertEqual(len(picks[0]['options']), task['difficulty'])  # ...with as many cards to choose from as the task is hard
+        self.assertEqual(self.d['teams'][self.ta]['cards'], [])
+        self.assertNotIn('picks', team_row(G.view(g, b), self.ta))  # rivals cannot see them
         with self.assertRaises(GameError):
             act(store, g, b, 'complete_task', taskId=shared[0])  # too late
         with self.assertRaises(GameError):
             act(store, g, a, 'complete_task', taskId='nope')
-        self.assertNotIn('cards', team_row(G.view(g, b), self.ta))  # rivals cannot see the hand
-        self.assertEqual(team_row(G.view(g, b), self.ta)['cardCount'], len(self.d['teams'][self.ta]['cards']))
-        # hand limit 6: the oldest card goes when a new one arrives
+        # hand limit 6: a full hand means swapping a card or taking none
         d = self.d['teams'][self.ta]
         d['cards'] = []
         for _ in range(6):
             give(g, self.ta, 'shield')
+        d['picks'] = [{'pid': 'p1', 'options': cards.draw(g['settings']['cards'], 3)}, {'pid': 'p2', 'options': cards.draw(g['settings']['cards'], 3)}]
+        with self.assertRaises(GameError):
+            act(store, g, a, 'pick', pid='p1', index=0)
+        act(store, g, a, 'pick', pid='p1', index=0, discardIid=d['cards'][0]['iid'])
+        self.assertEqual(len(d['cards']), 6)
+        act(store, g, a, 'pick', pid='p2', **{'pass': True})
+        self.assertEqual((len(d['cards']), len(d['picks'])), (6, 0))
+        _stolen = give(g, self.tb, 'spy')  # a stolen card also respects the limit: the oldest one goes
         oldest = d['cards'][0]['iid']
-        G.MODES['race']._grant_cards(g, self.ta, 1)
+        act(store, g, a, 'play_card', iid=give(g, self.ta, 'steal'), targetTeamId=self.tb)
         self.assertEqual(len(d['cards']), 6)
         self.assertNotIn(oldest, [c['iid'] for c in d['cards']])
 
@@ -195,9 +249,9 @@ class RaceTests(unittest.TestCase):
         act(store, g, a, 'play_card', iid=swap, taskId=before[2])
         self.assertNotIn(before[2], self.d['shared'])
         self.assertEqual(len(self.d['shared']), 5)
-        d_a['cards'] = []
+        d_a['picks'] = []
         act(store, g, a, 'play_card', iid=give(g, self.ta, 'extra_card', n=2))
-        self.assertEqual(len(d_a['cards']), 2)
+        self.assertEqual([len(x['options']) for x in d_a['picks']], [3, 3])  # extra card = extra picks
 
 
 class RaceProofTests(unittest.TestCase):
@@ -212,13 +266,13 @@ class RaceProofTests(unittest.TestCase):
             act(store, g, a, 'complete_task', taskId=t0)  # a photo is required in this lobby setting
         fid = G.put_file(store, g, a, JPEG, 'members')
         act(store, g, a, 'complete_task', taskId=t0, fid=fid, note='done')
-        self.assertEqual(team_row(G.view(g, a), ta)['cards'], [])  # nothing until reviewed
+        self.assertEqual(team_row(G.view(g, a), ta)['picks'], [])  # nothing until reviewed
         self.assertIn(t0, g['data']['shared'])  # and the task stays for everybody until it is approved
         with self.assertRaises(GameError):
             act(store, g, a, 'review', teamId=ta, taskId=t0, verdict='approve')  # own team
         self.assertEqual(len(G.view(g, b)['g']['reviews']), 1)
         act(store, g, b, 'review', teamId=ta, taskId=t0, verdict='approve')
-        self.assertGreater(len(team_row(G.view(g, a), ta)['cards']), 0)
+        self.assertEqual(len(team_row(G.view(g, a), ta)['picks']), 1)
         self.assertNotIn(t0, g['data']['shared'])
 
 

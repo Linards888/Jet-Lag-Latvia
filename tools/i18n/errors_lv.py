@@ -177,4 +177,9 @@ E = {
     'Only the game creator can add admins': 'Adminus var pievienot tikai spēles izveidotājs',
     'That task is not available': 'Šis uzdevums nav pieejams',
     'Voting is only open outside the daily play window': 'Balsot var tikai ārpus dienas spēles loga',
+    'Choose a novads on the map': 'Izvēlies novadu kartē',
+    'You already visited {1}': 'Tu jau esi bijis: {1}',
+    'Complete a task in {1} first to open the neighbouring novadi': 'Vispirms izpildi uzdevumu {1}, lai atvērtu blakus esošos novadus',
+    '{1} does not border a novads where you completed a task': '{1} nerobežojas ar novadu, kurā tu izpildīji uzdevumu',
+    'The finish is not open to you yet: complete a task in a novads next to it': 'Finišs tev vēl nav atvērts: izpildi uzdevumu novadā blakus',
 }

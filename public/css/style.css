@@ -330,7 +330,6 @@ label { display: block; margin: calc(12px * var(--sp)) 0 5px; color: var(--dim);
 .bar { height: 10px; background: var(--accent-soft); border-radius: var(--r-btn); overflow: hidden; } .bar > i { display: block; height: 100%; border-radius: var(--r-btn); background: var(--accent); transition: width .7s var(--ease); }
 .list > * { padding: calc(10px * var(--sp)) 0; border-bottom: 1px dashed var(--line2); } .list > *:last-child { border-bottom: 0; }
 .pill-row { display: flex; gap: 6px; flex-wrap: wrap; }
-.dots { display: inline-flex; gap: 3px; vertical-align: middle; } .dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--line2); } .dots i.on { background: var(--accent); }
 .log { font-size: .88rem; } .log .t { color: var(--dim); font-size: .72rem; margin-right: 8px; font-variant-numeric: tabular-nums; }
 .log .override, .log .flag { color: var(--warn); } .log .penalty { color: var(--bad); } .log .announce { color: var(--ink-accent); font-weight: 700; }
 img.proof { max-width: 100%; border-radius: var(--r-sm); margin-top: 8px; max-height: 340px; border: 1px solid var(--line2); }
@@ -594,3 +593,18 @@ html button.tile.locked .tn { color: var(--dim); } html button.tile.on .tn { fon
 
 /* a fullscreen map is position: fixed, which a filter/transform on any ancestor would break */
 .card:has(.mapwrap.full), .stack:has(.mapwrap.full), .grid:has(.mapwrap.full) { -webkit-backdrop-filter: none; backdrop-filter: none; animation: none; transform: none; }
+
+/* task difficulty as a number */
+.diffnum { display: inline-grid; place-items: center; min-width: 26px; height: 26px; padding: 0 6px; border-radius: 99px; background: var(--accent-soft); color: var(--ink-accent); font: 800 .85rem var(--font-b); flex: none; }
+/* cards follow the theme: the back carries the theme's scenery, the face its colours and fonts */
+.cback { background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 78%, transparent), color-mix(in srgb, var(--accent-deep) 88%, transparent)), var(--art, none) var(--art-pos, center) / cover, var(--accent); }
+.gcard { background-image: linear-gradient(180deg, color-mix(in srgb, var(--accent) 9%, transparent), transparent 55%); }
+
+/* phones: the game bar gets two rows (name on top, status and buttons below) so nothing is squeezed out */
+@media (max-width: 430px) {
+  .topbar .in { flex-wrap: wrap; row-gap: 6px; }
+  .topbar .left { flex: 1 1 100%; }
+  .topbar .name { max-width: none; }
+  .topbar .right { flex: 1 1 100%; justify-content: flex-end; flex-wrap: wrap; }
+  .info-tiles { grid-template-columns: repeat(2, 1fr); }
+}
