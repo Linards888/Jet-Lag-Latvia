@@ -57,7 +57,7 @@ Nekādu cilņu nav: viss ir vienā logā. Augšējā labajā stūrī ir **zobrat
 
 * **Kā spēlēt**: visa īsā instrukcija vienā logā.
 * **Valoda**: angļu, latviešu, krievu. Valoda tiek atcerēta ierīcē. Spēles noklusējuma uzdevumi un kartiņas ir tulkoti uz angļu un krievu valodu (ukraiņu valodā tie rādās angliski). Tavi paša uzdevumi un kartiņas paliek tavā rakstītajā valodā.
-* **Izskats**: 8 tēmas visiem (varoņu tēmas ir tikai īpašniekam, skat. zemāk), kartes izskats un animācijas.
+* **Izskats**: tēmas atver, spēlējot (skat. zemāk), kartes izskats un animācijas.
 * **Paziņojumi**: telefona paziņojumi (skat. zemāk).
 * **Cilvēki** un **Admins** (tikai adminam): admin režīms, pauze, beigt spēli, paziņojums visiem, kartiņu un uzdevumu redaktors, žurnāls.
 
@@ -70,7 +70,15 @@ Augšā redzams **savienojuma indikators** (zaļš = savienots) un GPS stāvokli
 **Lai izveidotu vai pievienotos spēlei, vajadzīgs konts** (serveris to pārbauda). Konta dati: vārds, uzvārds, **lietotājvārds** (to redz visur, arī spēlēs; atsevišķi spēlē vārdu vairs nav jāievada) un parole (serveris glabā tikai jaukumu). Spēlei vienmēr pievienojies kā savs konts; jaunā ierīcē ieej kontā un pievienojies vēlreiz (PIN nav vajadzīgs).
 
 * **Profils:** avatārs ar rāmi, tituls, **apraksts, ko raksti pats**, līmenis, tēmas attēls ar stāstu, statistika. Visa izskata maiņa ir paslēpta aiz mazās pogas **Labot**. Publiskā saite `/#/u/<vārds>` (izslēdzama).
-* **Kolekcija:** četrās kategorijās (tēmas, tituli, avatāra rāmji, talismana izskati) ir pa **3 priekšmetiem katrā no 5 pakāpēm** (common, rare, epic, legendary, mythic), un katru atver, spēlējot (uzdevumi, teritorijas, uzvaras, noķeršanas, ikdienas sērija u.c.), no vieglām prasībām līdz ļoti grūtām. Common un rare redz prasību; epic un augstāk ir tikai **"?"** (zini, ka ir, bet ne kas vai kā); septiņi priekšmeti (tēmas Hanabi, 02, Toradora, Evangelion, Kill la Kill un tituli Otaku, Senpai Noticed Me) **nav redzami vispār**, kamēr tos neatver.
+* **Kolekcija:** piecās kategorijās (tēmas, tituli, avatāra rāmji, talismana izskati, **simboli**) ir pa **3 priekšmetiem katrā no 5 pakāpēm**, un katru atver, spēlējot. Pakāpes nosaka, ko redz citi:
+  * **Common (auto):** dots uzreiz. Tēmas Sakura, Sora, Latvija; rāmji Plain, Petal, Wave; izskati Peach, Rose, Lemon.
+  * **Rare un epic:** redzami, bet aizslēgti. **Uzspied uz aizslēgtā priekšmeta** (pogā Labot), un redzēsi, kā to dabūt, un cik tev trūkst (piem. "Uzvaras 0/3").
+  * **Legendary:** redzams tikai nosaukums (Kill la Kill, Hanabi, Hoshi, tituli Bearslayer, Otaku, Daughter of the Sun, Ghost Runner u.c.). Uzspiežot redzams "neviens nezina, kā to dabūt", bet to var nopelnīt.
+  * **Mythic:** **nav redzami vispār**, kamēr tos neatver (tēmas 02, Toradora, Evangelion; tituli The Chosen One, Senpai Noticed Me; rāmji Prism, Sakura storm, Galaxy; izskati Rainbow, Glitch, Cosmic; simboli Phoenix, Galaxy, Glitch).
+* **Simboli:** mazi simboli, ko var iegūt un **uzlikt zem sava vārda profilā (līdz 3)**.
+* **Newcomer:** pirmo nedēļu pēc reģistrācijas konts automātiski nēsā Newcomer titulu, un **šajā laikā titulu nevar mainīt**.
+* **Tēmas privātums:** profila logā (Labot) ir slēdzis **"Rādīt manu tēmu citiem"**; ja izslēgts, citi tavā publiskajā profilā tēmas attēlu neredz.
+* **Draugi:** poga **Friends** augšā: pievieno draugu pēc lietotājvārda (viņš pieņem pieprasījumu), raksti ziņas (tiek saglabātas) un sūti **ielūgumus uz savām spēlēm** (adresāts redz pogu Join). Ieslēgts punkts = draugs ir tiešsaistē; skaitlis uz pogas = nelasītas ziņas un pieprasījumi.
 * **Tēmu attēli:** katrai tēmai ir savs attēls sākuma ekrānā un profilā (bez animācijas). Mežam ir dzejnieka Raiņa izgriezts portrets (Wikimedia Commons, brīvi izmantojams); Toradora, Evangelion, Kill la Kill un 02 ir īpašnieka sniegtas bildes ar noņemtu fonu (`tools/prepare_art.py`); pārējām tēmām ir mani oriģināli zīmēti talismani (valis, buru laiva, karogs, mākonis, vāze, laterna, K-pop zvaigzne) un faila `public/img/bg` ainas. Īpašnieks katrai tēmai var **augšupielādēt savu attēlu** īpašnieka konsolē.
 * **Pret krāpšanu:** balvas par uzvarām dod tikai spēles ar vismaz diviem dažādiem kontiem un vismaz 15 minūtēm spēles laika, un xp no darbībām ir ierobežots dienā.
 
@@ -78,9 +86,10 @@ Augšā redzams **savienojuma indikators** (zaļš = savienots) un GPS stāvokli
 
 Īpašnieku norāda ar `JETLAG_OWNER=tavs_konta_vārds` (servisā) vai failā `data/owner.json`: `{"owner": "tavs_konta_vārds"}`. Tikai šis konts profilā redz pogu **Owner console**, un serveris katru pieprasījumu pārbauda vēlreiz. Īpašniekam pieder visi priekšmeti, un viņa profilā visiem redzama **"Site owner" atzīme ar saiti uz linardsb.xyz**.
 
-* **Visi konti:** saraksts, un katram var mainīt visu: vārdu, uzvārdu, aprakstu, tēmu, titulu, rāmi, talismanu, priekšmetus, statistiku, xp, **iestatīt jaunu paroli** (vecās ierīces tiek atslēgtas), pārdēvēt, atiestatīt, dzēst un **ieiet kā šis konts** (poga "Back to my account" atgriež).
+* **Visi konti:** saraksts, un katram var mainīt visu: vārdu, uzvārdu, aprakstu, tēmu, titulu, rāmi, talismanu, priekšmetus, statistiku, xp, **iestatīt jaunu paroli** (vecās ierīces tiek atslēgtas), pārdēvēt, atiestatīt, dzēst un **ieiet kā šis konts** (poga "Back to my account" atgriež). Meklēšana darbojas pēc lietotājvārda, vārda un uzvārda. **Īpašnieka kontu (Linards888) nevar ne dzēst, ne pārdēvēt.**
 * **Visas spēles:** saraksts ar kodu, režīmu, stāvokli un spēlētājiem. Katrai spēlei: pauze, atsākt, beigt, paziņojums; saraksts ar dalībniekiem un viņu kontiem; **darboties kā jebkurš dalībnieks** (spēlēt kārtis, korekcijas u.c.); **mainīt jebkuru vērtību** pēc ceļa (piem. `data.teams.<id>.bonusMin`); iestatīt dalībnieka PIN; neapstrādāti spēles dati; dzēst spēli.
-* **Paroles un PIN** netiek glabāti atklātā tekstā, tāpēc tos nevar parādīt, bet var nomainīt.
+* **Paroles un PIN** netiek glabāti atklātā tekstā (tikai sālīts jaukums), tāpēc **esošo paroli nevar parādīt nevienam, arī īpašniekam**. Vietā ir poga **Generate a new password**: izveido jaunu paroli, parāda to **vienu reizi**, un to nodod spēlētājam (vai ieraksti pats ar **Set password**).
+* **Špikeris:** konsoles augšā ir kartīte **Cheat sheet: all commands** ar visām komandām un piemēriem; tas pats ir failā [docs/OWNER-CHEATSHEET.md](docs/OWNER-CHEATSHEET.md) (ģenerē `python tools/make_cheatsheet.py` no `public/cheatsheet.json`).
 
 ---
 

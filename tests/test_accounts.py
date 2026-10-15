@@ -50,28 +50,83 @@ class AccountTests(unittest.TestCase):
         with self.assertRaises(GameError):
             self.A.update_profile(a, {'last': ''})
 
-    def test_catalog_has_three_items_per_tier_and_hides_secrets(self):
-        for kind in ('theme', 'title', 'frame', 'skin'):
+    def test_catalog_tiers_and_visibility(self):
+        by = {i['id']: i for i in loot.ITEMS}
+        # tiers exactly as specified by the owner
+        self.assertEqual({i['id'] for i in loot.ITEMS if i['kind'] == 'theme' and i['rarity'] == 'mythic'}, {'zerotwo', 'toradora', 'evangelion'})
+        self.assertEqual({i['id'] for i in loot.ITEMS if i['kind'] == 'theme' and i['rarity'] == 'legendary'}, {'killlakill', 'hanabi', 'hoshi'})
+        self.assertEqual({i['id'] for i in loot.ITEMS if i['kind'] == 'theme' and i['rarity'] == 'rare'}, {'kintsugi', 'mezs', 'okeans', 'saulriets', 'arcade'})
+        self.assertEqual(set(loot.BASE) & {i['id'] for i in loot.ITEMS if i['kind'] == 'theme'}, {'sakura', 'sora', 'latvija'})
+        self.assertEqual({i['id'] for i in loot.ITEMS if i['kind'] == 'title' and i['rarity'] == 'mythic'}, {'t_chosen', 't_senpai'})
+        for kind in ('frame', 'skin', 'symbol'):
             for tier in loot.RARITIES:
                 self.assertEqual(sum(1 for i in loot.ITEMS if i['kind'] == kind and i['rarity'] == tier), 3, (kind, tier))
         cat = {i['id']: i for i in loot.catalog()['items']}
-        self.assertIn('goal', cat['mezs'])  # common/rare: the requirement is visible
-        for secret in ('kintsugi', 'hanabi', 't_chosen'):
-            self.assertNotIn('goal', cat[secret])  # epic and above: only a "?" - no requirement is sent
-        self.assertEqual({i['id'] for i in loot.ITEMS if i['vis'] == 'hidden'}, {'hanabi', 'zerotwo', 'toradora', 'evangelion', 'killlakill', 't_otaku', 't_senpai'})
+        self.assertIn('goal', cat['mezs'])  # rare: the requirement can be looked up
+        self.assertIn('goal', cat['t_kokle'])  # epic too
+        self.assertEqual((by['hanabi']['vis'], 'goal' in cat['hanabi']), ('name', False))  # legendary: the name, but nobody is told how
+        self.assertEqual(by['toradora']['vis'], 'hidden')  # mythic: not shown at all
         self.assertTrue(all(i['stat'] in loot.STATS for i in loot.UNLOCKABLE))
 
     def test_everything_unlocks_by_playing(self):
         a, _ = reg(self.A, 'Grinder')
-        for stat, n in (('games_played', 1), ('tasks_done', 5)):
-            self.A.event(a['id'], stat, n)
-        self.assertTrue({'t_newcomer', 't_rupjmaize', 'f_wave'} <= set(a['inv']))
+        self.A.event(a['id'], 'tasks_done', 5)
+        self.assertIn('t_rupjmaize', a['inv'])  # 3 tasks: a rare title
+        self.assertNotIn('y_flame', a['inv'])  # the flame symbol needs 15
         self.assertNotIn('hanabi', a['inv'])
         self.A.event(a['id'], 'wins', 60)
-        self.assertTrue({'hanabi', 'killlakill', 't_senpai', 'f_prism', 's_rainbow'} <= set(a['inv']))
+        self.assertTrue({'hanabi', 'killlakill', 't_senpai', 'f_prism', 's_rainbow', 'y_glitch'} <= set(a['inv']))
         for _ in range(200):
             self.A.event(a['id'], 'tasks_done')
         self.assertLessEqual(a['earned']['n'], accounts.DAILY_EVENT_XP_CAP)  # farming xp is capped per day
+
+    def test_newcomer_week_symbols_and_theme_privacy(self):
+        a, _ = reg(self.A, 'Fresh')
+        self.assertEqual(a['equip']['title'], 't_newcomer')
+        with self.assertRaises(GameError):
+            self.A.equip(a, {'kind': 'title', 'item': None})  # locked for the first week
+        a['newcomerUntil'] = 0
+        self.A.equip(a, {'kind': 'title', 'item': None})
+        self.A.equip(a, {'kind': 'symbols', 'items': ['y_star', 'y_leaf', 'y_heart', 'y_star']})
+        self.assertEqual(a['equip']['symbols'], ['y_star', 'y_leaf', 'y_heart'])
+        with self.assertRaises(GameError):
+            self.A.equip(a, {'kind': 'symbols', 'items': ['y_crown']})  # not unlocked
+        self.A.equip(a, {'kind': 'theme', 'item': 'sora'})
+        self.assertEqual(self.A.public('fresh')['equip']['theme'], 'sora')
+        self.A.equip(a, {'kind': 'showTheme', 'value': False})
+        self.assertIsNone(self.A.public('fresh')['equip']['theme'])  # others no longer see it
+        self.assertEqual(self.A.me(a)['equip']['theme'], 'sora')  # the player still does
+
+    def test_friends_messages_and_invites(self):
+        x, _ = reg(self.A, 'Alice1')
+        y, _ = reg(self.A, 'Bobby2')
+        z, _ = reg(self.A, 'Carol3')
+        with self.assertRaises(GameError):
+            self.A.chat_send(x, 'Bobby2', 'hi')  # only friends can write
+        self.A.friend_action(x, {'action': 'request', 'name': 'bobby2'})
+        self.assertEqual([f['name'] for f in self.A.social(y)['incoming']], ['Alice1'])
+        self.A.friend_action(y, {'action': 'accept', 'name': 'Alice1'})
+        self.assertEqual([f['name'] for f in self.A.social(x)['friends']], ['Bobby2'])
+        self.A.chat_send(x, 'Bobby2', 'hello there')
+        self.A.chat_send(x, 'Bobby2', invite={'code': 'ab12c', 'game': 'My race', 'mode': 'race'})
+        self.assertEqual(self.A.social(y)['unread'], 2)
+        chat = self.A.chat_get(y, 'Alice1')['messages']
+        self.assertEqual([(m['k'], m['f']) for m in chat], [('text', 1), ('invite', 1)])
+        self.assertEqual(chat[1]['code'], 'AB12C')
+        self.assertEqual(self.A.social(y)['unread'], 0)  # reading clears it
+        with self.assertRaises(GameError):
+            self.A.chat_send(x, 'Bobby2', '  ')
+        self.A.friend_action(z, {'action': 'request', 'name': 'Alice1'})  # a request both ways is a yes
+        self.A.friend_action(x, {'action': 'request', 'name': 'Carol3'})
+        self.assertEqual(len(self.A.social(x)['friends']), 2)
+        self.A.friend_action(x, {'action': 'remove', 'name': 'Bobby2'})
+        self.assertEqual(self.A.social(y)['friends'], [])
+        os.environ['JETLAG_OWNER'] = 'alice1'
+        try:
+            self.A.owner_action(x, {'target': z['id'], 'action': 'delete'})
+            self.assertEqual(self.A.social(x)['friends'], [])  # a deleted account disappears from friend lists
+        finally:
+            del os.environ['JETLAG_OWNER']
 
     def test_equip_needs_ownership_and_owner_owns_everything(self):
         a, _ = reg(self.A, 'Look')
@@ -113,6 +168,10 @@ class AccountTests(unittest.TestCase):
             self.A.owner_action(me, {'target': user['id'], 'action': 'set_password', 'password': 'newpass9'})
             self.assertIsNone(self.A.by_token(utok))  # old sessions are dropped
             self.A.login('friend', 'newpass9')
+            made = self.A.owner_action(me, {'target': user['id'], 'action': 'generate_password'})['password']  # shown once, stored only as a hash
+            self.assertEqual(len(made), 12)
+            self.A.login('friend', made)
+            self.assertNotIn(made, str(user))
             tok = self.A.owner_action(me, {'target': user['id'], 'action': 'impersonate'})['token']
             self.assertIs(self.A.by_token(tok), user)
             self.A.owner_action(me, {'target': user['id'], 'action': 'rename', 'name': 'Renamed'})
@@ -131,7 +190,7 @@ class AccountTests(unittest.TestCase):
         a, tok = reg(self.A, 'Keep')
         a['dust'] = 5
         a['ach'] = {'x': 1}
-        a['equip'].update(font='mochiy', badges=['b_star'], frame='f_nonexistent')
+        a['equip'].update(font='mochiy', badges=['b_star'], frame='f_nonexistent', symbols=['y_star', 'nope'])
         a['inv']['mochiy'] = {'t': 0}
         a.pop('bio')
         self.A.flush(True)
@@ -139,7 +198,7 @@ class AccountTests(unittest.TestCase):
         self.assertEqual((b['name'], b['bio']), ('Keep', ''))
         self.assertTrue(all(k not in b for k in ('dust', 'ach')))
         self.assertNotIn('mochiy', b['inv'])
-        self.assertEqual(b['equip'], loot.DEFAULT_EQUIP)
+        self.assertEqual(b['equip'], dict(loot.DEFAULT_EQUIP, symbols=['y_star']))
 
     def test_account_join_rejoin_and_owner_game_control(self):
         store = core.Store(os.path.join(tempfile.mkdtemp(), 'g.json'))

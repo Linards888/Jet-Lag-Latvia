@@ -284,6 +284,7 @@ class Handler(BaseHTTPRequestHandler):
         a = A.by_token(token)
         if not a:
             raise GameError('Log in to your account first', 401)
+        A.touch(a)
         if sub == 'me' and method == 'GET':
             return self.send_json(A.me(a))
         if sub == 'logout' and method == 'POST':
@@ -291,6 +292,22 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json({'ok': True})
         if sub == 'owner':
             return self.owner_api(a, method, rest[1:])
+        if sub == 'social' and method == 'GET':
+            return self.send_json(A.social(a))
+        if sub == 'friends' and method == 'POST':
+            if not rate_ok(('friend', a['id']), 40, 3600):
+                raise GameError('Too many attempts - wait a few minutes', 429)
+            A.friend_action(a, self.json_body())
+            return self.send_json(A.social(a))
+        if sub == 'chat' and len(rest) == 2:
+            if method == 'GET':
+                return self.send_json(A.chat_get(a, rest[1]))
+            if method == 'POST':
+                if not rate_ok(('msg', a['id']), 30, 60):
+                    raise GameError('Too many attempts - wait a few minutes', 429)
+                b = self.json_body()
+                A.chat_send(a, rest[1], b.get('text'), b.get('invite'))
+                return self.send_json(A.chat_get(a, rest[1]))
         if sub == 'equip' and method == 'POST':
             A.equip(a, self.json_body())
             return self.send_json({'ok': True})

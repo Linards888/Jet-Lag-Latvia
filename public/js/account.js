@@ -76,10 +76,11 @@ if (token) setTimeout(() => loadMe(), 0);
 
 // ---------------------------------------------------------------- small pieces
 const RAR = ['common', 'rare', 'epic', 'legendary', 'mythic'];
-const KINDS = ['theme', 'title', 'frame', 'skin'];
+const KINDS = ['theme', 'title', 'frame', 'skin', 'symbol'];
 export function Avatar({ name, frame = 'f_plain', skin = 's_peach', size = 64 }) {
   return html`<span class="avatar ${frame}" data-skin=${skin} style=${{ width: size + 'px', height: size + 'px', fontSize: size * 0.42 + 'px' }}><b>${(name || '?').slice(0, 1).toUpperCase()}</b></span>`;
 }
+export const Sym = ({ id }) => html`<span class="symbol ${id}" title=${itemName(id)}></span>`;
 export const Tile = ({ it, owned, on, onClick, children }) => html`<button class="tile r-${it.rarity} ${owned ? '' : 'locked'} ${on ? 'on' : ''}" onClick=${onClick} disabled=${!onClick}>${children}</button>`;
 
 // ---------------------------------------------------------------- sign in / create account (a real account is needed to play)
@@ -122,6 +123,7 @@ export function Header({ v, own, onEdit }) {
   return html`<section class="card profile-head"><div class="row nw" style="gap:14px"><${Avatar} name=${v.name} frame=${e.frame} skin=${e.skin} size=${76} />
     <div class="grow"><div class="row sp nw"><h1 style="margin:0;font-size:1.5rem">${v.name}</h1>${own && html`<button class="ghost sm" onClick=${onEdit}>${t('acct.edit')}</button>`}</div>
       <div class="small dim">${v.first} ${v.last}</div>${e.title && html`<div class="title-tag">${itemName(e.title)}</div>`}
+      ${(e.symbols || []).length > 0 && html`<div class="row" style="gap:8px;margin:4px 0">${e.symbols.map((y) => html`<${Sym} id=${y} key=${y} />`)}</div>`}
       <div class="small dim">${t('acct.level', { n: v.level })}</div><i class="pbar"><u style=${{ width: Math.min(100, (v.xp - curLv) / (nextLv - curLv) * 100) + '%' }}></u></i></div></div>
     ${v.owner && html`<div class="mt"><${OwnerMark} /></div>`}${v.bio && html`<p class="bio">${v.bio}</p>`}</section>`;
 }
@@ -129,20 +131,31 @@ const Stats = ({ v }) => html`<section class="card"><div class="sec-h"><h2>${t('
 const themeName = (id) => (cat.byId[id] ? cat.byId[id].name : id);
 
 // ---------------------------------------------------------------- edit: bio, name and the whole look (hidden behind the small Edit button)
-const need = (it, v) => (it.stat ? html`<span class="small dim">${t('acct.s_' + it.stat)}: ${Math.min(statValue(v, it.stat), it.goal)}/${it.goal}</span>` : null);
+const SLOT = { symbol: 'symbols' };
 function EditModal({ v, onClose }) {
   const [f, setF] = useState({ first: v.first, last: v.last, bio: v.bio });
+  const [info, setInfo] = useState(null);  // the locked item whose unlock hint is shown
   const owned = ownedSet(), eq = v.equip;
-  const click = async (it) => { try { await equip({ kind: it.kind, item: it.kind === 'title' && eq.title === it.id ? null : it.id }); } catch (e) { toast(e.message); } };
+  const locked = v.newcomerUntil > Date.now() && !v.owner;
+  const click = async (it) => {
+    try {
+      if (it.kind === 'symbol') { const cur = eq.symbols || []; await equip({ kind: 'symbols', items: cur.includes(it.id) ? cur.filter((x) => x !== it.id) : [...cur, it.id].slice(-3) }); }
+      else await equip({ kind: it.kind, item: it.kind === 'title' && eq.title === it.id ? null : it.id });
+    } catch (e) { toast(e.message); }
+  };
+  const isOn = (it) => (it.kind === 'symbol' ? (eq.symbols || []).includes(it.id) : eq[it.kind] === it.id);
   const save = async () => { try { await saveProfile(f); toast(t('saved'), true); return true; } catch (e) { toast(e.message); return false; } };
+  const how = (it) => (it.vis === 'show' && it.stat ? t('acct.how_to', { what: t('acct.s_' + it.stat), n: it.goal, have: Math.min(statValue(v, it.stat), it.goal) }) : t('acct.how_unknown'));
   return html`<${Modal} title=${t('acct.edit')} onClose=${onClose} wide=${true}><div class="stack">
     <div class="row nw"><${Field} label=${t('acct.first')}><input value=${f.first} maxlength="24" onInput=${(e) => setF({ ...f, first: e.target.value })} /><//><${Field} label=${t('acct.last')}><input value=${f.last} maxlength="24" onInput=${(e) => setF({ ...f, last: e.target.value })} /><//></div>
     <${Field} label=${t('acct.bio')}><textarea rows="3" maxlength="300" value=${f.bio} placeholder=${t('acct.bio_ph')} onInput=${(e) => setF({ ...f, bio: e.target.value })}></textarea><//>
     <${AsyncBtn} class="sm" onClick=${save}>${t('acct.save')}<//>
-    ${KINDS.map((k) => html`<div key=${k}><p class="eyebrow mt">${t('acct.kind_' + k)}</p><div class="tiles compact">${cat.items.filter((i) => i.kind === k && (owned.has(i.id) || i.vis !== 'hidden')).sort((a, b) => RAR.indexOf(a.rarity) - RAR.indexOf(b.rarity)).map((it) => {
-      const has = owned.has(it.id), open = has || it.vis === 'show';
-      return html`<${Tile} key=${it.id} it=${it} owned=${has} on=${eq[k] === it.id} onClick=${has ? () => click(it) : null}><span class="tn">${open ? it.name : '?'}</span>${!has && open && need(it, v)}<//>`; })}</div></div>`)}
-    <${Switch} checked=${v.public} onChange=${(val) => equip({ kind: 'public', value: val })}>${t('acct.public')}<//></div><//>`;
+    ${KINDS.map((k) => html`<div key=${k}><p class="eyebrow mt">${t('acct.kind_' + k)}${k === 'symbol' ? ' (' + t('acct.max3') + ')' : ''}</p>${info && info.kind === k && html`<div class="callout"><b>${info.name}</b> (${t('rar.' + info.rarity)}): ${how(info)}</div>`}${k === 'title' && locked && html`<p class="small dim" style="margin:0 0 6px">${t('acct.newcomer_lock')}</p>`}
+      <div class="tiles compact">${cat.items.filter((i) => i.kind === k && (owned.has(i.id) || i.vis !== 'hidden')).sort((a, b) => RAR.indexOf(a.rarity) - RAR.indexOf(b.rarity)).map((it) => {
+        const has = owned.has(it.id);
+        return html`<${Tile} key=${it.id} it=${it} owned=${has} on=${isOn(it)} onClick=${has ? (k === 'title' && locked ? null : () => click(it)) : () => setInfo(it)}><span class="tn">${it.name}</span>${k === 'symbol' && html`<${Sym} id=${it.id} />`}<//>`; })}</div></div>`)}
+    <${Switch} checked=${v.public} onChange=${(val) => equip({ kind: 'public', value: val })}>${t('acct.public')}<//>
+    <${Switch} checked=${v.showTheme} onChange=${(val) => equip({ kind: 'showTheme', value: val })}>${t('acct.show_theme')}<//></div><//>`;
 }
 
 export function ProfilePage() {
@@ -169,5 +182,5 @@ export function PublicProfile({ name }) {
   const back = html`<div class="row"><button class="ghost icon" aria-label=${t('back')} onClick=${() => go('#/')}><${Ico} n="back" /></button></div>`;
   if (err) return html`<div class="wrap center"><${Mochi} size=${90} mood="sleepy" /><p class="dim">${err}</p><button onClick=${() => go('#/')}>${t('nf.back')}</button></div>`;
   if (!v || !cat) return html`<div class="wrap center"><${Mochi} size=${90} mood="sleepy" /></div>`;
-  return html`<div class="wrap">${back}<div class="stack mt"><${Header} v=${v} /><${ThemeCard} theme=${v.equip.theme || 'sakura'} name=${themeName(v.equip.theme || 'sakura')} /><${Stats} v=${v} /></div></div>`;
+  return html`<div class="wrap">${back}<div class="stack mt"><${Header} v=${v} />${v.equip.theme && html`<${ThemeCard} theme=${v.equip.theme} name=${themeName(v.equip.theme)} />`}<${Stats} v=${v} /></div></div>`;
 }

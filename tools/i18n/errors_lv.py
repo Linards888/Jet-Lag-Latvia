@@ -165,4 +165,10 @@ E = {
     'You do not own that': 'Tev tā nav',
     'Log in to your account first': 'Vispirms pieslēdzies savam kontam',
     '{1} must be 1-24 characters': '{1} jābūt 1-24 simbolus garam',
+    'Your Newcomer title is locked for the first week': 'Newcomer tituls pirmo nedēļu ir bloķēts',
+    'Already friends': 'Jūs jau esat draugi',
+    'Too many friend requests': 'Pārāk daudz draudzības pieprasījumu',
+    'You can only message friends': 'Rakstīt var tikai draugiem',
+    'Empty message': 'Tukša ziņa',
+    'The owner account cannot be renamed or deleted': 'Īpašnieka kontu nevar pārdēvēt vai dzēst',
 }

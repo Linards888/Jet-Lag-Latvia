@@ -551,3 +551,22 @@ html button.tile.locked .tn { color: var(--dim); } html button.tile.on .tn { fon
 [data-theme="sakura"] { --art: url(/img/sakura.jpg); --art-pos: center top; --art-size: 100% auto; --art-op: .55; --art-mask: linear-gradient(#000 0, #000 12%, transparent 34%); }
 .portrait.cut { border: 0; box-shadow: none; background: none; object-fit: contain; filter: drop-shadow(0 8px 14px rgba(0,0,0,.35)); }
 .theme-hero .portrait.cut { width: auto; height: 210px; } .theme-card .portrait.cut { width: auto; height: 150px; }
+
+/* symbols (shown under the profile name) */
+.symbol { display: inline-block; width: 22px; height: 22px; background: var(--accent); flex: none; }
+.symbol.y_star { clip-path: polygon(50% 0, 62% 36%, 100% 38%, 70% 60%, 80% 100%, 50% 76%, 20% 100%, 30% 60%, 0 38%, 38% 36%); background: #f2b84b; } .symbol.y_leaf { border-radius: 0 100% 0 100%; background: #3aa655; }
+.symbol.y_heart { background: #e2457f; clip-path: path('M11 21C2 15 0 9 4 5c3-3 6-1 7 2 1-3 4-5 7-2 4 4 2 10-7 16z'); }
+.symbol.y_flame { border-radius: 50% 0 50% 50%; transform: rotate(-45deg) scale(.85); background: linear-gradient(#ffb347, #ff4d2e); } .symbol.y_wave { border-radius: 50%; background: repeating-radial-gradient(circle, #4aa8e8 0 3px, #cfeaff 3px 6px); }
+.symbol.y_moon { border-radius: 50%; background: radial-gradient(circle at 70% 40%, transparent 42%, #e9e6ff 43%); filter: drop-shadow(0 0 4px #9d92ff); }
+.symbol.y_crown { clip-path: polygon(0 100%, 0 25%, 25% 55%, 50% 0, 75% 55%, 100% 25%, 100% 100%); background: linear-gradient(#ffe08a, #d9a02f); } .symbol.y_comet { border-radius: 50% 50% 50% 0; transform: rotate(-30deg); background: linear-gradient(135deg, #fff, #7ad0ff 55%, transparent); box-shadow: 0 0 10px #7ad0ff; }
+.symbol.y_sun { border-radius: 50%; background: radial-gradient(circle, #fff6c2 30%, #ffb800 60%); box-shadow: 0 0 0 3px rgba(255,184,0,.35), 0 0 14px #ffb800; } .symbol.y_void { border-radius: 50%; background: radial-gradient(circle, #000 35%, #6a2cff 62%, transparent 70%); box-shadow: 0 0 14px #6a2cff; }
+.symbol.y_gem { clip-path: polygon(25% 0, 75% 0, 100% 35%, 50% 100%, 0 35%); background: linear-gradient(135deg, #9ff, #4aa8ff 50%, #b06bff); } .symbol.y_bolt { clip-path: polygon(60% 0, 20% 55%, 48% 55%, 36% 100%, 82% 40%, 54% 40%); background: linear-gradient(#fff6a0, #ffb800); }
+.symbol.y_phoenix { clip-path: polygon(50% 0, 62% 30%, 100% 20%, 74% 52%, 90% 92%, 50% 70%, 10% 92%, 26% 52%, 0 20%, 38% 30%); background: linear-gradient(#ffe08a, #ff4d2e); animation: skin-rainbow 6s linear infinite; }
+.symbol.y_galaxy { border-radius: 50%; background: conic-gradient(from 0deg, #2a0b5a, #6a2cff, #38c8ff, #ff5fa8, #2a0b5a); box-shadow: 0 0 12px rgba(106,44,255,.7); animation: spin-ring 8s linear infinite; }
+.symbol.y_glitch { clip-path: polygon(0 0, 100% 0, 100% 40%, 70% 40%, 70% 60%, 100% 60%, 100% 100%, 0 100%); background: linear-gradient(90deg, #ff3d6e, #3df2ff); animation: skin-rainbow 3s linear infinite; }
+.tile .symbol { margin-top: 2px; }
+/* friends and messages */
+.friend-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; } .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--line2); flex: none; } .dot.on { background: var(--good); box-shadow: 0 0 6px var(--good); }
+.count { display: inline-block; min-width: 18px; padding: 0 6px; border-radius: 99px; background: var(--bad); color: #fff; font-size: .7rem; font-weight: 800; text-align: center; line-height: 18px; }
+.chat { display: flex; flex-direction: column; gap: 6px; max-height: 42vh; overflow-y: auto; padding: 4px 2px; } .msg { max-width: 82%; padding: 7px 11px; border-radius: 14px; background: var(--surface2); border: 1px solid var(--line); overflow-wrap: anywhere; } .msg.me { align-self: flex-end; background: var(--accent-soft); }
+.msg small { display: block; opacity: .6; font-size: .66rem; } .msg.invite { border-style: dashed; }

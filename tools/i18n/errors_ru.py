@@ -165,4 +165,10 @@ E = {
     'You do not own that': 'У вас этого нет',
     'Log in to your account first': 'Сначала войдите в аккаунт',
     '{1} must be 1-24 characters': '{1}: от 1 до 24 символов',
+    'Your Newcomer title is locked for the first week': 'Титул Newcomer заблокирован на первую неделю',
+    'Already friends': 'Вы уже друзья',
+    'Too many friend requests': 'Слишком много запросов в друзья',
+    'You can only message friends': 'Писать можно только друзьям',
+    'Empty message': 'Пустое сообщение',
+    'The owner account cannot be renamed or deleted': 'Аккаунт владельца нельзя переименовать или удалить',
 }

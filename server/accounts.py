@@ -22,6 +22,9 @@ DAY_MS = 86400000
 DAILY_EVENT_XP_CAP = 400
 NAME_OK = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-')
 BIO_MAX = 300
+MSG_MAX, CHAT_KEEP, FRIENDS_MAX, PENDING_MAX = 500, 200, 100, 30
+ONLINE_MS = 120000
+PW_ALPHABET = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 
 
 def _now():
@@ -47,6 +50,7 @@ class Accounts:
     def __init__(self, path=None):
         self.path = path or os.path.join(core.DATA_DIR, 'accounts.json')
         self.users, self.names, self.tokens = {}, {}, {}
+        self.seen = {}  # account id -> last time it used the site (memory only)
         self._dirty = False
         self._load()
 
@@ -64,8 +68,11 @@ class Accounts:
                 a.pop(k, None)
             a['inv'] = {i: v for i, v in a.get('inv', {}).items() if i in loot.BY_ID}
             eq = a.get('equip', {})
-            a['equip'] = {k: (eq.get(k) if eq.get(k) in loot.BY_ID else v) for k, v in loot.DEFAULT_EQUIP.items()}
-            for k, v in (('first', ''), ('last', ''), ('bio', ''), ('earned', {'day': 0, 'n': 0})):
+            a['equip'] = {'theme': eq.get('theme') if eq.get('theme') in loot.BY_ID else 'sakura', 'frame': eq.get('frame') if eq.get('frame') in loot.BY_ID else 'f_plain',
+                          'skin': eq.get('skin') if eq.get('skin') in loot.BY_ID else 's_peach', 'title': eq.get('title') if eq.get('title') in loot.BY_ID else None,
+                          'symbols': [x for x in eq.get('symbols', []) if x in loot.BY_ID][:loot.SYMBOLS_MAX]}
+            for k, v in (('first', ''), ('last', ''), ('bio', ''), ('earned', {'day': 0, 'n': 0}), ('newcomerUntil', 0), ('showTheme', True),
+                         ('friends', {}), ('reqIn', []), ('reqOut', []), ('chats', {}), ('unread', {})):
                 a.setdefault(k, v)
             self.names[a['name'].lower()] = uid
             for h in a['tokens']:
@@ -120,7 +127,8 @@ class Accounts:
             uid = core.new_id(5)
             salt = secrets.token_hex(8)
             a = {'id': uid, 'name': name, 'first': first, 'last': last, 'bio': '', 'salt': salt, 'pw': self._hash_pw(salt, pw), 'tokens': [], 'created': _now(),
-                 'inv': {}, 'stats': {}, 'modes': [], 'equip': _clean(loot.DEFAULT_EQUIP), 'xp': 0,
+                 'inv': {}, 'stats': {}, 'modes': [], 'equip': _clean(loot.DEFAULT_EQUIP), 'xp': 0, 'newcomerUntil': _now() + loot.NEWCOMER_DAYS * DAY_MS, 'showTheme': True,
+                 'friends': {}, 'reqIn': [], 'reqOut': [], 'chats': {}, 'unread': {},
                  'streak': {'day': 0, 'n': 0, 'best': 0}, 'pending': [], 'log': [], 'earned': {'day': 0, 'n': 0}, 'public': True}
             self.users[uid] = a
             self.names[name.lower()] = uid
@@ -285,6 +293,8 @@ class Accounts:
     def equip(self, a, p):
         with LOCK:
             e, kind, item = a['equip'], p.get('kind'), p.get('item')
+            if kind == 'title' and a['newcomerUntil'] > _now() and not self.is_owner(a):
+                raise GameError('Your Newcomer title is locked for the first week')
             if kind in ('theme', 'title', 'frame', 'skin'):
                 if item is None:
                     if kind != 'title':
@@ -295,11 +305,117 @@ class Accounts:
                     if not it or it['kind'] != kind or not self.owns(a, item):
                         raise GameError('You do not own that')
                     e[kind] = item
+            elif kind == 'symbols':
+                items = list(dict.fromkeys(x for x in (p.get('items') or []) if isinstance(x, str)))[:loot.SYMBOLS_MAX]
+                if any(loot.BY_ID.get(x, {}).get('kind') != 'symbol' or not self.owns(a, x) for x in items):
+                    raise GameError('You do not own that')
+                e['symbols'] = items
             elif kind == 'public':
                 a['public'] = bool(p.get('value'))
+            elif kind == 'showTheme':
+                a['showTheme'] = bool(p.get('value'))
             else:
                 raise GameError('Not found')
             self._mark()
+
+    # ---------------------------------------------------------- friends, messages and game invitations
+    def _by_name(self, name):
+        return self.users.get(self.names.get(str(name or '').strip().lower()))
+
+    def touch(self, a):
+        self.seen[a['id']] = _now()
+
+    def _brief(self, u, me=None):
+        return {'name': u['name'], 'first': u['first'], 'last': u['last'], 'online': _now() - self.seen.get(u['id'], 0) < ONLINE_MS,
+                'unread': me['unread'].get(u['id'], 0) if me else 0}
+
+    def social(self, a):
+        with LOCK:
+            out = {'friends': [], 'incoming': [], 'outgoing': [], 'unread': sum(a['unread'].values())}
+            for key, dst in (('friends', 'friends'), ('reqIn', 'incoming'), ('reqOut', 'outgoing')):
+                for uid in list(a[key]):
+                    u = self.users.get(uid)
+                    if u:
+                        out[dst].append(self._brief(u, a))
+            return out
+
+    def friend_action(self, a, p):
+        with LOCK:
+            act, u = p.get('action'), self._by_name(p.get('name'))
+            if not u or u is a:
+                raise GameError('Not found')
+            uid, me = u['id'], a['id']
+            if act == 'request':
+                if uid in a['friends']:
+                    raise GameError('Already friends')
+                if me in u['reqOut'] or uid in a['reqIn']:  # they already asked: that is a yes
+                    return self.friend_action(a, {'action': 'accept', 'name': u['name']})
+                if len(a['friends']) >= FRIENDS_MAX or len(a['reqOut']) >= PENDING_MAX or len(u['reqIn']) >= PENDING_MAX:
+                    raise GameError('Too many friend requests')
+                if uid not in a['reqOut']:
+                    a['reqOut'].append(uid)
+                    u['reqIn'].append(me)
+            elif act == 'accept':
+                if uid not in a['reqIn']:
+                    raise GameError('Not found')
+                a['reqIn'].remove(uid)
+                u['reqOut'] = [x for x in u['reqOut'] if x != me]
+                a['friends'][uid] = u['friends'][me] = _now()
+            elif act in ('decline', 'cancel'):
+                a['reqIn'] = [x for x in a['reqIn'] if x != uid]
+                a['reqOut'] = [x for x in a['reqOut'] if x != uid]
+                u['reqIn'] = [x for x in u['reqIn'] if x != me]
+                u['reqOut'] = [x for x in u['reqOut'] if x != me]
+            elif act == 'remove':
+                for x, y in ((a, uid), (u, me)):
+                    x['friends'].pop(y, None)
+                    x['chats'].pop(y, None)
+                    x['unread'].pop(y, None)
+            else:
+                raise GameError('Not found')
+            self._mark()
+
+    def _friend(self, a, name):
+        u = self._by_name(name)
+        if not u or u['id'] not in a['friends']:
+            raise GameError('You can only message friends')
+        return u
+
+    def chat_get(self, a, name):
+        with LOCK:
+            u = self._friend(a, name)
+            if a['unread'].pop(u['id'], None):
+                self._mark()
+            return {'with': self._brief(u), 'messages': a['chats'].get(u['id'], [])[-100:]}
+
+    def chat_send(self, a, name, text=None, invite=None):
+        # text message, or a game invitation {code, game, mode} (the receiver gets a Join button)
+        with LOCK:
+            u = self._friend(a, name)
+            if invite:
+                msg = {'k': 'invite', 'code': str(invite.get('code') or '')[:5].upper(), 'game': str(invite.get('game') or '')[:40], 'mode': str(invite.get('mode') or '')[:8]}
+                if len(msg['code']) != 5:
+                    raise GameError('Not found')
+            else:
+                text = str(text or '').strip()[:MSG_MAX]
+                if not text:
+                    raise GameError('Empty message')
+                msg = {'k': 'text', 'x': text}
+            now = _now()
+            for who, other, frm in ((a, u, 0), (u, a, 1)):
+                chat = who['chats'].setdefault(other['id'], [])
+                chat.append(dict(msg, f=frm, t=now))
+                del chat[:-CHAT_KEEP]
+            u['unread'][a['id']] = u['unread'].get(a['id'], 0) + 1
+            self._mark()
+
+    def _purge(self, a):
+        # an account is gone: remove it from everybody's friends, requests and chats
+        for u in self.users.values():
+            for k in ('reqIn', 'reqOut'):
+                u[k] = [x for x in u[k] if x != a['id']]
+            for k in ('friends', 'chats', 'unread'):
+                u[k].pop(a['id'], None)
 
     # ---------------------------------------------------------- views
     def _common(self, a):
@@ -307,14 +423,14 @@ class Accounts:
         return {
             'name': a['name'], 'first': a['first'], 'last': a['last'], 'bio': a['bio'], 'owner': self.is_owner(a),
             'level': 1 + int((a['xp'] / 60) ** 0.5), 'xp': a['xp'], 'created': a['created'], 'equip': a['equip'],
-            'stats': dict(a['stats'], modes=len(a['modes']), streak=a['streak']['best']), 'owned': owned,
+            'stats': dict(a['stats'], modes=len(a['modes']), streak=a['streak']['best']), 'owned': owned, 'showTheme': a['showTheme'],
         }
 
     def me(self, a):
         with LOCK:
             changed = self._daily(a, _now()) or bool(a['pending'])
             v = self._common(a)
-            v.update({'id': a['id'], 'public': a['public'], 'streakNow': a['streak']['n'], 'pending': a['pending']})
+            v.update({'id': a['id'], 'public': a['public'], 'streakNow': a['streak']['n'], 'pending': a['pending'], 'newcomerUntil': a['newcomerUntil']})
             a['pending'] = []
             if changed:
                 self._mark()
@@ -325,14 +441,17 @@ class Accounts:
             a = self.users.get(self.names.get(str(name or '').strip().lower()))
             if not a or not a['public']:
                 raise GameError('Not found', 404)
-            return self._common(a)
+            v = self._common(a)
+            if not a['showTheme']:  # the player hides their theme from others
+                v['equip'] = dict(v['equip'], theme=None)
+            return v
 
     # ---------------------------------------------------------- owner: everything about every account
     def owner_list(self, actor):
         self.require_owner(actor)
         with LOCK:
             return [{'id': a['id'], 'name': a['name'], 'first': a['first'], 'last': a['last'], 'level': 1 + int((a['xp'] / 60) ** 0.5), 'created': a['created'],
-                     'items': len(a['inv']), 'devices': len(a['tokens']), 'public': a['public'], 'stats': a['stats']}
+                     'items': len(a['inv']), 'devices': len(a['tokens']), 'friends': len(a['friends']), 'public': a['public'], 'stats': a['stats'], 'owner': self.is_owner(a)}
                     for a in sorted(self.users.values(), key=lambda x: x['created'])]
 
     def owner_view(self, actor, uid):
@@ -353,7 +472,7 @@ class Accounts:
                 raise GameError('Not found', 404)
             act, out = p.get('action'), {}
             if act in ('rename', 'delete') and self.is_owner(a):
-                raise GameError('Not found')  # the owner account can never be renamed away or deleted (its name would be free to take)
+                raise GameError('The owner account cannot be renamed or deleted')  # its name would otherwise be free to take
             if act == 'item':
                 it = p.get('id')
                 if it not in loot.BY_ID or it in loot.BASE:
@@ -384,9 +503,10 @@ class Accounts:
                     raise GameError('Not found')
             elif act == 'profile':
                 self.update_profile(a, p)
-            elif act == 'set_password':
-                pw = str(p.get('password') or '')
+            elif act in ('set_password', 'generate_password'):
+                pw = ''.join(secrets.choice(PW_ALPHABET) for _ in range(12)) if act == 'generate_password' else str(p.get('password') or '')
                 self._check_pw(pw)
+                out['password'] = pw  # shown once to the owner, who can hand it over; the stored value is only a hash
                 a['salt'] = secrets.token_hex(8)
                 a['pw'] = self._hash_pw(a['salt'], pw)
                 for h in a['tokens']:
@@ -401,8 +521,9 @@ class Accounts:
                 a['name'] = name
                 self.names[name.lower()] = a['id']
             elif act == 'reset':
-                a.update(inv={}, stats={}, modes=[], xp=0, equip=_clean(loot.DEFAULT_EQUIP), streak={'day': 0, 'n': 0, 'best': 0}, log=[], pending=[], bio='')
+                a.update(inv={}, stats={}, modes=[], xp=0, equip=_clean(loot.DEFAULT_EQUIP), streak={'day': 0, 'n': 0, 'best': 0}, log=[], pending=[], bio='', newcomerUntil=0)
             elif act == 'delete':
+                self._purge(a)
                 self.users.pop(a['id'], None)
                 self.names.pop(a['name'].lower(), None)
                 for h in a['tokens']:

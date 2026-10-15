@@ -17,6 +17,7 @@ function AccountPanel({ id, onChange }) {
   const [stat, setStat] = useState('tasks_done'), [val, setVal] = useState('100');
   const [pw, setPw] = useState(''), [name, setName] = useState('');
   const [pf, setPf] = useState({ first: '', last: '', bio: '' });
+  const [shown, setShown] = useState(null);  // a freshly generated password (shown once)
   const run = (body, ok) => guard(async () => { const r = await call('POST', '/owner/accounts/' + id, body); setV(r.view); onChange && onChange(); return r; }, ok);
   useEffect(() => { call('GET', '/owner/accounts/' + id).then((x) => { setV(x); setPf({ first: x.first, last: x.last, bio: x.bio }); }).catch((e) => toast(e.message)); }, [id]);
   if (!v) return html`<p class="dim small">...</p>`;
@@ -37,11 +38,13 @@ function AccountPanel({ id, onChange }) {
       <input type="number" value=${val} onInput=${(e) => setVal(e.target.value)} /><${AsyncBtn} class="sm" onClick=${() => run({ action: 'stat', stat, value: num(val) }, t('saved'))}>${t('owner.set')}<//>
       <${AsyncBtn} class="sm ghost" onClick=${() => run({ action: 'xp', value: num(val) }, t('saved'))}>XP (${v.xp})<//></div>
     <div class="row nw"><input placeholder=${t('owner.new_password')} value=${pw} onInput=${(e) => setPw(e.target.value)} /><${AsyncBtn} class="sm" disabled=${pw.length < 6} onClick=${async () => { if (await run({ action: 'set_password', password: pw }, t('saved'))) setPw(''); }}>${t('owner.set_password')}<//></div>
+    <${AsyncBtn} class="sm" onClick=${async () => { const r = await run({ action: 'generate_password' }); if (r && r.password) setShown(r.password); }}>${t('owner.generate_password')}<//>
+    ${shown && html`<div class="callout"><span class="small">${t('owner.password_once')}</span><div class="mono" style="font-size:1.3rem;font-weight:800;user-select:all">${shown}</div></div>`}
     <p class="small dim" style="margin:0">${t('owner.hash_note')}</p>
-    <div class="row nw"><input placeholder=${t('owner.new_name')} value=${name} onInput=${(e) => setName(e.target.value)} /><${AsyncBtn} class="sm" disabled=${name.length < 3} onClick=${async () => { if (await run({ action: 'rename', name }, t('saved'))) setName(''); }}>${t('owner.rename')}<//></div>
+    ${!v.owner && html`<div class="row nw"><input placeholder=${t('owner.new_name')} value=${name} onInput=${(e) => setName(e.target.value)} /><${AsyncBtn} class="sm" disabled=${name.length < 3} onClick=${async () => { if (await run({ action: 'rename', name }, t('saved'))) setName(''); }}>${t('owner.rename')}<//></div>`}
     <div class="row" style="flex-wrap:wrap"><${AsyncBtn} class="sm" onClick=${async () => { const r = await guard(() => call('POST', '/owner/accounts/' + id, { action: 'impersonate' })); if (r && r.token) switchToToken(r.token); }}>${t('owner.login_as')}<//>
       <${AsyncBtn} class="sm danger" confirm=${t('acct.reset_confirm')} onClick=${() => run({ action: 'reset' }, t('saved'))}>${t('acct.reset')}<//>
-      <${AsyncBtn} class="sm danger" confirm=${t('owner.delete_confirm')} onClick=${async () => { if (await run({ action: 'delete' })) onChange && onChange(true); }}>${t('owner.delete')}<//></div></div>`;
+      ${!v.owner && html`<${AsyncBtn} class="sm danger" confirm=${t('owner.delete_confirm')} onClick=${async () => { if (await run({ action: 'delete' })) onChange && onChange(true); }}>${t('owner.delete')}<//>`}</div></div>`;
 }
 
 function Accounts() {
@@ -50,7 +53,8 @@ function Accounts() {
   const [q, setQ] = useState('');
   const refresh = (closed) => { if (closed === true) setOpen(null); call('GET', '/owner/accounts').then(setList).catch((e) => toast(e.message)); };
   useEffect(refresh, []);
-  const rows = (list || []).filter((a) => a.name.toLowerCase().includes(q.toLowerCase()));
+  const needle = q.trim().toLowerCase();
+  const rows = (list || []).filter((a) => !needle || `${a.name} ${a.first} ${a.last} ${a.first} ${a.last}`.toLowerCase().includes(needle));
   return html`<section class="card"><div class="sec-h"><h2>${t('owner.accounts')}</h2><span class="chip plain">${list ? list.length : '...'}</span></div>
     <input placeholder=${t('owner.search')} value=${q} onInput=${(e) => setQ(e.target.value)} />
     <div class="list mt">${rows.map((a) => html`<div key=${a.id} class="owner-row"><div class="row sp nw" onClick=${() => setOpen(open === a.id ? null : a.id)} style="cursor:pointer"><span><b>${a.name}</b> <span class="small dim">${a.first} ${a.last} - ${t('acct.level', { n: a.level })} - ${a.items} ${t('owner.items_short')} - ${fmtDateTime(a.created)}</span></span><${Ico} n=${open === a.id ? 'close' : 'back'} size=${14} /></div>
@@ -123,11 +127,20 @@ function ThemeArt() {
     <button class="sm ghost mt" onClick=${() => send(new Blob([]))}>${t('owner.art_remove')}</button></section>`;
 }
 
+// every command with examples, loaded from public/cheatsheet.json (also written to docs/OWNER-CHEATSHEET.md by tools/make_cheatsheet.py)
+function CheatSheet() {
+  const [sheet, setSheet] = useState(null);
+  useEffect(() => { fetch('/cheatsheet.json').then((r) => r.json()).then(setSheet).catch(() => {}); }, []);
+  return html`<section class="card"><details><summary class="sec-h"><h2>${t('owner.cheatsheet')}</h2></summary>
+    ${(sheet || []).map((sec) => html`<div key=${sec.title}><p class="eyebrow mt">${sec.title}</p>${sec.text && html`<p class="small">${sec.text}</p>`}
+      ${sec.rows.length > 0 && html`<div class="list">${sec.rows.map(([k, ex, what]) => html`<div class="small" key=${k} style="margin-bottom:6px"><b class="mono">${k}</b> <span class="mono dim">${ex}</span><br />${what}</div>`)}</div>`}</div>`)}</details></section>`;
+}
+
 export function OwnerPage() {
   const { me: m } = useAccount();
   useEffect(() => { loadCatalog().then(() => loadMe(true)); }, []);
   if (!getCatalog() || !m) return html`<div class="wrap center"><${Mochi} size=${90} mood="sleepy" /></div>`;
   if (!m.owner) return html`<div class="wrap center"><${Mochi} size=${90} mood="sleepy" /><p class="dim">${t('nf.title')}</p><button onClick=${() => go('#/')}>${t('nf.back')}</button></div>`;
   return html`<div class="wrap"><div class="row"><button class="ghost icon" aria-label=${t('back')} onClick=${() => go('#/me')}><${Ico} n="back" /></button><h2 style="margin:0">${t('owner.console')}</h2></div>
-    <div class="stack mt"><${Accounts} /><${Games} /><${ThemeArt} /></div></div>`;
+    <div class="stack mt"><${CheatSheet} /><${Accounts} /><${Games} /><${ThemeArt} /></div></div>`;
 }
