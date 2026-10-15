@@ -413,3 +413,6 @@ html button.tile.locked { opacity: .55; filter: grayscale(.55); } html button.ti
 .radar { display: grid; grid-template-columns: 1fr 90px auto; gap: 8px; align-items: center; margin: 4px 0; } .radar i { display: block; height: 7px; border-radius: 9px; background: var(--line); overflow: hidden; } .radar u { display: block; height: 100%; background: var(--accent); }
 .swatch.locked { opacity: .55; filter: grayscale(.5); }
 .set-sec { padding: 12px 0; border-top: 1px dashed var(--line2); } .set-sec:first-of-type { border-top: 0; } .set-sec h3 { margin: 0 0 8px; font-size: .78rem; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+.fold > summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; list-style: none; } .fold > summary::-webkit-details-marker { display: none; }
+.fold > summary h3 { margin: 0; } .fold > summary::after { content: ''; flex: none; width: 9px; height: 9px; border-right: 2px solid var(--dim); border-bottom: 2px solid var(--dim); transform: rotate(45deg); transition: transform .2s var(--ease); margin-left: 4px; }
+.fold[open] > summary::after { transform: rotate(-135deg); } .fold-body { margin-top: 12px; }

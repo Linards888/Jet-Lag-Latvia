@@ -1,7 +1,7 @@
 import { html, useState } from '/vendor/preact.js';
 import { t } from './i18n.js';
 import { Seg, Switch } from './ui.js';
-import { useAccount, ownedSet } from './account.js';
+import { useAccount, ownedSet, equip, accountToken } from './account.js';
 
 // Each theme is a complete look (shape, type, background) - see css/style.css. The preview shows its personality.
 export const THEMES = [
@@ -58,7 +58,7 @@ export function AppearancePanel() {
   useAccount();
   const owned = ownedSet();
   const p = prefs;
-  const set = (patch) => { setPrefs(patch); force((x) => x + 1); };
+  const set = (patch) => { setPrefs(patch); if (patch.theme && accountToken()) equip({ kind: 'theme', item: patch.theme }).catch(() => {}); force((x) => x + 1); };
   const opt = (key, vals) => html`<${Seg} options=${vals.map(([v, k]) => [v, t(k)])} value=${p[key]} onChange=${(v) => set({ [key]: v })} />`;
   return html`<div class="stack" style="gap:6px">
     <div class="swatches">${THEMES.map((th) => { const locked = !FREE_THEMES.includes(th.id) && !owned.has(th.id);

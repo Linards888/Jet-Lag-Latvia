@@ -52,7 +52,7 @@ export async function loadMe(quiet) {
     const v = await call('GET', '/me');
     me = v;
     if (!quiet) announce(v.pending);
-    applyEquip(v);
+    document.documentElement.setAttribute('data-skin', v.equip.skin || 's_peach');
   } catch (e) { if (e.status === 401) { token = null; me = null; try { localStorage.removeItem(KEY); } catch {} } }
   emit();
   return me;
@@ -69,11 +69,12 @@ async function authed(path, name, password) {
 export const login = (n, p) => authed('/login', n, p);
 export const register = (n, p) => authed('/register', n, p);
 export async function logout() { try { await call('POST', '/logout', {}); } catch {} token = null; me = null; try { localStorage.removeItem(KEY); } catch {} document.documentElement.removeAttribute('data-skin'); emit(); }
-export async function equip(body) { await call('POST', '/equip', body); await loadMe(true); }
+export async function equip(body) { await call('POST', '/equip', body); await loadMe(true); if (body.kind === 'theme' || body.kind === 'skin') applyEquip(me); }
 export async function linkGame(code, gameToken) { if (!token) return; try { await api('POST', `/games/${code}/link`, {}, gameToken); } catch {} }
 if (token) setTimeout(() => loadMe(), 0);
 
 // ---------------------------------------------------------------- small pieces
+const Fold2 = ({ title, right, open = false, cls = '', children }) => html`<details class="card fold ${cls}" open=${open}><summary><h3>${title}</h3>${right}</summary><div class="fold-body">${children}</div></details>`;
 const RAR = ['common', 'rare', 'epic', 'legendary', 'mythic', 'secret'];
 const rarName = (r) => t('rar.' + r);
 export function Avatar({ name, frame = 'f_plain', skin = 's_peach', size = 64 }) {
@@ -130,7 +131,7 @@ function WRadar({ v }) {
 const WIDGETS = { w_stats: WStats, w_ach: WAch, w_collection: WCollection, w_streak: WStreak, w_timeline: WTimeline, w_rarest: WRarest, w_cabinet: WCabinet, w_radar: WRadar };
 function Widgets({ v, own }) {
   const ids = (v.equip.widgets || []).filter((w) => WIDGETS[w] && (own || w !== 'w_radar'));
-  return html`<div class="widgets">${ids.map((w) => { const W = WIDGETS[w]; return html`<section class="card widget" key=${w}><div class="sec-h"><h3 style="margin:0">${itemName(w)}</h3></div><${W} v=${v} own=${own} /></section>`; })}</div>`;
+  return html`<div class="widgets">${ids.map((w) => { const W = WIDGETS[w]; return html`<${Fold2} key=${w} cls="widget" title=${itemName(w)} open=${!['w_stats', 'w_ach', 'w_collection'].includes(w)}><${W} v=${v} own=${own} /><//>`; })}</div>`;
 }
 
 // ---------------------------------------------------------------- collection and equip
@@ -147,21 +148,21 @@ function Collection({ v }) {
       } else await equip({ kind: it.kind, item: isOn(it) && (it.kind === 'title') ? null : it.id });
     } catch (e) { toast(e.message); }
   };
-  return html`<section class="card"><div class="sec-h"><h2>${t('acct.collection')}</h2><span class="chip plain">${t('acct.owned', { a: v.owned.length, b: cat.items.filter((i) => i.pool !== 'base').length })}</span></div>
+  return html`<${Fold2} title=${t('acct.collection')} right=${html`<span class="chip plain">${t('acct.owned', { a: v.owned.length, b: cat.items.filter((i) => i.pool !== 'base').length })}</span>`}>
     ${KINDS.map((k) => { const list = cat.items.filter((i) => i.kind === k).sort((a, b) => RAR.indexOf(a.rarity) - RAR.indexOf(b.rarity));
       return html`<div key=${k}><p class="eyebrow mt">${t('acct.kind_' + k)}</p>
-        <div class="tiles">${list.filter((i) => owned.has(i.id) || i.rarity !== 'secret' || owned.has(i.id)).map((it) => html`<${Tile} key=${it.id} it=${it} owned=${owned.has(it.id)} on=${isOn(it)} onClick=${owned.has(it.id) ? () => click(it) : null}>
+        <div class="tiles">${list.map((it) => html`<${Tile} key=${it.id} it=${it} owned=${owned.has(it.id)} on=${isOn(it)} onClick=${owned.has(it.id) ? () => click(it) : null}>
           ${!owned.has(it.id) && it.pool === 'achv' && html`<span class="small dim">${t('acct.how_ach')}</span>`}
-          ${k === 'badge' && html`<${Badge} id=${it.id} />`}<//>`)}</div></div>`; })}</section>`;
+          ${k === 'badge' && html`<${Badge} id=${it.id} />`}<//>`)}</div></div>`; })}<//>`;
 }
 
 function Achievements({ v }) {
-  return html`<section class="card"><div class="sec-h"><h2>${t('acct.achievements', { a: cat.ach.filter((a) => v.ach[a.id]).length, b: cat.ach.length })}</h2></div>
+  return html`<${Fold2} title=${t('acct.achievements', { a: cat.ach.filter((a) => v.ach[a.id]).length, b: cat.ach.length })}>
     <div class="achs">${cat.ach.map((a) => { const x = achText(a), done = v.ach[a.id], val = a.stat === 'streak' ? v.stats.best_streak || 0 : a.stat === 'modes' ? v.stats.modes || 0 : a.stat === 'items' ? v.owned.length : (v.stats[a.stat] || 0);
       const r = a.reward;
       return html`<div class="ach ${done ? 'done' : ''}" key=${a.id}><b>${x.name}</b><span class="small">${x.desc}</span>
         <i class="pbar"><u style=${{ width: Math.min(100, (done ? a.goal : Math.min(val, a.goal)) / a.goal * 100) + '%' }}></u></i>
-        <span class="small dim">${done ? fmtDateTime(done) : (['mythics', 'themes_owned', 'secret'].includes(a.stat) ? '' : val + '/' + a.goal)} ${r.dust ? '+' + r.dust : ''}${r.std ? ' +' + r.std + ' T' : ''}${r.sakura ? ' +' + r.sakura + ' S' : ''}${r.item ? ' + ' + itemName(r.item) : ''}</span></div>`; })}</div></section>`;
+        <span class="small dim">${done ? fmtDateTime(done) : (['mythics', 'themes_owned', 'secret'].includes(a.stat) ? '' : val + '/' + a.goal)} ${r.dust ? '+' + r.dust : ''}${r.std ? ' +' + r.std + ' T' : ''}${r.sakura ? ' +' + r.sakura + ' S' : ''}${r.item ? ' + ' + itemName(r.item) : ''}</span></div>`; })}</div><//>`;
 }
 
 function Header({ v, own }) {
@@ -214,9 +215,9 @@ export function PublicProfile({ name }) {
   const items = cat.items.filter((i) => v.owned.includes(i.id)).sort((a, b) => RAR.indexOf(b.rarity) - RAR.indexOf(a.rarity));
   return html`<div class="wrap"><div class="row"><button class="ghost icon" aria-label=${t('back')} onClick=${() => go('#/')}><${Ico} n="back" /></button></div>
     <div class="stack mt"><${Header} v=${v} own=${false} /><${Widgets} v=${v} own=${false} />
-      <section class="card"><div class="sec-h"><h2>${t('acct.collection')}</h2></div><div class="tiles">${items.map((it) => html`<${Tile} key=${it.id} it=${it} owned=${true} />`)}</div></section>
-      <section class="card"><div class="sec-h"><h2>${t('acct.achievements', { a: Object.keys(v.ach).length, b: cat.ach.length })}</h2></div>
-        <div class="achs">${cat.ach.filter((a) => v.ach[a.id]).map((a) => html`<div class="ach done" key=${a.id}><b>${achText(a).name}</b><span class="small">${achText(a).desc}</span><span class="small dim">${fmtDateTime(v.ach[a.id])}</span></div>`)}</div></section></div></div>`;
+      <${Fold2} title=${t('acct.collection')}><div class="tiles">${items.map((it) => html`<${Tile} key=${it.id} it=${it} owned=${true} />`)}</div><//>
+      <${Fold2} title=${t('acct.achievements', { a: Object.keys(v.ach).length, b: cat.ach.length })}>
+        <div class="achs">${cat.ach.filter((a) => v.ach[a.id]).map((a) => html`<div class="ach done" key=${a.id}><b>${achText(a).name}</b><span class="small">${achText(a).desc}</span><span class="small dim">${fmtDateTime(v.ach[a.id])}</span></div>`)}</div><//></div></div>`;
 }
 
 // Console command: type  coc  in the browser console (F12) on this website. Works only for the owner account (the server checks it).
