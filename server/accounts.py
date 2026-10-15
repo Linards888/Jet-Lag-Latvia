@@ -21,7 +21,6 @@ LOCK = threading.RLock()
 DAY_MS = 86400000
 DAILY_EVENT_DUST_CAP = 400
 STD_PITY_EPIC, STD_PITY_LEG, ANI_PITY_LEG, ANI_PITY_MYTH = 30, 90, 10, 40
-CHEATS_FILE = 'cheats.json'
 NAME_OK = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-')
 
 
@@ -342,63 +341,79 @@ class Accounts:
             self._mark()
             return results
 
-    # ---------------------------------------------------------- cheat / gift codes (secret, defined by the server owner)
-    def _cheats_path(self):
-        return os.path.join(os.path.dirname(self.path), CHEATS_FILE)
-
-    def load_cheats(self):
-        """data/cheats.json = {"CODE": {"dust": 5000, "std": 3, "sakura": 5, "items": ["mochiy"] | "all", "achievements": "all" | [ids], "repeat": false}}.
-        A file with one random master code is created on first start (read it on the server; it is never in the repo)."""
-        path = self._cheats_path()
-        if not os.path.exists(path):
-            master = 'MASTER-' + secrets.token_hex(4).upper()
-            default = {master: {'note': 'everything, any number of times', 'dust': 100000, 'std': 50, 'sakura': 100, 'items': 'all', 'achievements': 'all', 'repeat': True},
-                       'EXAMPLE-DUST': {'note': 'edit or delete me', 'dust': 500}}
-            os.makedirs(os.path.dirname(path), exist_ok=True)
-            with open(path, 'w', encoding='utf8') as f:
-                json.dump(default, f, indent=2, ensure_ascii=False)
-            print('Cheat codes file created: %s  (master code: %s)' % (path, master))
+    # ---------------------------------------------------------- owner tools (only for the account(s) the server owner names)
+    def _owner_names(self):
+        names = {n.strip().lower() for n in os.environ.get('JETLAG_OWNER', '').split(',') if n.strip()}
         try:
-            with open(path, encoding='utf8') as f:
-                raw = json.load(f)
-        except (OSError, ValueError):
-            return {}
-        return {str(k).strip().upper().replace(' ', ''): v for k, v in raw.items() if isinstance(v, dict)}
+            with open(os.path.join(os.path.dirname(self.path), 'owner.json'), encoding='utf8') as f:
+                v = json.load(f).get('owner', [])
+            names |= {str(n).strip().lower() for n in (v if isinstance(v, list) else [v])}
+        except (OSError, ValueError, AttributeError):
+            pass
+        return names
 
-    def redeem(self, a, code):
-        key = str(code or '').strip().upper().replace(' ', '')
+    def is_owner(self, a):
+        return a['name'].lower() in self._owner_names()
+
+    def owner_action(self, a, p):
+        if not self.is_owner(a):
+            raise GameError('Only the admin can do that', 403)
         with LOCK:
-            spec = self.load_cheats().get(key)
-            if not spec:
-                raise GameError('Invalid code')
-            if key in a.setdefault('redeemed', []) and not spec.get('repeat'):
-                raise GameError('Code already used')
-            if key not in a['redeemed']:
-                a['redeemed'].append(key)
-            a['dust'] += int(spec.get('dust', 0))
-            a['tickets']['std'] += int(spec.get('std', 0))
-            a['tickets']['sakura'] += int(spec.get('sakura', 0))
-            a['xp'] += int(spec.get('xp', 0))
-            items = spec.get('items') or []
-            if items == 'all':
-                items = [i['id'] for i in loot.ITEMS]
-            added = 0
-            for it in items:
-                if it in loot.BY_ID and it not in loot.BASE and it not in a['inv']:
-                    a['inv'][it] = {'n': 1, 't': _now(), 'src': 'code'}
-                    added += 1
-            ach = spec.get('achievements') or []
-            if ach == 'all':
-                ach = [x[0] for x in loot.ACH]
-            for x in ach:
-                if x in loot.ACH_BY_ID and x not in a['ach']:
-                    a['ach'][x] = _now()
-            self._push(a, {'k': 'code', 'items': added, 'dust': int(spec.get('dust', 0))})
-            self._log(a, 'code')
-            self.check_achievements(a)
+            act = p.get('action')
+            if act == 'give':
+                for k, lim in (('dust', 10 ** 9), ('xp', 10 ** 9)):
+                    if k in p:
+                        a[k] += int(core.num(p[k], -lim, lim, k))
+                a['dust'] = max(0, a['dust'])
+                for k, f in (('std', 'std'), ('sakura', 'sakura')):
+                    if k in p:
+                        a['tickets'][f] = max(0, a['tickets'][f] + int(core.num(p[k], -10 ** 6, 10 ** 6, k)))
+            elif act == 'item':
+                it = p.get('id')
+                if it not in loot.BY_ID or it in loot.BASE:
+                    raise GameError('Not found')
+                if p.get('have', True):
+                    a['inv'].setdefault(it, {'n': 1, 't': _now(), 'src': 'owner'})
+                else:
+                    a['inv'].pop(it, None)
+                    for k, v in list(a['equip'].items()):
+                        if v == it:
+                            a['equip'][k] = loot.DEFAULT_EQUIP[k]
+                    a['equip']['badges'] = [x for x in a['equip'].get('badges', []) if x != it]
+                    a['equip']['widgets'] = [x for x in a['equip'].get('widgets', []) if x != it] or loot.DEFAULT_EQUIP['widgets']
+            elif act == 'all_items':
+                for i in loot.ITEMS:
+                    if i['id'] not in loot.BASE:
+                        a['inv'].setdefault(i['id'], {'n': 1, 't': _now(), 'src': 'owner'})
+            elif act == 'ach':
+                aid = p.get('id')
+                if aid == 'all':
+                    for x in loot.ACH:
+                        a['ach'].setdefault(x[0], _now())
+                elif aid in loot.ACH_BY_ID:
+                    if p.get('have', True):
+                        a['ach'].setdefault(aid, _now())
+                    else:
+                        a['ach'].pop(aid, None)
+                else:
+                    raise GameError('Not found')
+            elif act == 'stat':
+                stat = str(p.get('stat') or '')
+                if not stat.isidentifier() or stat in ('modes', 'items', 'streak'):
+                    raise GameError('Not found')
+                a['stats'][stat] = int(core.num(p.get('value'), 0, 10 ** 9, 'value'))
+                self.check_achievements(a)
+            elif act == 'reset':
+                for k in ('inv', 'stats', 'ach'):
+                    a[k] = {}
+                a['modes'], a['dust'], a['xp'] = [], 300, 0
+                a['tickets'] = {'std': 0, 'sakura': 0}
+                a['pity'] = {'se': 0, 'sl': 0, 'al': 0, 'am': 0}
+                a['equip'] = json.loads(json.dumps(loot.DEFAULT_EQUIP))
+            else:
+                raise GameError('Not found')
+            self._log(a, 'owner')
             self._mark()
-            print('code redeemed by %s: %s' % (a['name'], key))
-            return added
 
     # ---------------------------------------------------------- equip
     def equip(self, a, p):
@@ -448,7 +463,7 @@ class Accounts:
             now = _now()
             self._daily(a, now)
             v = self._common(a)
-            v.update({'id': a['id'], 'dust': a['dust'], 'tickets': a['tickets'], 'pity': a['pity'], 'inv': a['inv'], 'public': a['public'],
+            v.update({'owner': self.is_owner(a), 'id': a['id'], 'dust': a['dust'], 'tickets': a['tickets'], 'pity': a['pity'], 'inv': a['inv'], 'public': a['public'],
                       'streak': a['streak'], 'pending': a['pending'], 'todayEarned': a['earnedToday']['n'] if a['earnedToday']['day'] == _day(now) else 0,
                       'dailyCap': DAILY_EVENT_DUST_CAP})
             a['pending'] = []
@@ -470,7 +485,6 @@ ACC = None
 def init(path=None):
     global ACC
     ACC = Accounts(path)
-    ACC.load_cheats()  # creates data/cheats.json with a random master code on first start
     return ACC
 
 

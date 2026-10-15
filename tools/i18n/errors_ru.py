@@ -164,6 +164,4 @@ E = {
     'Not enough Sakura tickets': 'Не хватает билетов Сакуры',
     'You do not own that': 'У вас этого нет',
     'Log in to your account first': 'Сначала войдите в аккаунт',
-    'Invalid code': 'Неверный код',
-    'Code already used': 'Код уже использован',
 }

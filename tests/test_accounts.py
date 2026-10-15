@@ -102,31 +102,35 @@ class AccountTests(unittest.TestCase):
         with self.assertRaises(GameError):
             self.A.public('Ach')
 
-    def test_cheat_codes(self):
-        import json
-        path = self.A._cheats_path()
-        self.assertTrue(os.path.exists(path))  # created on first start with a random master code
-        with open(path, encoding='utf8') as f:
-            codes = json.load(f)
-        master = next(k for k in codes if k.startswith('MASTER-'))
-        with open(path, 'w', encoding='utf8') as f:
-            json.dump({'gift one': {'dust': 500, 'sakura': 2, 'items': ['mochiy', 'sakura'], 'achievements': ['first_win']}, master: codes[master]}, f)
-        a, _ = self.A.register('Cheater', 'secret1')
-        with self.assertRaises(GameError):
-            self.A.redeem(a, 'nope')
-        before = a['dust']
-        self.A.redeem(a, 'GIFT ONE')  # case and spaces do not matter
-        self.assertEqual(a['dust'] - before >= 500, True)
-        self.assertEqual(a['tickets']['sakura'], 2)
-        self.assertIn('mochiy', a['inv'])
-        self.assertNotIn('sakura', a['inv'])  # base items are owned by everybody already
-        self.assertIn('first_win', a['ach'])
-        with self.assertRaises(GameError):
-            self.A.redeem(a, 'gift one')  # one-time code
-        self.A.redeem(a, master)
-        self.A.redeem(a, master)  # repeatable
-        self.assertEqual(len(a['ach']), len(loot.ACH))
-        self.assertTrue(all(i['id'] in a['inv'] for i in loot.ITEMS if i['pool'] != 'base'))
+    def test_owner_tools_only_for_named_account(self):
+        me, _ = self.A.register('Owner', 'secret1')
+        other, _ = self.A.register('Other', 'secret1')
+        os.environ['JETLAG_OWNER'] = 'owner'
+        try:
+            self.assertTrue(self.A.me(me)['owner'])
+            self.assertFalse(self.A.me(other)['owner'])
+            with self.assertRaises(GameError):
+                self.A.owner_action(other, {'action': 'give', 'dust': 99999})  # nobody else can
+            self.A.owner_action(me, {'action': 'give', 'dust': 5000, 'sakura': 3, 'std': 2})
+            self.assertEqual((me['tickets']['sakura'], me['tickets']['std']), (3, 2))
+            self.assertGreaterEqual(me['dust'], 5000)
+            self.A.owner_action(me, {'action': 'item', 'id': 'mochiy', 'have': True})
+            self.assertIn('mochiy', me['inv'])
+            self.A.equip(me, {'kind': 'font', 'item': 'mochiy'})
+            self.A.owner_action(me, {'action': 'item', 'id': 'mochiy', 'have': False})
+            self.assertNotIn('mochiy', me['inv'])
+            self.assertEqual(me['equip']['font'], 'theme')  # an equipped item that is removed is unequipped
+            self.A.owner_action(me, {'action': 'all_items'})
+            self.A.owner_action(me, {'action': 'ach', 'id': 'all'})
+            self.assertEqual(len(me['ach']), len(loot.ACH))
+            self.A.owner_action(me, {'action': 'stat', 'stat': 'wins', 'value': 7})
+            self.assertEqual(me['stats']['wins'], 7)
+            with self.assertRaises(GameError):
+                self.A.owner_action(me, {'action': 'stat', 'stat': 'items', 'value': 1})
+            self.A.owner_action(me, {'action': 'reset'})
+            self.assertEqual((me['inv'], me['ach']), ({}, {}))
+        finally:
+            del os.environ['JETLAG_OWNER']
 
     def test_persistence(self):
         a, tok = self.A.register('Keep', 'secret1')

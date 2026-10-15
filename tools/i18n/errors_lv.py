@@ -164,6 +164,4 @@ E = {
     'Not enough Sakura tickets': 'Nepietiek Sakura biļešu',
     'You do not own that': 'Tev tā nav',
     'Log in to your account first': 'Vispirms pieslēdzies savam kontam',
-    'Invalid code': 'Nederīgs kods',
-    'Code already used': 'Kods jau izmantots',
 }

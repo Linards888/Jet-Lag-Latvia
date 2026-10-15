@@ -32,7 +32,6 @@ function announce(pending) {
     if (ev.k === 'ach') { const a = achOf(ev.id); if (a) toast(t('acct.n_ach', { name: achText(a).name }), true); }
     else if (ev.k === 'item') toast(t('acct.n_item', { name: itemName(ev.item) }), true);
     else if (ev.k === 'encounter') toast(t('acct.n_encounter'), true);
-    else if (ev.k === 'code') toast(t('acct.n_code'), true);
     else if (ev.k === 'daily') toast(t('acct.n_daily', { dust: ev.dust, n: ev.streak }), true);
   }
 }
@@ -201,11 +200,27 @@ function Header({ v, own }) {
       <span class="small dim">${t('acct.today', { a: v.todayEarned, b: v.dailyCap })}</span></div>`}</section>`;
 }
 
-function Redeem() {
-  const [code, setCode] = useState('');
-  const go_ = async () => { try { await call('POST', '/redeem', { code }); setCode(''); await loadMe(); return true; } catch (e) { toast(e.message); return false; } };
-  return html`<section class="card"><div class="sec-h"><h2>${t('acct.redeem')}</h2></div><div class="row nw"><input value=${code} placeholder=${t('acct.redeem_ph')} autocomplete="off" autocapitalize="characters" onInput=${(e) => setCode(e.target.value)} onKeyDown=${(e) => e.key === 'Enter' && go_()} />
-    <${AsyncBtn} onClick=${go_} disabled=${!code.trim()}>${t('acct.redeem_btn')}<//></div></section>`;
+// owner tools: only shown for the account(s) the server owner names (JETLAG_OWNER or data/owner.json); the server checks it again
+function OwnerTools({ v }) {
+  const [dust, setDust] = useState('1000'), [std, setStd] = useState('5'), [sak, setSak] = useState('5');
+  const [stat, setStat] = useState('tasks_done'), [val, setVal] = useState('100');
+  const run = async (body, ok) => { try { await call('POST', '/owner', body); await loadMe(true); if (ok) toast(ok, true); return true; } catch (e) { toast(e.message); return false; } };
+  const owned = ownedSet();
+  return html`<section class="card accent"><div class="sec-h"><h2>${t('acct.owner')}</h2></div><p class="small dim" style="margin-top:0">${t('acct.owner_hint')}</p>
+    <div class="row" style="flex-wrap:wrap;gap:8px"><${Field} label=${t('acct.stardust')}><input type="number" value=${dust} onInput=${(e) => setDust(e.target.value)} /><//>
+      <${Field} label=${t('acct.tickets_std')}><input type="number" value=${std} onInput=${(e) => setStd(e.target.value)} /><//>
+      <${Field} label=${t('acct.tickets_sakura')}><input type="number" value=${sak} onInput=${(e) => setSak(e.target.value)} /><//></div>
+    <div class="row mt" style="flex-wrap:wrap"><${AsyncBtn} class="sm" onClick=${() => run({ action: 'give', dust: +dust || 0, std: +std || 0, sakura: +sak || 0 }, t('saved'))}>${t('acct.give')}<//>
+      <${AsyncBtn} class="sm soft" onClick=${() => run({ action: 'all_items' }, t('saved'))}>${t('acct.all_items')}<//>
+      <${AsyncBtn} class="sm soft" onClick=${() => run({ action: 'ach', id: 'all' }, t('saved'))}>${t('acct.all_ach')}<//></div>
+    <p class="eyebrow mt">${t('acct.owner_items')}</p>
+    <div class="tiles">${cat.items.filter((i) => i.pool !== 'base').map((it) => html`<${Tile} key=${it.id} it=${it} owned=${owned.has(it.id)} on=${owned.has(it.id)} onClick=${() => run({ action: 'item', id: it.id, have: !owned.has(it.id) })}><//>`)}</div>
+    <p class="eyebrow mt">${t('acct.owner_ach')}</p>
+    <div class="chips">${cat.ach.map((a) => html`<button class="sm ${v.ach[a.id] ? '' : 'ghost'}" key=${a.id} onClick=${() => run({ action: 'ach', id: a.id, have: !v.ach[a.id] })}>${achText(a).name}</button>`)}</div>
+    <p class="eyebrow mt">${t('acct.owner_stat')}</p>
+    <div class="row nw"><select value=${stat} onChange=${(e) => setStat(e.target.value)}>${['games_played', 'wins', 'tasks_done', 'territories', 'first_claims', 'cards_played', 'picks_taken', 'questions_asked', 'found', 'tags_made', 'dest_claims', 'shop_buys', 'summons', 'encounters', 'night'].map((k) => html`<option value=${k} key=${k}>${k}</option>`)}</select>
+      <input type="number" value=${val} onInput=${(e) => setVal(e.target.value)} /><${AsyncBtn} class="sm" onClick=${() => run({ action: 'stat', stat, value: +val || 0 }, t('saved'))}>${t('acct.give')}<//></div>
+    <${AsyncBtn} class="danger block mt" confirm=${t('acct.reset_confirm')} onClick=${() => run({ action: 'reset' }, t('saved'))}>${t('acct.reset')}<//></section>`;
 }
 
 export function ProfilePage() {
@@ -217,7 +232,7 @@ export function ProfilePage() {
   return html`<div class="wrap"><div class="row sp"><button class="ghost icon" aria-label=${t('back')} onClick=${() => go('#/')}><${Ico} n="back" /></button>
       <span class="row"><button class="ghost sm" onClick=${() => { const url = location.origin + '/#/u/' + m.name; copy(url); toast(t('copied'), true); }}>${t('acct.share')}</button></span></div>
     <div class="stack mt"><${Header} v=${m} own=${true} /><${Widgets} v=${m} own=${true} /><${Summon} me=${m} /><${Collection} v=${m} /><${Achievements} v=${m} />
-      <${Redeem} />
+      ${m.owner && html`<${OwnerTools} v=${m} />`}
       <section class="card"><${Switch} checked=${m.public} onChange=${(val) => equip({ kind: 'public', value: val })}>${t('acct.public')}<//>
         <button class="ghost block mt" onClick=${() => { logout(); go('#/'); }}>${t('acct.logout')}</button></section></div></div>`;
 }
