@@ -172,7 +172,7 @@ class Handler(BaseHTTPRequestHandler):
             for n in sorted(names):
                 full = os.path.join(root, n)
                 rel = os.path.relpath(full, PUBLIC).replace(os.sep, '/')
-                if rel in ('sw.js', '404.html') or rel.startswith('art/') or rel.startswith('vendor/fonts/') or rel.startswith('vendor/images/'):
+                if rel in ('sw.js', '404.html') or rel.startswith('art/') or rel.startswith('img/') or rel.startswith('vendor/fonts/') or rel.startswith('vendor/images/'):
                     continue
                 st = os.stat(full)
                 h.update(('%s%d%d' % (rel, st.st_mtime_ns, st.st_size)).encode())

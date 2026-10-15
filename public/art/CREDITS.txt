@@ -1,5 +1,4 @@
 Portraits of historical figures from Wikimedia Commons (public domain). theme | person | file | licence | author | page
 mezs | Rainis | Rainis.jpg | Public domain | Unknown authorUnknown author | https://commons.wikimedia.org/wiki/File:Rainis.jpg
 saulriets | Aspazija | Aspazija_3.jpg | Public domain | Unknown authorUnknown author | https://commons.wikimedia.org/wiki/File:Aspazija_3.jpg
-latvija | Krišjānis Barons | Krišjānis_Barons_1910.gads.jpg | CC0 | J.Vilciņš | https://commons.wikimedia.org/wiki/File:Kri%C5%A1j%C4%81nis_Barons_1910.gads.jpg
 okeans | Krišjānis Valdemārs | Krišjānis_Valdemārs.jpg | Public domain | Carl Schulz (1831-1884) | https://commons.wikimedia.org/wiki/File:Kri%C5%A1j%C4%81nis_Valdem%C4%81rs.jpg

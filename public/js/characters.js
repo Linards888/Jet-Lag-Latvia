@@ -77,15 +77,40 @@ const FREE_STICKERS = {
 const stickersOf = (theme) => (THEME_INFO[theme] ? THEME_INFO[theme].stickers : FREE_STICKERS[theme] || FREE_STICKERS.sakura);
 
 // the picture that stands in for the old floating blob: the theme's own character, no animation
+
+// ---------------------------------------------------------------- original SVG mascots (used until the owner uploads a picture for the theme)
+const Cloud = ({ size }) => html`<svg class="girl" width=${size} height=${size * 0.85} viewBox="0 0 120 100" aria-hidden="true"><defs><linearGradient id="cl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff" /><stop offset="1" stop-color="#bfe0fb" /></linearGradient></defs>
+  <path d="M28 78a20 20 0 0 1 2-40 26 26 0 0 1 50-6 22 22 0 0 1 14 46z" fill="url(#cl)" stroke="#2e83d0" stroke-width="3" stroke-linejoin="round" /><path d="M42 48c6-8 18-10 26-4" fill="none" stroke="#2e83d0" stroke-width="3" stroke-linecap="round" opacity=".5" />
+  <circle cx="46" cy="64" r="3.2" fill="#2e83d0" /><circle cx="70" cy="64" r="3.2" fill="#2e83d0" /><path d="M54 69q4 4 8 0" fill="none" stroke="#2e83d0" stroke-width="2.6" stroke-linecap="round" /></svg>`;
+const Flag = ({ size }) => html`<svg class="girl" width=${size} height=${size * 0.8} viewBox="0 0 150 120" aria-hidden="true"><rect x="12" y="8" width="5" height="108" rx="2.5" fill="#6b5b4a" /><circle cx="14.5" cy="8" r="4.5" fill="#d9ab3f" />
+  <path d="M17 14Q50 6 82 14T146 14V86Q114 94 82 86T17 86Z" fill="#9e3039" /><path d="M17 43Q50 35 82 43T146 43V57Q114 65 82 57T17 57Z" fill="#ffffff" /><path d="M17 14Q50 6 82 14T146 14V86Q114 94 82 86T17 86Z" fill="none" stroke="#5a1a20" stroke-width="1.5" /></svg>`;
+const Vase = ({ size }) => html`<svg class="girl" width=${size * 0.7} height=${size * 1.2} viewBox="0 0 100 140" aria-hidden="true"><ellipse cx="50" cy="132" rx="30" ry="5" fill="#000" opacity=".18" />
+  <path d="M39 16h22l-2 18c22 12 28 46 15 76-4 9-12 14-24 14s-20-5-24-14C13 80 19 46 41 34z" fill="#1b1612" stroke="#3a3128" stroke-width="2" /><path d="M30 60c-2 18 0 32 6 44" fill="none" stroke="#ffffff" stroke-width="3" opacity=".18" stroke-linecap="round" />
+  <ellipse cx="50" cy="16" rx="13" ry="4.5" fill="#e8b84a" stroke="#8a6416" stroke-width="1.5" /><path d="M50 20L46 44L56 62L47 86L58 106L51 124" fill="none" stroke="#f1c75b" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" /><path d="M46 44L36 50M56 62L66 66M47 86L38 92" fill="none" stroke="#f1c75b" stroke-width="2" stroke-linecap="round" />
+  <rect x="30" y="122" width="40" height="5" rx="2.5" fill="#e8b84a" /></svg>`;
+const Idol = ({ size }) => html`<svg class="girl" width=${size} height=${size * 1.25} viewBox="0 0 120 150" aria-hidden="true">
+  <path d="M26 150Q30 114 60 112Q90 114 94 150Z" fill="#ff3df2" stroke="#222" stroke-width="1.8" /><path d="M60 112L52 150H68Z" fill="#3df2ff" /><path d="M48 126l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z" fill="#ffe23d" stroke="#222" stroke-width="1" />
+  <rect x="53" y="100" width="14" height="14" fill="#ffe6d6" stroke="#222" stroke-width="1.5" />
+  <path d="M26 62C22 22 46 12 62 12C82 12 100 24 94 62C92 46 84 38 74 36C62 40 40 38 30 52Z" fill="#8fd3ff" stroke="#222" stroke-width="1.6" /><path d="M30 52C24 70 28 84 36 90C36 74 36 62 40 52ZM94 62C100 74 96 86 90 92C90 76 90 66 86 58Z" fill="#8fd3ff" stroke="#222" stroke-width="1.4" />
+  <ellipse cx="60" cy="66" rx="30" ry="34" fill="#ffe6d6" stroke="#222" stroke-width="1.6" /><path d="M28 52C34 40 48 34 62 36C76 34 90 42 92 52C84 44 72 42 62 46C50 42 38 44 28 52Z" fill="#8fd3ff" stroke="#222" stroke-width="1.4" />
+  <rect x="32" y="58" width="24" height="14" rx="6" fill="#111" /><rect x="64" y="58" width="24" height="14" rx="6" fill="#111" /><path d="M56 63h8" stroke="#111" stroke-width="3" /><path d="M36 61l8-2M68 61l8-2" stroke="#fff" stroke-width="1.6" opacity=".6" stroke-linecap="round" />
+  <path d="M50 86Q60 94 70 86" fill="none" stroke="#a23a3a" stroke-width="2.4" stroke-linecap="round" /><ellipse cx="38" cy="82" rx="5" ry="3" fill="#ff8fa3" opacity=".5" /><ellipse cx="82" cy="82" rx="5" ry="3" fill="#ff8fa3" opacity=".5" />
+  <path d="M90 74Q100 84 84 94" fill="none" stroke="#222" stroke-width="2" /><circle cx="84" cy="94" r="4" fill="#222" /><g transform="translate(96 108) rotate(25)"><rect x="-5" y="-14" width="10" height="26" rx="5" fill="#ddd" stroke="#222" stroke-width="1.5" /><circle cx="0" cy="-20" r="9" fill="#555" stroke="#222" stroke-width="1.5" /></g></svg>`;
+const Lantern = ({ size }) => html`<svg class="girl" width=${size} height=${size * 1.1} viewBox="0 0 120 130" aria-hidden="true"><g stroke="#ff5fa8" stroke-width="4" stroke-linecap="round" fill="none">${[0, 40, 80, 120, 160, 200, 240, 280, 320].map((a) => html`<path key=${a} d="M60 22V8" transform=${'rotate(' + a + ' 60 30)'} />`)}</g><circle cx="60" cy="30" r="5" fill="#ffd166" />
+  <line x1="60" y1="62" x2="60" y2="70" stroke="#2a1a3a" stroke-width="3" /><ellipse cx="60" cy="96" rx="26" ry="32" fill="#ff5f7a" stroke="#ffd479" stroke-width="3" /><rect x="46" y="64" width="28" height="8" rx="2" fill="#2a1a3a" /><rect x="46" y="120" width="28" height="7" rx="2" fill="#2a1a3a" />
+  <path d="M60 68v56M44 80Q60 96 44 112M76 80Q60 96 76 112" fill="none" stroke="#ffd479" stroke-width="2" opacity=".8" /></svg>`;
+const SVG_MASCOT = { sora: Cloud, latvija: Flag, kintsugi: Vase, arcade: Idol, hanabi: Lantern };
+const CUTOUT = ['toradora', 'evangelion', 'killlakill', 'zerotwo'];  // transparent character cut-outs (no photo frame)
+
 const NO_ART = new Set();  // themes whose /art/<theme> image does not exist (no repeated requests)
-const PORTRAITS = ['mezs', 'saulriets', 'latvija', 'okeans'];  // bundled public-domain portraits of Rainis, Aspazija, Barons and Valdemars (public/art)
+const PORTRAITS = ['mezs', 'saulriets', 'okeans'];  // bundled public-domain portraits of Rainis, Aspazija, Barons and Valdemars (public/art)
 export const clearArt = (theme) => NO_ART.delete(theme);
 function Mascot({ theme, size = 150 }) {
   const [missing, setMissing] = useState(NO_ART.has(theme));
   useEffect(() => setMissing(NO_ART.has(theme)), [theme]);
-  if (!missing) return html`<img class="portrait" src=${'/art/' + theme} width=${size} height=${size * 1.2} alt="" onError=${() => { NO_ART.add(theme); setMissing(true); }} />`;
-  const info = THEME_INFO[theme];  // no picture uploaded: the small drawn girl for the character themes, the Mochi mascot for the rest
-  return info ? html`<${Girl} ...${info.girl} size=${size} />` : html`<${Mochi} size=${size * 0.78} />`;
+  if (!missing) return html`<img class=${'portrait' + (CUTOUT.includes(theme) ? ' cut' : '')} src=${'/art/' + theme} width=${size} height=${size * 1.2} alt="" onError=${() => { NO_ART.add(theme); setMissing(true); }} />`;
+  const Art = SVG_MASCOT[theme], info = THEME_INFO[theme];  // no picture: an original SVG mascot, else the small drawn girl, else the Mochi
+  return Art ? html`<${Art} size=${size} />` : info ? html`<${Girl} ...${info.girl} size=${size} />` : html`<${Mochi} size=${size * 0.78} />`;
 }
 const TILT = [-8, 6, -4, 9];
 const Stickers = ({ theme, cls = '' }) => html`<div class="stickers ${cls}">${stickersOf(theme).map(([k, c, l], i) => html`<${Sticker} key=${k + i} kind=${k} color=${c} label=${l} tilt=${TILT[i % 4]} />`)}</div>`;

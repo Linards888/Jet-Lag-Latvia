@@ -232,6 +232,10 @@ body::before {
   content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0; background: var(--accent); opacity: var(--pat-op);
   -webkit-mask: var(--pat-mask); mask: var(--pat-mask);
 }
+body::after {  /* theme scenery (SVG in /img/bg): set per theme with --art, kept faint so text stays readable */
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0; background: var(--art, none) var(--art-pos, center bottom) / var(--art-size, cover) no-repeat; opacity: var(--art-op, .6);
+  -webkit-mask-image: var(--art-mask, none); mask-image: var(--art-mask, none);
+}
 #app { position: relative; z-index: 1; }
 h1, h2, h3, h4 { font-family: var(--font-d); font-weight: var(--fw-d); letter-spacing: var(--ls-d); text-transform: var(--tt-d); margin: 0 0 .5rem; line-height: 1.15; }
 h1 { font-size: 1.9rem; } h2 { font-size: 1.15rem; } h3 { font-size: .95rem; }
@@ -540,3 +544,10 @@ html button.tile.locked { opacity: .55; filter: grayscale(.55); } html button.ti
 .bio { margin: 10px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .globalbar { position: sticky; top: 0; z-index: 30; display: flex; justify-content: flex-end; align-items: center; gap: 8px; padding: 8px 12px; max-width: 760px; margin: 0 auto; pointer-events: none; } .globalbar > * { pointer-events: auto; }
 html button.tile.locked .tn { color: var(--dim); } html button.tile.on .tn { font-weight: 800; }
+
+/* scenery per theme */
+[data-theme="mezs"] { --art: url(/img/bg/mezs.svg); --art-op: .75; } [data-theme="okeans"] { --art: url(/img/bg/okeans.svg); --art-op: .8; } [data-theme="saulriets"] { --art: url(/img/bg/saulriets.svg); --art-op: .7; }
+[data-theme="aurora"] { --art: url(/img/bg/aurora.svg); --art-op: .95; } [data-theme="hanabi"] { --art: url(/img/bg/hanabi.svg); --art-op: .9; } [data-theme="arcade"] { --art: url(/img/bg/arcade.svg); --art-op: .85; }
+[data-theme="sakura"] { --art: url(/img/sakura.jpg); --art-pos: center top; --art-size: 100% auto; --art-op: .55; --art-mask: linear-gradient(#000 0, #000 12%, transparent 34%); }
+.portrait.cut { border: 0; box-shadow: none; background: none; object-fit: contain; filter: drop-shadow(0 8px 14px rgba(0,0,0,.35)); }
+.theme-hero .portrait.cut { width: auto; height: 210px; } .theme-card .portrait.cut { width: auto; height: 150px; }
