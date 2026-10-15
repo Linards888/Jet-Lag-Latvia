@@ -377,7 +377,7 @@ img.proof { max-width: 100%; border-radius: var(--r-sm); margin-top: 8px; max-he
 .pin span { transform: rotate(45deg); font: 800 11px var(--font-d); color: #fff; }
 .cdot { width: 13px; height: 13px; border-radius: 50%; border: 2.5px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); } .cdot.off { opacity: .35; }
 .lbl { background: var(--text); color: var(--bg); padding: 2px 8px; border-radius: var(--r-btn); font: 700 11px var(--font-b); border: 0; box-shadow: none; } .lbl:before { display: none; }
-.sheet { animation: rise .3s var(--ease) both; }
+.sheet { animation: rise .3s var(--ease) backwards; }
 
 /* ---------- tasks ---------- */
 .task { border: var(--bw) solid var(--line); border-radius: var(--r-sm); background: var(--surface); margin: 8px 0; overflow: hidden; transition: border-color .2s, box-shadow .2s; }
@@ -388,7 +388,7 @@ img.proof { max-width: 100%; border-radius: var(--r-sm); margin-top: 8px; max-he
 .task summary::after { content: ''; width: 9px; height: 9px; border-right: 2.5px solid var(--dim); border-bottom: 2.5px solid var(--dim); transform: rotate(45deg); transition: transform .25s var(--ease); margin-right: 3px; flex: none; }
 .task[open] summary::after { transform: rotate(-135deg); }
 .task .body { padding: 0 14px 14px; animation: fade .3s both; }
-.task.done { opacity: .6; } .task.pinned { border-color: var(--gold); }
+.task.done { opacity: .6; }
 details.sec > summary { list-style: none; cursor: pointer; } details.sec > summary::-webkit-details-marker { display: none; }
 details.sec > summary h2 { display: inline; }
 details.sec > summary::after { content: ''; float: right; width: 9px; height: 9px; margin-top: 7px; border-right: 2.5px solid var(--dim); border-bottom: 2.5px solid var(--dim); transform: rotate(45deg); transition: transform .25s var(--ease); }
@@ -430,7 +430,7 @@ button.gcard { font-weight: 600; transition: transform .2s var(--ease); } button
 .qbtn:hover { border-color: var(--accent); } .qbtn:active { transform: scale(.99); box-shadow: none; }
 .qbtn.used { opacity: .55; background: transparent; } .qbtn small { display: block; color: var(--ink-accent); font-weight: 700; margin-top: 3px; }
 .qbtn:disabled, .pickrow .opt:disabled, button.gcard:disabled { box-shadow: none; transform: none; }
-.qitem { border-left: 5px solid var(--accent); padding: 8px 12px; background: var(--surface2); border-radius: 0 var(--r-sm) var(--r-sm) 0; margin: 8px 0; animation: rise .4s var(--ease) both; }
+.qitem { border-left: 5px solid var(--accent); padding: 8px 12px; background: var(--surface2); border-radius: 0 var(--r-sm) var(--r-sm) 0; margin: 8px 0; animation: rise .4s var(--ease) backwards; }
 .qitem.yes { border-color: var(--good); } .qitem.no { border-color: var(--bad); } .qitem.wait { border-color: var(--warn); }
 .shop { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 10px; }
 .shop .item { border: var(--bw) solid var(--line); border-radius: var(--r-sm); background: var(--surface); padding: 12px; display: flex; flex-direction: column; gap: 6px; }
@@ -454,7 +454,7 @@ button.gcard { font-weight: 600; transition: transform .2s var(--ease); } button
 @keyframes sheen { 0%, 55% { transform: translateX(-120%); } 100% { transform: translateX(120%); } }
 @keyframes dealIn { from { opacity: 0; transform: translateY(26px) rotate(4deg) scale(.92); } to { opacity: 1; transform: none; } }
 @keyframes fly { to { transform: translateY(-90px) scale(.5); opacity: 0; } }
-.stack > *, .grid > * { animation: rise .45s var(--ease) both; }
+.stack > *, .grid > * { animation: rise .45s var(--ease) backwards; }
 .stack > *:nth-child(2) { animation-delay: .05s; } .stack > *:nth-child(3) { animation-delay: .1s; } .stack > *:nth-child(4) { animation-delay: .15s; } .stack > *:nth-child(n+5) { animation-delay: .2s; }
 [data-motion="reduced"] *, [data-motion="reduced"] *::before, [data-motion="reduced"] *::after { animation-duration: .01ms !important; animation-delay: 0s !important; transition-duration: .01ms !important; }
 [data-motion="off"] *, [data-motion="off"] *::before, [data-motion="off"] *::after { animation: none !important; transition: none !important; }
@@ -570,3 +570,27 @@ html button.tile.locked .tn { color: var(--dim); } html button.tile.on .tn { fon
 .count { display: inline-block; min-width: 18px; padding: 0 6px; border-radius: 99px; background: var(--bad); color: #fff; font-size: .7rem; font-weight: 800; text-align: center; line-height: 18px; }
 .chat { display: flex; flex-direction: column; gap: 6px; max-height: 42vh; overflow-y: auto; padding: 4px 2px; } .msg { max-width: 82%; padding: 7px 11px; border-radius: 14px; background: var(--surface2); border: 1px solid var(--line); overflow-wrap: anywhere; } .msg.me { align-self: flex-end; background: var(--accent-soft); }
 .msg small { display: block; opacity: .6; font-size: .66rem; } .msg.invite { border-style: dashed; }
+
+/* map: fullscreen + the city panel that stays reachable inside it */
+.mapwrap { position: relative; }
+.map-full { position: absolute; top: 10px; right: 10px; z-index: 5; width: 38px; height: 38px; padding: 0; display: grid; place-items: center; border-radius: 12px; background: var(--surface); color: var(--text); border: var(--bw) solid var(--line2); box-shadow: var(--bs); }
+.mapwrap.full { position: fixed; inset: 0; z-index: 3000; background: var(--bg); }
+.mapwrap.full .map { height: 100%; min-height: 0; border-radius: 0; border: 0; box-shadow: none; }
+.mapwrap.full .map-panel { position: absolute; left: 10px; right: 10px; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 5; max-height: 55%; overflow: auto; max-width: 560px; margin: 0 auto; }
+/* teams are colours */
+.colors { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 8px; }
+.colorbtn { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; text-align: left; padding: 10px 12px; border-radius: 14px; background: var(--surface); color: var(--text); border: 2px solid color-mix(in srgb, var(--c) 45%, var(--line2)); box-shadow: none; }
+.colorbtn .swatch { width: 18px; height: 18px; border-radius: 50%; background: var(--c); flex: none; box-shadow: 0 0 0 2px #fff inset; }
+.colorbtn .names { flex-basis: 100%; font-size: .74rem; opacity: .75; overflow-wrap: anywhere; }
+.colorbtn.on { background: color-mix(in srgb, var(--c) 18%, var(--surface)); border-color: var(--c); }
+.colorbtn:disabled { opacity: .45; }
+.prow { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; padding: 6px 0; border-bottom: 1px dashed var(--line2); }
+.swbtn { width: 22px; height: 22px; padding: 0; border-radius: 50%; box-shadow: none; border: 2px solid transparent; flex: none; } .swbtn.on { border-color: var(--text); outline: 2px solid var(--surface); transform: scale(1.18); }
+.swbtn.none { background: var(--surface2); border: 2px dashed var(--line2); }
+/* race: the useful numbers on the top card */
+.info-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 8px; }
+.tile-info { text-align: center; padding: 8px 6px; border-radius: 12px; background: var(--surface2); border: 1px solid var(--line); }
+.tile-info .v { font: var(--fw-d) 1.05rem var(--font-d); font-variant-numeric: tabular-nums; } .tile-info .k { color: var(--dim); font-size: .68rem; }
+
+/* a fullscreen map is position: fixed, which a filter/transform on any ancestor would break */
+.card:has(.mapwrap.full), .stack:has(.mapwrap.full), .grid:has(.mapwrap.full) { -webkit-backdrop-filter: none; backdrop-filter: none; animation: none; transform: none; }

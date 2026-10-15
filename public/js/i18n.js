@@ -87,4 +87,13 @@ export function aText(q, cityName) {
   return '';
 }
 
-export const noticeText = (n) => (n.key === 'announce' ? (n.args && n.args.text) || '' : t('n.' + n.key, n.args));
+// a team is just a colour: its name is the English colour name from the server, shown in the current language
+const COLOR_KEY = { Red: 'red', Blue: 'blue', Green: 'green', Yellow: 'yellow', Orange: 'orange', Purple: 'purple', Pink: 'pink', Teal: 'teal' };
+export const tn = (name) => (COLOR_KEY[name] ? t('color.' + COLOR_KEY[name]) : name);
+
+export function noticeText(n) {
+  if (n.key === 'announce') return (n.args && n.args.text) || '';
+  const a = n.args ? { ...n.args } : n.args;
+  if (a) for (const k of ['team', 'target']) if (typeof a[k] === 'string') a[k] = tn(a[k]);
+  return t('n.' + n.key, a);
+}

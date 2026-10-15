@@ -74,7 +74,7 @@ class HttpTests(unittest.TestCase):
         s, sp = self.call('POST', f'/api/games/{code}/join', {'role': 'spectator'}, acct=self.account('Spec'))
         self.assertEqual(s, 200)
         # spectator cannot act / upload
-        s, e = self.call('POST', f'/api/games/{code}/action', {'type': 'team_create', 'payload': {'name': 'X'}}, sp['token'])
+        s, e = self.call('POST', f'/api/games/{code}/action', {'type': 'team_join', 'payload': {'cid': 'red'}}, sp['token'])
         self.assertEqual(s, 400)
         s, e = self.call('POST', f'/api/games/{code}/upload', token=sp['token'], raw=JPEG)
         self.assertEqual(s, 400)

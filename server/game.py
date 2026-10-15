@@ -2,8 +2,9 @@
 
 Security model (anti-cheat):
   * Every member has a secret token; the server only stores its hash. Role/team are server-side state.
-  * Exactly ONE admin exists per game (created with the game). The admin key is shown once and can be
-    used to log in on another device, which revokes the previous admin token (still one admin).
+  * One main admin is created with the game. The admin key is shown once and can be used to log in on another
+    device, which revokes the previous admin token. The main admin can make any member a co-admin (all admin
+    controls, but never the all-seeing view).
   * The admin works in one of three modes (switchable any time, every switch is logged):
         player - plays like everybody else; admin controls are locked (no accidental clicks)
         fair   - all admin controls, but sees only what a player/spectator could see
@@ -26,7 +27,9 @@ import race
 import tag
 
 MODES = {'race': race, 'hide': hide, 'tag': tag}
-PALETTE = ['#e0457b', '#2f9e8f', '#e8a200', '#3b82c4', '#8d6ad9', '#f06d3c', '#3aa655', '#c2415a']
+TEAM_COLORS = [('red', 'Red', '#e63946'), ('blue', 'Blue', '#3b82c4'), ('green', 'Green', '#3aa655'), ('yellow', 'Yellow', '#f2c230'),
+               ('orange', 'Orange', '#f06d3c'), ('purple', 'Purple', '#8d6ad9'), ('pink', 'Pink', '#e0457b'), ('teal', 'Teal', '#2f9e8f')]
+TEAM_COLOR = {c[0]: c for c in TEAM_COLORS}  # a team is simply a colour: its name is the colour's name
 ONLINE_MS = 75000
 SPEED_FLAG_MS = 140 / 3.6  # m/s; trains in Latvia top out below this
 ADMIN_MODES = ('player', 'fair', 'full')
@@ -192,9 +195,18 @@ def admin_mode(game):
     return game.get('adminMode') or ('fair' if game['adminPlays'] else 'full')
 
 
+def is_admin(game, m):
+    """The main admin or a co-admin."""
+    return bool(m) and (m['role'] == 'admin' or bool(m.get('co')))
+
+
 def admin_active(game, m):
-    """Admin with admin controls unlocked (mode fair or full)."""
-    return bool(m) and m['role'] == 'admin' and admin_mode(game) != 'player'
+    """Admin controls unlocked: the main admin outside 'player' mode, or any co-admin."""
+    if not m:
+        return False
+    if m['role'] == 'admin':
+        return admin_mode(game) != 'player'
+    return bool(m.get('co'))
 
 
 def is_referee(game, m):
@@ -204,7 +216,7 @@ def is_referee(game, m):
 
 def neutral_admin(game, m):
     """Active admin who is not a participant: may settle disputes (force 'found', review proofs of anybody)."""
-    return admin_active(game, m) and not game['adminPlays']
+    return admin_active(game, m) and not plays(game, m)
 
 
 def participants(game):
@@ -290,14 +302,14 @@ def update_loc(game, m, lat, lng, acc):
 
 # ---------------------------------------------------------------- lifecycle + common actions
 def _require_admin(game, m):
-    if m['role'] != 'admin':
+    if not is_admin(game, m):
         raise GameError('Only the admin can do that', 403)
-    if admin_mode(game) == 'player':
+    if m['role'] == 'admin' and admin_mode(game) == 'player':
         raise GameError('Switch to Admin mode first - you are currently playing as a normal player', 403)
 
 
-TEAM_ACTIONS = ('team_create', 'team_join', 'team_leave')
-ADMIN_ACTIONS = ('start', 'pause', 'resume', 'end', 'announce', 'update_settings', 'lock_join', 'assign_team', 'kick', 'rename_team', 'edit_catalog')
+TEAM_ACTIONS = ('team_join', 'team_leave')
+ADMIN_ACTIONS = ('start', 'pause', 'resume', 'end', 'announce', 'update_settings', 'lock_join', 'assign_team', 'kick', 'set_admin', 'edit_catalog')
 
 
 def do_action(store, game, m, typ, p):
@@ -355,6 +367,35 @@ def _set_admin_mode(game, m, p):
     log(game, 'system', 'Admin switched to "%s" mode' % mode, m['id'])
 
 
+def _team_by_colour(game, p, create):
+    """The team of colour p['cid'] (made on demand: the first player to pick a colour creates that team) or, for old clients, p['teamId']."""
+    if p.get('cid') is None and p.get('teamId'):
+        t = game['teams'].get(p['teamId'])
+        if not t:
+            raise GameError('No such team')
+        return t
+    c = TEAM_COLOR.get(p.get('cid'))
+    if not c:
+        raise GameError('Choose one of the team colours')
+    t = next((x for x in game['teams'].values() if x.get('cid') == c[0]), None)
+    if t or not create:
+        return t
+    tid = core.new_id(4)
+    game['teams'][tid] = {'id': tid, 'cid': c[0], 'name': c[1], 'color': c[2]}
+    return game['teams'][tid]
+
+
+def _put_in_team(game, who, p, by=None):
+    old = who['teamId']
+    t = _team_by_colour(game, p, False)
+    if t and t['id'] != old and len(team_members(game, t['id'])) >= 4:
+        raise GameError('Team is full (4)')
+    t = t or _team_by_colour(game, p, True)
+    who['teamId'] = t['id']
+    _drop_empty_teams(game)
+    log(game, 'team', '%s joined team %s' % (who['name'], t['name']) if not by else 'Admin moved %s to %s' % (who['name'], t['name']), (by or who)['id'])
+
+
 def _team_action(game, m, typ, p):
     if game['mode'] == 'hide':
         raise GameError('Hide & Seek has no teams')
@@ -362,24 +403,8 @@ def _team_action(game, m, typ, p):
         raise GameError('Teams are locked once the game started')
     if not plays(game, m):
         raise GameError('Only players can be on a team')
-    if typ == 'team_create':
-        if len(game['teams']) >= 8:
-            raise GameError('Max 8 teams')
-        name = core.clean_name(p.get('name'), 'Team name')
-        if any(t['name'].lower() == name.lower() for t in game['teams'].values()):
-            raise GameError('Team name taken')
-        tid = core.new_id(4)
-        game['teams'][tid] = {'id': tid, 'name': name, 'color': core.color_ok(p.get('color'), PALETTE[len(game['teams']) % 8])}
-        m['teamId'] = tid
-        log(game, 'team', '%s created team %s' % (m['name'], name), m['id'])
-    elif typ == 'team_join':
-        t = game['teams'].get(p.get('teamId'))
-        if not t:
-            raise GameError('No such team')
-        if len(team_members(game, t['id'])) >= 4:
-            raise GameError('Team is full (4)')
-        m['teamId'] = t['id']
-        log(game, 'team', '%s joined team %s' % (m['name'], t['name']), m['id'])
+    if typ == 'team_join':
+        _put_in_team(game, m, p)
     else:
         m['teamId'] = None
         _drop_empty_teams(game)
@@ -429,26 +454,29 @@ def _admin_action(store, game, m, typ, p, now):
         _edit_catalog(game, p)
         game['catV'] += 1
         log(game, 'system', 'Admin changed the %s list' % p.get('kind'), m['id'])
-    elif typ == 'rename_team':
-        t = game['teams'].get(p.get('teamId'))
-        if not t or st != 'lobby':
-            raise GameError('Cannot rename now')
-        t['name'] = core.clean_name(p.get('name'), 'Team name')
-        t['color'] = core.color_ok(p.get('color'), t['color'])
     elif typ == 'assign_team':
         if st != 'lobby':
             raise GameError('Teams are locked once the game started')
-        t = game['members'].get(p.get('memberId'))
-        if not t or not plays(game, t):
+        who = game['members'].get(p.get('memberId'))
+        if not who or not plays(game, who):
             raise GameError('Bad member')
-        if p.get('teamId') and p['teamId'] not in game['teams']:
-            raise GameError('No such team')
-        t['teamId'] = p.get('teamId') or None
-        _drop_empty_teams(game)
-        log(game, 'team', 'Admin moved %s to %s' % (t['name'], team_name(game, t['teamId']) if t['teamId'] else 'no team'), m['id'])
+        if p.get('cid') or p.get('teamId'):
+            _put_in_team(game, who, p, m)
+        else:
+            who['teamId'] = None
+            _drop_empty_teams(game)
+            log(game, 'team', 'Admin moved %s to no team' % who['name'], m['id'])
+    elif typ == 'set_admin':
+        who = game['members'].get(p.get('memberId'))
+        if m['role'] != 'admin':
+            raise GameError('Only the game creator can add admins', 403)
+        if not who or who['role'] == 'admin':
+            raise GameError('Bad member')
+        who['co'] = bool(p.get('on', True))
+        log(game, 'system', '%s %s co-admin' % (who['name'], 'is now a' if who['co'] else 'is no longer a'), m['id'])
     elif typ == 'kick':
         t = game['members'].get(p.get('memberId'))
-        if not t or t['role'] == 'admin':
+        if not t or t['role'] == 'admin' or (t.get('co') and m['role'] != 'admin'):
             raise GameError('Cannot remove that member')
         if st != 'lobby' and t['role'] == 'player':
             raise GameError('Players cannot be removed after the game started')
@@ -535,7 +563,7 @@ def view(game, me, cv=None):
     members = []
     for x in game['members'].values():
         members.append({'id': x['id'], 'name': x['name'], 'role': x['role'], 'teamId': x['teamId'], 'plays': plays(game, x),
-                        'online': now - x['lastSeen'] < ONLINE_MS, 'hasLoc': bool(fresh_loc(x, now, 300000))})
+                        'online': now - x['lastSeen'] < ONLINE_MS, 'hasLoc': bool(fresh_loc(x, now, 300000)), 'co': bool(x.get('co'))})
     notices = [{'id': n['id'], 't': n['t'], 'key': n['key'], 'args': n['args'], 'kind': n['kind']}
                for n in game.get('notices', [])[-60:] if n['to'] is None or me['id'] in n['to']]
     out = {
@@ -546,7 +574,7 @@ def view(game, me, cv=None):
                'adminMode': admin_mode(game) if me['role'] == 'admin' else None, 'canAdmin': active,
                'referee': is_referee(game, me), 'neutral': neutral_admin(game, me)},
         'members': members,
-        'teams': [{'id': t['id'], 'name': t['name'], 'color': t['color']} for t in game['teams'].values()],
+        'teams': [{'id': t['id'], 'cid': t.get('cid'), 'name': t['name'], 'color': t['color']} for t in game['teams'].values()],
         'settings': {k: v for k, v in game['settings'].items() if k not in HEAVY}, 'notices': notices,
         'g': mod.view(game, me, now),
     }

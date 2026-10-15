@@ -171,4 +171,10 @@ E = {
     'You can only message friends': 'Писать можно только друзьям',
     'Empty message': 'Пустое сообщение',
     'The owner account cannot be renamed or deleted': 'Аккаунт владельца нельзя переименовать или удалить',
+    'Choose a task to replace': 'Выберите задание для замены',
+    'Choose exactly {1} tasks': 'Выберите ровно {1} заданий',
+    'Choose one of the team colours': 'Выберите один из цветов команды',
+    'Only the game creator can add admins': 'Добавлять админов может только создатель игры',
+    'That task is not available': 'Это задание недоступно',
+    'Voting is only open outside the daily play window': 'Голосовать можно только вне игрового окна',
 }

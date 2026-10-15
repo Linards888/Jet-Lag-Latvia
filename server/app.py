@@ -220,7 +220,8 @@ class Handler(BaseHTTPRequestHandler):
         if parts == ['meta'] and method == 'GET':
             if 'meta' not in META_CACHE:
                 META_CACHE['meta'] = json.dumps({'cities': geo.CITIES, 'modes': list(G.MODES), 'questions': hide.QUESTIONS, 'cats': hide.CATS,
-                                                 'effects': cards.effects_public(), 'shop': list(tag_mode.SHOP)}, ensure_ascii=False, separators=(',', ':')).encode('utf8')
+                                                 'effects': cards.effects_public(), 'shop': list(tag_mode.SHOP),
+                                                 'teamColors': [{'id': c[0], 'name': c[1], 'color': c[2]} for c in G.TEAM_COLORS]}, ensure_ascii=False, separators=(',', ':')).encode('utf8')
             return self._send_blob(META_CACHE['meta'], 'application/json', False, 'meta')
         if parts == ['geo', 'municipalities'] and method == 'GET':
             if 'geo' not in META_CACHE:

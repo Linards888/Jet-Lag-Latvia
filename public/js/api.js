@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from '/vendor/preact.js';
-import { te, getLang } from './i18n.js';
+import { te, getLang, tn } from './i18n.js';
 
 // ---------------------------------------------------------------- saved sessions (this browser only)
 export const saved = {
@@ -38,11 +38,11 @@ export async function api(method, path, body, token, raw) {
 }
 
 // ---------------------------------------------------------------- static meta (cities, question menu, effect catalogue)
-export const META = { cities: [], byId: {}, munis: null, questions: [], cats: [], effects: {}, shop: [] };
+export const META = { cities: [], byId: {}, munis: null, questions: [], cats: [], effects: {}, shop: [], teamColors: [] };
 let geoPromise = null;
 export async function loadMeta() {
   const m = await api('GET', '/meta');
-  Object.assign(META, { cities: m.cities, byId: Object.fromEntries(m.cities.map((c) => [c.id, c])), questions: m.questions, cats: m.cats, effects: m.effects, shop: m.shop });
+  Object.assign(META, { cities: m.cities, byId: Object.fromEntries(m.cities.map((c) => [c.id, c])), questions: m.questions, cats: m.cats, effects: m.effects, shop: m.shop, teamColors: m.teamColors });
 }
 // the territory polygons are the biggest download, so they load in the background and maps redraw when they arrive
 export function loadGeo() {
@@ -73,6 +73,7 @@ export function useGame(code) {
       const d = await api('GET', `/games/${code}/state?cv=${cat.current.v ?? ''}`, null, token);
       if (d.catalog) cat.current = { v: d.catV, data: d.catalog };
       d.settings = { ...d.settings, ...(cat.current.data || {}) };
+      d.teams = d.teams.map((x) => ({ ...x, name: tn(x.name) }));
       skew.current = d.now - Date.now();
       setSt(d); setErr(null); setConn('ok');
     } catch (e) {
@@ -94,9 +95,10 @@ export function useGame(code) {
     const vis = () => { if (!document.hidden) load(); };
     const on = () => { setConn('wait'); load(); };
     const off = () => setConn('off');
+    window.addEventListener('jll-lang', vis);
     document.addEventListener('visibilitychange', vis);
     window.addEventListener('online', on); window.addEventListener('offline', off);
-    return () => { es && es.close(); clearInterval(iv); document.removeEventListener('visibilitychange', vis); window.removeEventListener('online', on); window.removeEventListener('offline', off); };
+    return () => { es && es.close(); clearInterval(iv); document.removeEventListener('visibilitychange', vis); window.removeEventListener('jll-lang', vis); window.removeEventListener('online', on); window.removeEventListener('offline', off); };
   }, [code, token]);
   const act = useCallback(async (type, payload, okMsg) => {
     try { await api('POST', `/games/${code}/action`, { type, payload }, token); if (okMsg) toast(okMsg, true); await load(); return true; }

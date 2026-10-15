@@ -5,18 +5,13 @@
   "rows": []
  },
  {
-  "title": "Komandu darbības (jebkurā režīmā)",
-  "text": "Dara dalībnieks, kuram ir komanda.",
+  "title": "Komandu darbības (jebkurā režīmā, tikai lobby)",
+  "text": "Komanda ir krāsa: red, blue, green, yellow, orange, purple, pink, teal. Dara dalībnieks, kuram ir komanda.",
   "rows": [
    [
-    "team_create",
-    "{\"name\":\"Sarkanie\"}",
-    "Izveido komandu un ieliek tajā dalībnieku"
-   ],
-   [
     "team_join",
-    "{\"teamId\":\"...\"}",
-    "Pievienojas komandai (līdz 4)"
+    "{\"cid\":\"red\"}",
+    "Pievienojas komandai ar šo krāsu (izveido to, ja vēl nav; līdz 4 cilvēkiem)"
    ],
    [
     "team_leave",
@@ -26,7 +21,7 @@
   ]
  },
  {
-  "title": "Admina darbības (izvēlies dalībnieku ar lomu admin)",
+  "title": "Admina darbības (galvenais admins vai līdzadmins)",
   "text": "Lobby un spēles laikā.",
   "rows": [
    [
@@ -61,13 +56,8 @@
    ],
    [
     "assign_team",
-    "{\"memberId\":\"...\",\"teamId\":\"...\"}",
-    "Ieliek dalībnieku komandā (teamId null = bez komandas)"
-   ],
-   [
-    "rename_team",
-    "{\"teamId\":\"...\",\"name\":\"Jaunais\",\"color\":\"#e63946\"}",
-    "Pārdēvē un pārkrāso komandu"
+    "{\"memberId\":\"...\",\"cid\":\"blue\"}",
+    "Ieliek dalībnieku komandā ar krāsu cid (cid null = bez komandas)"
    ],
    [
     "kick",
@@ -88,6 +78,11 @@
     "admin_mode",
     "{\"mode\":\"full\"}",
     "Admina režīms: player, fair vai full"
+   ],
+   [
+    "set_admin",
+    "{\"memberId\":\"...\",\"on\":true}",
+    "Tikai galvenais admins: dod vai atņem līdzadmina tiesības"
    ]
   ]
  },
@@ -103,32 +98,22 @@
    [
     "finish",
     "{\"cityId\":\"daugavpils\"}",
-    "Finišēt finiša pilsētā"
+    "Finišēt finiša pilsētā (pirmā komanda uzvar)"
    ],
    [
     "complete_task",
     "{\"taskId\":\"t07\"}",
-    "Atzīmēt uzdevumu izpildītu (ar foto: pievieno fid un note)"
+    "Izpildīt kopīgu uzdevumu (ar foto: pievieno fid un note). Uzdevums pazūd visām komandām"
    ],
    [
-    "select_tasks",
+    "vote_tasks",
     "{\"taskIds\":[\"t01\",\"t02\",\"t03\"]}",
-    "Nakts plānošana: izvēlas 3 uzdevumus"
-   ],
-   [
-    "pin_task",
-    "{\"taskId\":\"t07\"}",
-    "Aizsargā uzdevumu (tikai pēc Task shuffle kārts)"
+    "Vakara balsojums: 3 uzdevumi, ko nomainīt (nomaina tos, ko izvēlējās visas komandas)"
    ],
    [
     "review",
     "{\"teamId\":\"...\",\"taskId\":\"t07\",\"verdict\":\"approve\"}",
     "Apstiprina vai noraida pierādījumu (approve/reject)"
-   ],
-   [
-    "pick",
-    "{\"pid\":\"...\",\"index\":0}",
-    "Paņem kārti no izvēles (pass:true atsakās, discardIid izmet kārti, ja roka pilna)"
    ],
    [
     "discard",
@@ -138,12 +123,7 @@
    [
     "play_card",
     "{\"iid\":\"...\",\"targetTeamId\":\"...\"}",
-    "Izspēlē kārti (targetTeamId vajadzīgs kartēm pret citu komandu)"
-   ],
-   [
-    "adjust",
-    "{\"teamId\":\"...\",\"minutes\":-10,\"reason\":\"bonuss\"}",
-    "Admins: pieskaita vai atņem komandas laiku (negatīvs = bonuss)"
+    "Izspēlē kārti (targetTeamId pret citu komandu; swap_task kārtij {\"taskId\":\"...\"})"
    ]
   ]
  },
@@ -279,24 +259,9 @@
     "Spēles sākuma laiks (milisekundes)"
    ],
    [
-    "data.teams.<teamId>.bonusMin",
-    "20",
-    "Race/Tag komandas bonusa minūtes"
-   ],
-   [
-    "data.teams.<teamId>.penaltyMin",
-    "0",
-    "Soda minūtes"
-   ],
-   [
     "data.teams.<teamId>.frozenUntil",
     "0",
     "Race: aizsalšanas beigas (ms; 0 = nav). Uzliec nākotnes laiku, lai komandu iesaldētu"
-   ],
-   [
-    "data.teams.<teamId>.mine",
-    "[\"t01\",\"t02\",\"t03\"]",
-    "Race: komandas aktīvie uzdevumi"
    ],
    [
     "data.teams.<teamId>.cards",
@@ -337,6 +302,21 @@
     "teams.<teamId>.name",
     "\"Sarkanie\"",
     "Komandas nosaukums"
+   ],
+   [
+    "data.shared",
+    "[\"t01\",\"t02\",\"t03\",\"t04\",\"t05\"]",
+    "Race: pašreizējie kopīgie uzdevumi"
+   ],
+   [
+    "data.teams.<teamId>.finishedAt",
+    "1790000000000",
+    "Race: komandas finiša laiks (null = vēl nav finišējusi)"
+   ],
+   [
+    "settings.days",
+    "0",
+    "Race: plānotās dienas (0 = bez ierobežojuma)"
    ]
   ]
  },

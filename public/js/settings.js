@@ -40,7 +40,7 @@ function NotifyControl({ code, token }) {
 function People({ st }) {
   return html`<div class="list">${st.members.map((m) => { const tm = st.teams.find((x) => x.id === m.teamId);
     return html`<div class="row sp nw" key=${m.id}><span><i class="dot" style=${{ background: m.online ? 'var(--good)' : 'var(--line2)' }}></i> ${m.name} ${tm ? html`<${Chip} color=${tm.color}>${tm.name}<//>` : ''}</span>
-      <span class="dim small">${t('role.' + m.role)}${m.id === st.me.id ? ', ' + t('you') : ''}${m.plays && st.status !== 'lobby' ? (m.hasLoc ? ', GPS' : ', ' + t('no_gps')) : ''}</span></div>`; })}</div>`;
+      <span class="dim small">${m.co ? t('role.coadmin') : t('role.' + m.role)}${m.id === st.me.id ? ', ' + t('you') : ''}${m.plays && st.status !== 'lobby' ? (m.hasLoc ? ', GPS' : ', ' + t('no_gps')) : ''}</span></div>`; })}</div>`;
 }
 
 function AdminPanel({ game, onClose }) {
@@ -48,7 +48,6 @@ function AdminPanel({ game, onClose }) {
   const [text, setText] = useState('');
   const [reason, setReason] = useState('');
   const [showKey, setShowKey] = useState(false);
-  const [adj, setAdj] = useState({ teamId: '', minutes: 10, reason: '' });
   const [man, setMan] = useState({ teamId: '', cityId: '' });
   const key = (saved.get(code) || {}).adminKey;
   const open = (m) => { onClose(); openModal(m); };
@@ -63,14 +62,9 @@ function AdminPanel({ game, onClose }) {
     ${st.mode !== 'hide' && html`<p class="eyebrow mt">${t('admin.edit_anytime')}</p>`}
     <div class="row">${(st.mode === 'race' || st.mode === 'tag') && html`<button class="soft" onClick=${() => open('tasks')}>${t('admin.tasks', { n: st.settings.tasks.length })}</button>`}
       ${st.mode !== 'tag' && html`<button class="soft" onClick=${() => open('cards')}>${t('admin.cards', { n: st.settings.cards.length })}</button>`}</div>
-    ${st.mode === 'race' && st.status !== 'lobby' && html`<p class="eyebrow mt">${t('admin.adjust')}</p>
-      <div class="row nw"><select class="grow" value=${adj.teamId} onChange=${(e) => setAdj({ ...adj, teamId: e.target.value })}><option value="">${t('choose')}</option>${st.teams.filter((x) => x.id !== st.me.teamId).map((x) => html`<option value=${x.id}>${x.name}</option>`)}</select>
-        <input style="width:90px" type="number" value=${adj.minutes} onInput=${(e) => setAdj({ ...adj, minutes: +e.target.value })} /></div>
-      <input style="margin-top:8px" placeholder=${t('admin.reason')} value=${adj.reason} onInput=${(e) => setAdj({ ...adj, reason: e.target.value })} />
-      <${AsyncBtn} class="block mt" onClick=${() => act('adjust', adj, t('admin.applied'))}>${t('admin.adjust_btn', { n: adj.minutes })}<//>
-      ${st.me.neutral && html`<div class="row nw mt"><select class="grow" onChange=${(e) => setMan({ ...man, teamId: e.target.value })}><option value="">${t('choose')}</option>${st.teams.map((x) => html`<option value=${x.id}>${x.name}</option>`)}</select>
+    ${st.mode === 'race' && st.status !== 'lobby' && st.me.neutral && html`<div class="row nw mt"><select class="grow" onChange=${(e) => setMan({ ...man, teamId: e.target.value })}><option value="">${t('choose')}</option>${st.teams.map((x) => html`<option value=${x.id}>${x.name}</option>`)}</select>
         <select class="grow" onChange=${(e) => setMan({ ...man, cityId: e.target.value })}><option value="">${t('choose')}</option>${META.cities.map((c) => html`<option value=${c.id}>${c.name}</option>`)}</select></div>
-        <${AsyncBtn} class="ghost block mt" onClick=${() => act('checkin', { ...man, manual: true }, t('admin.applied'))}>${t('admin.manual_checkin')}<//>`}`}
+      <${AsyncBtn} class="ghost block mt" onClick=${() => act('checkin', { ...man, manual: true }, t('admin.applied'))}>${t('admin.manual_checkin')}<//>`}
     ${key && html`<p class="eyebrow mt">${t('admin.key')}</p><div class="row sp"><span class="mono">${showKey ? key : '****-****-****-****'}</span><button class="sm ghost" onClick=${() => setShowKey(!showKey)}>${showKey ? t('hide_') : t('show')}</button></div>`}
     ${(st.flags || []).length > 0 && html`<p class="eyebrow mt">${t('admin.flags')}</p>${st.flags.slice().reverse().map((f) => html`<div class="small warn" key=${f.t}>${fmtDateTime(f.t)} - ${f.text}</div>`)}`}</div>`;
 }

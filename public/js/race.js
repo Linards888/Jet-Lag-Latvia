@@ -1,13 +1,15 @@
 import { html, useState } from '/vendor/preact.js';
 import { META, cityName, useGeo } from './api.js';
 import { t } from './i18n.js';
-import { AsyncBtn, Chip, Empty, fmtDur, muniAt, esc } from './ui.js';
+import { AsyncBtn, Chip, Empty, fmtDur, muniAt } from './ui.js';
 import { LMap } from './map.js';
-import { GCard, PickModal, RaceCardModal, Hand } from './cards-ui.js';
+import { GCard, RaceCardModal, Hand } from './cards-ui.js';
 import { ActiveTasks, Reviews, TaskRow, taskOf, teamOf } from './tasks-ui.js';
 
 const terr = (st, id) => st.settings.territories.find((x) => x.id === id) || { name: '?', color: '#888' };
 const row = (st, id) => st.g.teams.find((x) => x.id === id);
+const cardsFor = (task) => (task.difficulty <= 3 ? 1 : 2);
+const fmtLeft = (ms) => (ms >= 48 * 3600000 ? `${Math.floor(ms / 86400000)}d ${Math.floor((ms % 86400000) / 3600000)}h` : fmtDur(ms));
 
 export function Page(ctx) {
   const { st } = ctx;
@@ -23,41 +25,43 @@ export function Page(ctx) {
   </div>`;
 }
 
-// night: pick 3 of the shared pool (matching picks are redrawn at sunrise); day: play your own tasks
+// day: the same shared tasks for every team (a finished one disappears for all); night: every team votes out 3 of them
 function RaceTasks(ctx) {
-  const { st, my, now } = ctx;
-  const g = st.g, n = Math.min(st.settings.taskPicks || 3, g.active.length);
+  const { st, my } = ctx;
+  const g = st.g, n = Math.min(st.settings.taskVotes || 3, g.shared.length);
   const [sel, setSel] = useState(null);
   if (!st.settings.tasksEnabled) return null;
-  const cur = sel || (my && my.sel) || [];
-  if (g.phase === 'plan') {
+  if (g.phase === 'vote') {
+    const cur = sel || (my && my.vote) || [];
     const toggle = (id) => setSel(cur.includes(id) ? cur.filter((x) => x !== id) : cur.length < n ? [...cur, id] : cur);
-    const saved = my && my.sel && my.sel.length === n && my.sel.every((x) => cur.includes(x)) && cur.length === n;
-    return html`<section class="card"><div class="sec-h"><h2>${t('task.plan_title')}</h2><span class="chip plain">${cur.length}/${n}</span></div>
-      <p class="dim small" style="margin-top:0">${t('task.plan_hint', { n })}</p>
-      ${g.active.map((id) => { const task = taskOf(st, id); if (!task) return null; const on = cur.includes(id);
-        return html`<${TaskRow} key=${id} task=${task} status=${on ? 'chosen' : ''} reward=${t('task.reward_picks', { n: task.difficulty })}
+    const saved = my && my.vote && my.vote.length === n && my.vote.every((x) => cur.includes(x)) && cur.length === n;
+    return html`<section class="card"><div class="sec-h"><h2>${t('task.vote_title')}</h2><span class="chip plain">${cur.length}/${n}</span></div>
+      <p class="dim small" style="margin-top:0">${t('task.vote_hint', { n })}</p>
+      ${g.shared.map((id) => { const task = taskOf(st, id); if (!task) return null; const on = cur.includes(id);
+        return html`<${TaskRow} key=${id} task=${task} status=${on ? 'chosen' : ''} reward=${t('task.reward_cards', { n: cardsFor(task) })}
           action=${my && st.me.plays && html`<button class="sm ${on ? '' : 'ghost'}" onClick=${() => toggle(id)}>${on ? t('task.deselect') : t('task.select')}</button>`} />`; })}
-      ${my && st.me.plays && html`<${AsyncBtn} class="block mt" disabled=${cur.length !== n || saved} onClick=${async () => { const ok = await ctx.act('select_tasks', { taskIds: cur }, t('task.selected_toast')); if (ok) setSel(null); }}>${saved ? t('task.selected') : t('task.confirm_selection')}<//>`}
+      ${my && st.me.plays && html`<${AsyncBtn} class="block mt" disabled=${cur.length !== n || saved} onClick=${async () => { const ok = await ctx.act('vote_tasks', { taskIds: cur }, t('task.vote_saved')); if (ok) setSel(null); }}>${saved ? t('task.vote_saved') : t('task.vote_confirm')}<//>`}
+      <p class="small dim mt">${t('task.voted_n', { a: g.votesIn, b: g.teams.length })}</p>
     </section>`;
   }
-  const left = g.shuffleUntil ? Math.max(0, g.shuffleUntil - now) : null;
-  return html`<div class="stack">${g.shuffleUntil && html`<div class="callout warn">${t('task.shuffle_banner', { t: fmtDur(left || 0) })}</div>`}
-    <${ActiveTasks} st=${st} ctx=${ctx} active=${(my && my.mine) || []} doneMap=${my && my.done} canDo=${!!my && st.me.plays} pin=${my && my.pin}
-      onPin=${st.me.plays && my && g.shuffleUntil ? (id) => ctx.act('pin_task', { taskId: id }) : null} title=${t('race.tasks')} reward=${(task) => t('task.reward_picks', { n: task.difficulty })} /></div>`;
+  return html`<div class="stack"><p class="dim small" style="margin:0 4px">${t('task.shared_hint')}</p>
+    <${ActiveTasks} st=${st} ctx=${ctx} active=${g.shared} doneMap=${my && my.done} canDo=${!!my && st.me.plays} title=${t('race.tasks')} reward=${(task) => t('task.reward_cards', { n: cardsFor(task) })} /></div>`;
 }
 
+// the top card: my team, my progress and a few useful numbers (no clock: the first team to the finish wins)
 function Status({ st, now, my }) {
-  const w = st.g.window;
-  const ms = w.msToChange != null ? w.msToChange - (now - st.now) : null;
-  const s = st.settings;
+  const g = st.g, s = st.settings;
+  const left = g.endsAt ? g.endsAt - now : null;
+  const tile = (k, v) => html`<div class="tile-info"><div class="v">${v}</div><div class="k">${k}</div></div>`;
+  const place = my && my.finishedAt ? g.ranking.indexOf(my.id) + 1 : 0;
   return html`<section class="card ${my ? 'accent' : ''}">
-    ${my ? html`<div class="row sp"><div><h2 style="margin:0">${teamOf(st, st.me.teamId).name}</h2>
-      <div class="small dim">${my.finishedAt ? t('race.finished') : my.available.length ? t('race.next', { terr: my.available.map((id) => terr(st, id).name).join(', ') }) : t('race.go_finish', { city: cityName(s.finishCity) })}</div></div>
-      <div class="stat"><div class="v">${fmtDur(my.scoreMs)}</div><div class="k">${my.finishedAt ? t('final') : t('so_far')}</div></div></div>` : html`<h2 style="margin:0">${t('race.title')}</h2>`}
+    ${my ? html`<div class="row sp"><div><h2 style="margin:0"><i class="dot" style=${{ background: teamOf(st, st.me.teamId).color }}></i> ${teamOf(st, st.me.teamId).name}</h2>
+      <div class="small dim">${my.finishedAt ? t('race.finished_place', { n: place }) : my.available.length ? t('race.next', { terr: my.available.map((id) => terr(st, id).name).join(', ') }) : t('race.go_finish', { city: cityName(s.finishCity) })}</div></div>
+      <div class="stat"><div class="v">${my.reached.length}/${s.territories.length}</div><div class="k">${t('race.territories')}</div></div></div>` : html`<h2 style="margin:0">${t('race.title')}</h2>`}
     <div class="pill-row mt">${s.territoryOrder.map((id, i) => html`<${Chip} color=${terr(st, id).color} cls=${my && my.reached.includes(id) ? '' : 'plain'}>${i + 1}. ${terr(st, id).name}${my && my.reached.includes(id) ? ' ✓' : ''}<//>`)}</div>
-    ${(my && (my.bonusMin || my.penaltyMin)) ? html`<p class="small dim mt">${t('race.bonus_pen', { b: my.bonusMin, p: my.penaltyMin })}</p>` : ''}
-    ${s.useWindow && html`<div class="callout ${w.open ? 'good' : 'warn'} mt">${w.open ? t('race.window_open', { end: s.window.end, t: fmtDur(ms) }) : t('race.window_closed', { start: s.window.start, t: fmtDur(ms) })}</div>`}
+    <div class="info-tiles mt">${tile(t('race.tile_day'), g.days ? t('race.day_of', { d: g.day, n: g.days }) : g.day)}
+      ${tile(t('race.tile_ends'), left != null ? (left > 0 ? fmtLeft(left) : t('race.time_up')) : t('race.no_limit'))}
+      ${tile(t('race.tile_tasks'), my ? my.tasksDone : '-')}${tile(t('race.tile_cards'), my ? `${my.cards.length}/${s.handLimit}` : '-')}</div>
     ${my && my.frozenUntil > now && html`<div class="callout bad mt">${t('race.frozen', { t: fmtDur(my.frozenUntil - now) })}</div>`}</section>`;
 }
 
@@ -80,9 +84,9 @@ function MapCard({ st, act, loc, my, now }) {
   const matches = q.trim() ? META.cities.filter((c) => c.name.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 6) : [];
   const here = geo && loc.pos ? muniAt(geo, loc.pos.lat, loc.pos.lng) : null;
   return html`<section class="card"><div class="sec-h"><h2>${t('race.map')}</h2></div>
-    <${LMap} munis=${geo} muniColor=${(p) => terr(st, s.muniTerritory[p.id]).color} items=${items} fitKey="race" />
+    <${LMap} munis=${geo} muniColor=${(p) => terr(st, s.muniTerritory[p.id]).color} items=${items} fitKey="race"
+      panel=${sel && html`<${CityPanel} st=${st} act=${act} my=${my} cityId=${sel} onClose=${() => setSel(null)} now=${now} />`} />
     <p class="small dim mt">${t('race.tap_hint')}</p>
-    ${sel && html`<${CityPanel} st=${st} act=${act} my=${my} cityId=${sel} onClose=${() => setSel(null)} now=${now} />`}
     <input class="mt" placeholder=${t('race.search')} value=${q} onInput=${(e) => setQ(e.target.value)} />
     ${matches.map((c) => { const tid = s.cityTerritory[c.id]; return html`<div class="row sp" style="padding:8px 0" key=${c.id}><button class="link" onClick=${() => { setSel(c.id); setQ(''); }}>${c.name}</button>
       <${Chip} color=${terr(st, tid).color}>${t('race.inside', { terr: terr(st, tid).name })}<//></div>`; })}
@@ -107,30 +111,25 @@ function CityPanel({ st, act, my, cityId, onClose }) {
       ${isFinish && allReached && html`<${AsyncBtn} class="good-btn grow" onClick=${() => act('finish', { cityId })}>${t('race.finish_here')}<//>`}</div>`}</div>`;
 }
 
-// ---------------------------------------------------------------- cards
-function Cards({ st, act, my, code, token }) {
+// ---------------------------------------------------------------- cards: every finished task puts a card straight into the hand
+function Cards({ st, act, my }) {
   const s = st.settings;
-  const [pickOpen, setPickOpen] = useState(() => !!my.picks.length);
   const [sel, setSel] = useState(null);
-  const sets = my.picks.map((p) => ({ id: p.pid, options: p.options, keep: 1 }));
   return html`<section class="card"><div class="sec-h"><h2>${t('cards.title')}</h2><span class="chip plain">${my.cards.length}/${s.handLimit}</span></div>
-    ${sets.length > 0 && html`<div class="callout mt" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px"><span>${t('cards.picks_waiting', { n: sets.length })}</span><button class="sm" onClick=${() => setPickOpen(true)}>${t('open')}</button></div>`}
     <${Hand} items=${my.cards} mode="race" onOpen=${setSel} empty=${html`<${Empty}>${t('cards.empty')}<//>`} />
     ${my.spyUntil > Date.now() && html`<div class="callout good">${t('cards.spy_on')}</div>`}
     <details style="margin-top:6px"><summary class="dim small" style="cursor:pointer">${t('cards.all', { n: s.cards.length })}</summary>
       <div class="hand">${s.cards.map((c) => html`<${GCard} card=${c} mode="race" small=${true} key=${c.id} />`)}</div></details>
-    ${pickOpen && html`<${PickModal} sets=${sets} mode="race" hand=${my.cards} limit=${s.handLimit} onClose=${() => setPickOpen(false)}
-      onTake=${(set, idx, drop) => act('pick', { pid: set.id, index: idx[0], discardIid: drop[0] })} onPass=${(set) => act('pick', { pid: set.id, pass: true })} />`}
     ${sel && html`<${RaceCardModal} inst=${sel} st=${st} onClose=${() => setSel(null)} onPlay=${(p) => act('play_card', p)} onDiscard=${(iid) => act('discard', { iid })} />`}</section>`;
 }
 
-// ---------------------------------------------------------------- standings
+// ---------------------------------------------------------------- standings: the order of arrival at the finish, then progress
 function Standings({ st, now }) {
   const total = st.settings.territories.length;
   return html`<section class="card"><div class="sec-h"><h2>${t('standings')}</h2></div>
     ${st.g.ranking.map((id, i) => { const r = row(st, id), tm = teamOf(st, id);
       return html`<div class="row sp nw" key=${id} style="padding:8px 0"><span>${i + 1}. <i class="dot" style=${{ background: tm.color }}></i> <b>${tm.name}</b>
         <span class="small dim">${st.members.filter((m) => m.teamId === id).map((m) => m.name).join(', ')}</span>
-        ${r.frozenUntil > now ? html`<${Chip} cls="bad">${t('race.frozen_chip')}<//>` : ''}</span>
-        <span style="text-align:right"><b>${fmtDur(r.scoreMs)}</b><div class="xs dim">${t('race.progress', { a: r.reached.length, b: total, n: r.tasksDone })}${st.g.claims && Object.values(st.g.claims).includes(id) ? ' ★' : ''}</div></span></div>`; })}</section>`;
+        ${r.finishedAt ? html`<${Chip} cls="good">${t('race.chip_finished')}<//>` : ''}${r.frozenUntil > now ? html`<${Chip} cls="bad">${t('race.frozen_chip')}<//>` : ''}</span>
+        <span class="xs dim" style="text-align:right">${t('race.progress', { a: r.reached.length, b: total, n: r.tasksDone })}</span></div>`; })}</section>`;
 }

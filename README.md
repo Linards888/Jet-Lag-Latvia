@@ -109,7 +109,7 @@ Serveris pats ģenerē atslēgas (`data/vapid.json`). Nekā cita nav jāiestata.
 
 ## Lomas un admin režīmi
 
-Katrā spēlē ir **tieši viens admins**. Lai admins neizdara kaut ko nejauši vai nepamana to, ko nedrīkst, viņš var pārslēgties starp trim režīmiem (zobrata logā vai pogā augšā):
+Katrā spēlē ir **viens galvenais admins** (spēles izveidotājs), un viņš var jebkuram spēlētājam vai skatītājam piešķirt **līdzadmina** tiesības (pogas Make admin / Remove admin lobby). Līdzadminam ir visas admina pogas (starts, pauze, komandu sadale, paziņojumi, žurnāls), bet nekad nav "redz visu" skata, un režīmus pārslēdz tikai galvenais admins. Lai galvenais admins neizdara kaut ko nejauši vai nepamana to, ko nedrīkst, viņš var pārslēgties starp trim režīmiem (zobrata logā vai pogā augšā):
 
 | Režīms | Ko drīkst | Ko redz |
 |---|---|---|
@@ -120,7 +120,7 @@ Katrā spēlē ir **tieši viens admins**. Lai admins neizdara kaut ko nejauši 
 * Ja admins **nespēlē**, pēc noklusējuma ir *redz visu*.
 * Ja admins **spēlē**, pēc noklusējuma ir *Admins*. *Redz visu* šādam adminam ir bloķēts, kamēr spēle notiek.
 * Katra režīma maiņa tiek ierakstīta **žurnālā**. Žurnāls ir **tikai adminam**; spēlētāji redz īsus paziņojumus.
-* Admins, kas spēlē, **nevar vērtēt savas komandas pierādījumus** un nevar koriģēt savas komandas laiku.
+* Admins, kas spēlē, **nevar vērtēt savas komandas pierādījumus**.
 
 Drošība: visu noteikumu pārbaudi un atbildes rēķina serveris; nepareizi ievadītus PIN un admin atslēgas serveris uz laiku bloķē; žurnāls ir "ķēdē" (katrs ieraksts satur iepriekšējā kontrolsummu). GPS viltošanu neviena sistēma nevar pilnībā novērst, tāpēc spēle balstās uz godaprātu. Ātrums virs 140 km/h tiek atzīmēts adminam.
 
@@ -128,11 +128,11 @@ Drošība: visu noteikumu pārbaudi un atbildes rēķina serveris; nepareizi iev
 
 ## Lobby
 
-**Komandas (Race un Tag):** katrs izveido savu komandu (nosaukums + krāsa) vai pievienojas esošai (līdz 4 cilvēkiem). Admins var pārvietot cilvēkus. Hide & Seek komandu nav.
+**Komandas (Race un Tag):** komanda ir vienkārši **krāsa**. Izvēlies vienu no 8 pamatkrāsām (sarkana, zila, zaļa, dzeltena, oranža, violeta, rozā, tirkīza); pirmais, kas krāsu izvēlas, izveido komandu, un komandas nosaukums ir pati krāsa (līdz 4 cilvēkiem komandā). Vēlreiz uzspied savu krāsu, lai izietu. Admins zem komandu bloka redz visus spēlētājus ar krāsu punktiem, un vienā piespiedienā var ielikt jebkuru jebkurā komandā. Hide & Seek komandu nav.
 
 **Iestatījumi** (admins, poga "Labot" pie spēles iestatījumiem). Pēc starta komandas un iestatījumi vairs nemainās, bet kartiņas un uzdevumus admins var mainīt arī spēles laikā.
 
-* *Race:* starta un finiša pilsēta, bonuss pirmajam, kas tiek ārā no teritorijas, uzdevumu skaits, kāršu limits rokā, dienas spēles logs, **prasīt foto pierādījumu** (pēc noklusējuma izslēgts), teritoriju krāsošana, uzdevumi un kartiņas.
+* *Race:* starta un finiša pilsēta, kopīgo uzdevumu skaits (5), cik uzdevumu katru vakaru balso (3), kāršu limits rokā (6), **plānotās dienas (0 = bez ierobežojuma)**, dienas spēles logs, **prasīt foto pierādījumu** (pēc noklusējuma izslēgts), teritoriju krāsošana, uzdevumi un kārtis. Slēdzis **Uzdevumi un kārtis** ieslēdz vai izslēdz visu uzdevumu un kāršu sistēmu; ja izslēgts, sacīkste ir tikai atzīmēšanās pilsētās.
 * *Hide & Seek:* cik reižu katrs slēpjas, **slēpšanās laiks (pēc noklusējuma 2,5 h)**, zonas rādiuss, slēpēja reakcijas laiks, roku limits, **brīdinājumi slēpējam, ja viņš ir ārpus zonas** (var izslēgt).
 * *Tag:* spēles garums, pauze pēc noķeršanas, vai skrējēji redz IT, dienas logs, All-Stars, **ekonomika** (mērķu skaits un atlīdzība, naudas summa par uzdevumiem, veikala cenas), foto pierādījums.
 
@@ -142,11 +142,13 @@ Drošība: visu noteikumu pārbaudi un atbildes rēķina serveris; nepareizi iev
 
 ### Ideja
 
-Komandas ar **sabiedrisko transportu** (vilciens, tramvajs, autobuss, kājām; bez auto un taksometra) sacenšas, kura pirmā tiek **ārā no visām teritorijām** un nonāk finišā. Spēles laiks skrien tikai **dienas spēles logā** (pēc noklusējuma 08:00-21:00), naktī visi atpūšas.
+Komandas ar **sabiedrisko transportu** (vilciens, tramvajs, autobuss, kājām; bez auto un taksometra) sacenšas, kura pirmā tiek **ārā no visām teritorijām** un nonāk finišā. **Laiks netiek skaitīts: uzvar pirmā komanda, kas finišē.** Pārējās komandas sarindo pēc finiša secības, bet kas vēl nav finišējis, pēc tā, cik tālu tikuši. Spēlēt var **dienas spēles logā** (pēc noklusējuma 08:00-21:00), naktī visi atpūšas un balso par uzdevumiem.
+
+Spēles augšējā kartītē redzams: kura **diena** (piem. "2 no 5"), **cik ilgi līdz spēles beigām**, izpildītie uzdevumi un kārtis rokā. Ja **plānotās dienas = 0**, laika ierobežojuma nav; citādi spēle beidzas, kad pagājušas visas plānotās dienas (tad uzvar tālāk tikusī komanda).
 
 ### Teritorijas
 
-Latvija ir sadalīta krāsainās teritorijās (Kurzeme, Zemgale un Sēlija, Rīga un Pierīga, Vidzeme, Latgale). **Teritorija ir reģions, no kura tev jātiek ārā.** Tu esi pirmajā, un kad ieraksti kādu pilsētu nākamajā teritorijā, tu esi "tikusi ārā" un sākas nākamā teritorija. Pirmā komanda, kas tiek ārā no teritorijas, saņem **laika bonusu** (pēc noklusējuma 20 min).
+Latvija ir sadalīta krāsainās teritorijās (Kurzeme, Zemgale un Sēlija, Rīga un Pierīga, Vidzeme, Latgale). **Teritorija ir reģions, no kura tev jātiek ārā.** Tu esi pirmajā, un kad ieraksti kādu pilsētu nākamajā teritorijā, tu esi "tikusi ārā" un sākas nākamā teritorija. Pirmajam sasniedzējam bonusa vairs nav.
 
 Admins lobby var pārkrāsot novadus, pārdēvēt un pārkārtot teritorijas, pievienot jaunas un izslēgt atsevišķas pilsētas.
 
@@ -154,38 +156,40 @@ Admins lobby var pārkrāsot novadus, pārdēvēt un pārkārtot teritorijas, pi
 
 * Nav "reģistrēšanās rādiusa" un nav GPS pārbaudes: **tu pats pieskaries pilsētai kartē** (vai ieraksti meklēšanas laukā) un spied **Atzīmēties šeit**. Spēle balstās uz godaprātu, un žurnālā viss redzams.
 * Ja ieslēgta secība, vari atzīmēties tikai nākamajā teritorijā.
-* Kad visas teritorijas izietas, pieskaries finiša pilsētai un spied **Fināls**. Uzvar mazākais laiks.
+* Kad visas teritorijas izietas, pieskaries finiša pilsētai un spied **Finišēt**. Pirmā komanda, kas finišē, uzvar.
+
+### Karte
+
+* Karti **nevar aizvilkt prom no Latvijas** (nevar paskatīties uz Igauniju, Krieviju vai pārējo pasauli).
+* Pogas stūrī karti var atvērt **pilnā ekrānā**. Telefonā tā mēģina arī pagriezt ekrānu **horizontāli** (Android Chrome); iPhone vienkārši pagriez telefonu. Pilnekrāna kartē pilsētas panelis (Atzīmēties šeit) paliek pieejams.
 
 ### Uzdevumi
 
-* Visas komandas redz **tos pašus 5 nejaušos uzdevumus**. Nav pogas "sākt uzdevumu": izdari to un spied **Mēs izdarījām**. Pēc noklusējuma pierādījums (foto) nav vajadzīgs; adminam to var ieslēgt lobby, tad citas komandas vai admins to apstiprina.
-* Katrs uzdevums ir 1-6 grūtības, un **grūtība = kartiņu izvēļu skaits**.
-* Katru uzdevumu komanda var izpildīt vienu reizi. Izpildītais uzdevums tiek aizstāts ar jaunu.
-* Katra komanda var **aizsargāt vienu uzdevumu**, lai to nenomainītu kartiņa "Virpulis".
-* Kartiņa **Shuffle tasks** pārmaisa visus uzdevumus visām komandām, izņemot katras komandas aizsargāto.
+* Visas komandas redz **tos pašus 5 uzdevumus** (visiem vienādi). Nav pogas "sākt uzdevumu": izdari to un spied **Mēs izdarījām**. Pēc noklusējuma pierādījums (foto) nav vajadzīgs; adminam to var ieslēgt lobby, tad citas komandas vai admins to apstiprina.
+* **Kad kāda komanda izpilda uzdevumu, tas pazūd visām komandām** un visiem parādās jauns, atkal vienāds uzdevums. Kas ātrāk, tas ņem.
+* **Dienas beigās (kad aizveras spēles logs) katra komanda nobalso par 3 uzdevumiem, ko vēlas nomainīt.** Kad no rīta logs atveras, tiek nomainīti tie uzdevumi, ko izvēlējās **visas komandas**.
+* Katram uzdevumam ir grūtība 1-6: grūtība 1-3 dod **1 kārti**, grūtība 4-6 dod **2 kārtis**.
 
-### Kartiņas
+### Kārtis
 
-* Pēc uzdevuma tu saņem "kartiņu izvēles". Katra izvēle rāda **3 kartiņas** (ar apgriešanās animāciju), tu paņem **vienu**.
-* Kartiņas pieder **komandai**, un jebkurš komandas biedrs tās var izspēlēt. Citas komandas tavas kartiņas neredz.
-* **Kāršu limits rokā: 6.** Ja roka pilna, tu izvēlies: izmest kādu savu kartiņu vai atteikties no jaunās.
-* Kad kāds izspēlē kartiņu, **visi dabū paziņojumu**.
+* Par izpildītu uzdevumu kārts nonāk **tieši rokā** (nav izvēļu un nav jāizlemj; nav pogas "izlaist").
+* Kārtis pieder **komandai**, un jebkurš komandas biedrs tās var izspēlēt. Citas komandas tavas kārtis neredz (redz tikai, cik to ir).
+* **Kāršu limits rokā: 6.** Ja roka pilna un nāk jauna kārts, **vecākā kārts tiek izmesta** (tu par to saņem paziņojumu).
+* Kad kāds izspēlē kārti, **visi dabū paziņojumu**.
 
 | Efekts | Ko dara |
 |---|---|
-| Time bonus | Atņem savai komandai X minūtes no laika |
-| Time penalty | Pieskaita citai komandai X minūtes |
 | Freeze | Cita komanda X minūtes nevar atzīmēties vai finišēt |
-| Shuffle tasks | Pārmaisa uzdevumus (izņemot aizsargātos) |
-| Extra picks | Uzreiz vēl viena kartiņu izvēle |
-| Steal | Nozog nejaušu kartiņu no citas komandas |
+| Swap task | Aizstāj vienu no kopīgajiem uzdevumiem ar jaunu (izvēlies, kuru) |
+| Extra card | Uzreiz vēl viena kārts |
+| Steal | Nozog nejaušu kārti no citas komandas |
 | Spy | X minūtes redzi visu komandu atrašanās vietu |
-| Shield | Pats bloķē nākamo pret tevi vērsto kartiņu |
-| Custom text | Jautra kartiņa ar tavu tekstu |
+| Shield | Pats bloķē nākamo pret tevi vērsto kārti |
+| Custom text | Jautra kārts ar tavu tekstu (izaicinājums citai komandai vai visiem) |
 
-### Punkti
+### Rezultāts
 
-**Rezultāts = nospēlētais laiks (tikai spēles logā) + sodi - bonusi.** Uzvar mazākais laiks. Admins (neitrāls) var pieskaitīt vai atņemt komandai minūtes (obligāti ar iemeslu) vai atzīmēt komandu ar roku.
+**Uzvar pirmā komanda, kas finišē.** Laika bonusu, sodu un minūšu korekciju vairs nav. Neitrāls admins joprojām var komandu atzīmēt pilsētā ar roku (ar žurnāla ierakstu).
 
 ---
 

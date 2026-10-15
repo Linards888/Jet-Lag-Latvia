@@ -7,11 +7,11 @@ export const taskOf = (st, id) => st.settings.tasks.find((x) => x.id === id);
 export const teamOf = (st, id) => st.teams.find((x) => x.id === id) || { name: '?', color: '#888' };
 
 // one task: collapsed title row, tap to read exactly how to do it
-export function TaskRow({ task, status, pinned, reward, action, extra }) {
-  return html`<details class="task ${status === 'done' ? 'done' : ''} ${pinned ? 'pinned' : ''}"><summary><span class="t">${tx(task, 'title')}</span>
-    ${pinned && html`<${Chip} cls="warn">${t('task.protected')}<//>`}${status && html`<${Chip} cls=${status === 'done' ? 'good' : ''}>${t('task.' + status)}<//>`}<${Dots} n=${task.difficulty} /></summary>
+export function TaskRow({ task, status, reward, action }) {
+  return html`<details class="task ${status === 'done' ? 'done' : ''}"><summary><span class="t">${tx(task, 'title')}</span>
+    ${status && html`<${Chip} cls=${status === 'done' ? 'good' : ''}>${t('task.' + status)}<//>`}<${Dots} n=${task.difficulty} /></summary>
     <div class="body"><p style="margin-top:0">${tx(task, 'desc')}</p>
-      <div class="row sp"><span class="small dim">${reward}</span><span class="row" style="gap:8px">${extra}${action}</span></div></div></details>`;
+      <div class="row sp"><span class="small dim">${reward}</span><span class="row" style="gap:8px">${action}</span></div></div></details>`;
 }
 
 // photo + note dialog (only used when the admin switched "require proof" on in the lobby)
@@ -40,7 +40,7 @@ export function Reviews({ st, reviews, act, code, token }) {
 }
 
 // the shared "N random tasks" list used by Race and Tag
-export function ActiveTasks({ st, ctx, active, doneMap, reward, canDo, pin, onPin, title }) {
+export function ActiveTasks({ st, ctx, active, doneMap, reward, canDo, title }) {
   const { act, code, token } = ctx;
   const [proof, setProof] = useState(null);
   const tasks = active.map((id) => taskOf(st, id)).filter(Boolean);
@@ -48,8 +48,7 @@ export function ActiveTasks({ st, ctx, active, doneMap, reward, canDo, pin, onPi
   const complete = (task) => (st.settings.requireProof ? setProof(task) : act('complete_task', { taskId: task.id }, t('task.done_toast')));
   return html`<section class="card"><div class="sec-h"><h2>${title}</h2><span class="chip plain">${t('task.shared')}</span></div>
     ${tasks.length === 0 ? html`<${Empty}>${t('task.none')}<//>` : tasks.map((task) => { const status = doneMap ? ({ approved: 'done', pending: 'pending', rejected: 'rejected' }[doneMap[task.id]] || '') : '';
-      return html`<${TaskRow} key=${task.id} task=${task} status=${status} pinned=${pin === task.id} reward=${reward(task)}
-        extra=${onPin && canDo && html`<button class="sm ghost" onClick=${() => onPin(pin === task.id ? null : task.id)}>${pin === task.id ? t('task.unprotect') : t('task.protect')}</button>`}
+      return html`<${TaskRow} key=${task.id} task=${task} status=${status} reward=${reward(task)}
         action=${canDo && status !== 'done' && status !== 'pending' && html`<${AsyncBtn} class="sm" confirm=${st.settings.requireProof ? null : t('task.confirm_done')} onClick=${() => complete(task)}>${t('task.mark_done')}<//>`} />`; })}
     ${proof && html`<${ProofModal} task=${proof} code=${code} token=${token} onClose=${() => setProof(null)} onSubmit=${(p) => act('complete_task', { taskId: proof.id, ...p }, t('task.proof_sent'))} />`}</section>`;
 }

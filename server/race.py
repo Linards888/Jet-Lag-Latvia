@@ -1,13 +1,14 @@
 """Mode 1: Race across Latvia.
 
 * Latvia is split into territories. A territory is a region you must get OUT of: to progress you check in (tap the
-  city on the map) in the next territory. When every territory is reached, check in at the finish city.
-* A pool of N random tasks (default 5) is shared. Outside the daily play window every team secretly selects 3 of them;
-  when the window opens, tasks picked by two or more teams are redrawn. Inside the window a team plays its 3 tasks; a
-  finished task is replaced by a new one. An approved task gives card picks = its difficulty (1-6). Photo proof is
-  optional (lobby switch `requireProof`).
-* Cards belong to the team (max `handLimit` in hand). Playing "shuffle tasks" opens a short protect window in which each
-  team may protect one of its tasks (the Protect button exists only then); afterwards the unprotected ones are redrawn.
+  city on the map) in the next territory. When every territory is reached, check in at the finish city. Time is not
+  scored: the first team to reach the finish wins.
+* A list of N tasks (default 5) is SHARED by every team. When a team completes one it disappears for everybody and a
+  new shared task appears. Completing a task gives the team 1 card (2 for difficulty 4-6) straight into its hand.
+  Photo proof is optional (lobby switch `requireProof`).
+* When the daily play window closes, every team votes for the tasks it wants replaced; when the window opens again the
+  tasks voted for by ALL teams are swapped for new ones.
+* Cards belong to the team (max `handLimit` in hand; when it is full the oldest card is dropped).
 """
 import random
 
@@ -27,7 +28,7 @@ TERRITORIES = [
 
 DEFAULTS = {
     'startCity': 'liepaja', 'finishCity': 'daugavpils', 'ordered': True, 'useWindow': True, 'window': {'start': '08:00', 'end': '21:00'},
-    'territoryBonusMin': 20, 'tasksEnabled': True, 'requireProof': False, 'taskSlots': 5, 'taskPicks': 3, 'protectSec': 90, 'handLimit': 6, 'days': 5, 'disabledCities': [],
+    'tasksEnabled': True, 'requireProof': False, 'taskSlots': 5, 'taskVotes': 3, 'handLimit': 6, 'days': 5, 'disabledCities': [],
 }
 
 
@@ -51,7 +52,7 @@ def _recompute_city_territory(s):
 
 def clean_settings(old, patch):
     s = dict(old)
-    for k, (lo, hi) in {'territoryBonusMin': (0, 240), 'days': (1, 14), 'taskSlots': (1, 12), 'taskPicks': (1, 6), 'protectSec': (15, 600), 'handLimit': (2, 12)}.items():
+    for k, (lo, hi) in {'days': (0, 14), 'taskSlots': (1, 12), 'taskVotes': (1, 6), 'handLimit': (2, 12)}.items():  # days 0 = no limit
         if k in patch:
             s[k] = int(core.num(patch[k], lo, hi, k))
     for k in ('ordered', 'useWindow', 'tasksEnabled', 'requireProof'):
@@ -133,12 +134,6 @@ def _task(game, task_id):
     return next((t for t in game['settings']['tasks'] if t['id'] == task_id), None)
 
 
-def _score_ms(game, tid, now):
-    d = _td(game, tid)
-    base = d['finishEffMs'] if d['finishedAt'] else core.eff_elapsed(game['startedAt'], now, _win(game))
-    return base + (d['penaltyMin'] - d['bonusMin']) * 60000
-
-
 def _need_running(game):
     if game['status'] != 'running':
         raise GameError('The game is paused' if game['status'] == 'paused' else 'The game is not running')
@@ -147,7 +142,7 @@ def _need_running(game):
 def _need_window(game, now):
     open_, _ = core.window_state(now, _win(game))
     if not open_:
-        raise GameError('Outside the daily play window - the clock is stopped.')
+        raise GameError('Outside the daily play window')
 
 
 def _my_team(game, m):
@@ -162,118 +157,142 @@ def _can_review(game, m, team_id):
     return G.admin_active(game, m)
 
 
-def _grant_picks(game, tid, n):
+def _end_ms(game):
+    """When the planned days run out (None = no limit)."""
+    s, data = game['settings'], game['data']
+    if not s.get('days') or not game.get('startedAt'):
+        return None
+    shift = data.get('shift', 0)
+    if s['useWindow']:
+        return core.nth_day_start(game['startedAt'], s['days'] - 1) + core.hhmm_to_min(s['window']['end']) * 60000 + shift
+    return game['startedAt'] + s['days'] * core.DAY + shift
+
+
+def _day_no(game, now):
+    return max(1, round((core.local_day_start(now) - core.local_day_start(game['startedAt'])) / core.DAY) + 1) if game.get('startedAt') else 1
+
+
+# ---------------------------------------------------------------- shared tasks
+def _next_task(game):
+    """A new task for the shared list: one that has not been shown yet (the list restarts when the catalogue is used up)."""
+    data = game['data']
+    ids = [t['id'] for t in game['settings']['tasks']]
+    pool = [i for i in ids if i not in data['shared'] and i not in data['used']]
+    if not pool:
+        data['used'] = list(data['shared'])
+        pool = [i for i in ids if i not in data['shared']]
+    if not pool:
+        return None
+    x = random.choice(pool)
+    data['used'].append(x)
+    return x
+
+
+def _replace_shared(game, task_id):
+    """Swap one shared task for a new one (or just drop it when the catalogue has nothing left)."""
+    shared = game['data']['shared']
+    if task_id not in shared:
+        return
+    i = shared.index(task_id)
+    new = _next_task(game)
+    if new:
+        shared[i] = new
+    else:
+        shared.pop(i)
+    for tid, d in game['data']['teams'].items():  # votes and submitted proofs for the old task are void
+        if d['vote'] and task_id in d['vote']:
+            d['vote'] = [x for x in d['vote'] if x != task_id]
+        if d['done'].get(task_id) == 'pending':
+            del d['done'][task_id]
+            d['proofs'] = [x for x in d['proofs'] if x['taskId'] != task_id]
+            notice(game, 'task_gone', 'review', G.team_ids(game, tid))
+
+
+def _fill_shared(game):
+    data = game['data']
+    while len(data['shared']) < game['settings']['taskSlots']:
+        new = _next_task(game)
+        if not new:
+            break
+        data['shared'].append(new)
+
+
+def _reward(task):
+    return 1 if task['difficulty'] <= 3 else 2
+
+
+def _add_card(game, tid, card):
+    """Put a card into a team's hand; with a full hand the oldest card is dropped."""
+    d = _td(game, tid)
+    if len(d['cards']) >= game['settings']['handLimit']:
+        dropped = d['cards'].pop(0)
+        notice(game, 'card_dropped', 'card', G.team_ids(game, tid), card=dropped['card']['name'])
+    d['cards'].append({'iid': core.new_id(3), 'card': card, 't': core.now_ms()})
+
+
+def _grant_cards(game, tid, n):
     cat = game['settings']['cards']
     if not cat or n <= 0:
         return
+    got = cards.draw(cat, n)
+    for c in got:
+        _add_card(game, tid, c)
+    notice(game, 'cards_got', 'cards', G.team_ids(game, tid), n=len(got))
+
+
+def _task_done(game, tid, task):
+    """A team finished a shared task: it is gone for everybody, replaced by a new one, and the team gets its cards."""
     d = _td(game, tid)
-    for _ in range(min(n, 6)):
-        d['picks'].append({'pid': core.new_id(3), 'options': cards.draw(cat, 3)})
-    notice(game, 'picks', 'cards', G.team_ids(game, tid), n=n)
+    d['done'][task['id']] = 'approved'
+    _replace_shared(game, task['id'])
+    _grant_cards(game, tid, _reward(task))
+    log(game, 'task', '%s completed "%s"' % (G.team_name(game, tid), task['title']))
+    notice(game, 'task_done', 'claim', None, team=G.team_name(game, tid))
 
 
-def _draw_active(game, n, exclude=()):
-    pool = [t['id'] for t in game['settings']['tasks'] if t['id'] not in exclude]
-    random.shuffle(pool)
-    return pool[:n]
-
-
-def _fresh_task(game, tid, avoid=()):
-    """A new random task for team `tid` that it has not done and is not in `avoid`."""
-    d = _td(game, tid)
-    pool = [t['id'] for t in game['settings']['tasks'] if t['id'] not in avoid and d['done'].get(t['id']) not in ('approved', 'pending')]
-    if not pool:
-        pool = [t['id'] for t in game['settings']['tasks'] if t['id'] not in avoid]
-    return random.choice(pool) if pool else None
-
-
-def _deal(game, tid, n):
-    out = []
-    for _ in range(n):
-        x = _fresh_task(game, tid, set(out))
-        if x:
-            out.append(x)
-    return out
-
-
-def _replace_mine(game, tid, task_id):
-    """A finished task is replaced by a fresh one for that team."""
-    d = _td(game, tid)
-    if task_id in d['mine']:
-        new = _fresh_task(game, tid, set(d['mine']))
-        i = d['mine'].index(task_id)
-        if new:
-            d['mine'][i] = new
-        else:
-            d['mine'].pop(i)
-        if d['pin'] == task_id:
-            d['pin'] = None
+def _ensure(game):
+    """Games saved by an older version get the fields of the shared task list."""
+    s, data = game['settings'], game['data']
+    s.setdefault('taskVotes', 3)
+    if not data.get('teams') or 'shared' in data:
+        return
+    data['shared'], data['used'] = [], []
+    if data.get('phase') == 'plan':
+        data['phase'] = 'vote'
+    s['cards'] = [c for c in s['cards'] if c['effect']['type'] in cards.RACE_EFFECTS]  # the time cards are gone
+    if s['tasksEnabled']:
+        _fill_shared(game)
+    for d in data['teams'].values():
+        d.setdefault('vote', None)
+        d['cards'] = [c for c in d.get('cards', []) if c['card']['effect']['type'] in cards.RACE_EFFECTS]
 
 
 def _sync(game, now):
-    """Move between the night planning phase and the play phase; resolve a pending shuffle. True if something changed."""
+    """Move between the day (play) and the night (vote) phase. True if something changed."""
     s, data = game['settings'], game['data']
     if not s['tasksEnabled'] or game['status'] != 'running' or not data.get('teams'):
         return False
-    changed = False
-    sh = data.get('shuffle')
-    if sh and now >= sh['until']:
-        for tid, d in data['teams'].items():
-            avoid = set(d['mine'])  # a shuffle never hands back a task the team just had
-            for i, task_id in enumerate(list(d['mine'])):
-                if task_id != d['pin']:
-                    new = _fresh_task(game, tid, avoid)
-                    if new:
-                        d['mine'][i] = new
-                        avoid.add(new)
-            d['pin'] = None
-        data['shuffle'] = None
-        notice(game, 'shuffled', 'cards', None)
-        log(game, 'system', 'Tasks were shuffled (protected ones kept)')
-        changed = True
     open_, _ = core.window_state(now, _win(game))
     if data['phase'] == 'play' and not open_:
-        data['phase'] = 'plan'
-        data['active'] = _draw_active(game, s['taskSlots'])
+        data['phase'] = 'vote'
         for d in data['teams'].values():
-            d['sel'] = None
-        notice(game, 'plan_start', 'cards', None, n=s['taskPicks'])
-        changed = True
-    elif data['phase'] == 'plan' and open_:
-        want = min(s['taskPicks'], len(data['active']))
-        chosen = {}
-        for tid, d in data['teams'].items():
-            sel = [x for x in (d['sel'] or []) if x in data['active']][:want]
-            rest = [x for x in data['active'] if x not in sel]
-            sel += random.sample(rest, min(len(rest), max(0, want - len(sel))))
-            chosen[tid] = sel
-        count = {}
-        for sel in chosen.values():
-            for x in sel:
-                count[x] = count.get(x, 0) + 1
-        taken = set(count)  # redraws must be new to everybody
-        for tid, sel in chosen.items():
-            for i, x in enumerate(sel):
-                if count[x] > 1:
-                    new = _fresh_task(game, tid, taken)
-                    if new:
-                        sel[i] = new
-                        taken.add(new)
-            data['teams'][tid]['mine'] = sel
-            data['teams'][tid]['sel'] = None
+            d['vote'] = None
+        notice(game, 'vote_start', 'cards', None, n=min(s['taskVotes'], len(data['shared'])))
+        return True
+    if data['phase'] == 'vote' and open_:
+        votes = [set(d['vote'] or []) for d in data['teams'].values()]
+        common = set.intersection(*votes) if votes else set()
+        swapped = [x for x in data['shared'] if x in common]
+        for x in swapped:
+            _replace_shared(game, x)
+        for d in data['teams'].values():
+            d['vote'] = None
         data['phase'] = 'play'
-        notice(game, 'plan_end', 'cards', None)
-        changed = True
-    return changed
-
-
-def _after_reach(game, tid, terr):
-    s = game['settings']
-    if terr not in game['data']['claims']:
-        game['data']['claims'][terr] = tid
-        _td(game, tid)['bonusMin'] += s['territoryBonusMin']
-        log(game, 'claim', '%s is the first to reach %s (-%d min bonus)' % (G.team_name(game, tid), _terr_name(game, terr), s['territoryBonusMin']))
-        notice(game, 'claim', 'claim', None, team=G.team_name(game, tid), terr=_terr_name(game, terr), min=s['territoryBonusMin'])
+        if swapped:
+            log(game, 'system', 'The teams voted to replace %d tasks' % len(swapped))
+        notice(game, 'vote_end', 'cards', None, n=len(swapped))
+        return True
+    return False
 
 
 # ---------------------------------------------------------------- lifecycle
@@ -292,14 +311,13 @@ def start(game, now):
         raise GameError('The start city is not inside any territory')
     if not s['cityTerritory'].get(s['finishCity']):
         raise GameError('The finish city is not inside any territory')
-    game['data'] = {'teams': {tid: {'reached': [start_t], 'done': {}, 'proofs': [], 'pin': None, 'cards': [], 'picks': [], 'bonusMin': 0, 'penaltyMin': 0,
-                                    'finishedAt': None, 'finishEffMs': None, 'adjust': [], 'frozenUntil': 0, 'spyUntil': 0, 'mine': [], 'sel': None} for tid in teams},
-                    'claims': {}, 'active': _draw_active(game, s['taskSlots']) if s['tasksEnabled'] else [], 'phase': 'play', 'shuffle': None}
+    game['data'] = {'teams': {tid: {'reached': [start_t], 'done': {}, 'proofs': [], 'cards': [], 'finishedAt': None, 'frozenUntil': 0, 'spyUntil': 0, 'vote': None}
+                              for tid in teams},
+                    'shared': [], 'used': [], 'phase': 'play'}
     if s['tasksEnabled']:
-        for tid in teams:
-            game['data']['teams'][tid]['mine'] = _deal(game, tid, s['taskPicks'])
+        _fill_shared(game)
         if not core.window_state(now, _win(game))[0]:
-            game['data']['phase'] = 'plan'
+            game['data']['phase'] = 'vote'
 
 
 def accrue(game, now):
@@ -307,7 +325,7 @@ def accrue(game, now):
 
 
 def resume(game, now, paused_ms):
-    pass
+    game['data']['shift'] = game['data'].get('shift', 0) + paused_ms  # the planned days do not run while paused
 
 
 def finish(game, now):
@@ -315,19 +333,27 @@ def finish(game, now):
 
 
 def tick(game, now):
+    _ensure(game)
     if _sync(game, now):
         game['version'] += 1
     d = game['data']
+    end = _end_ms(game)
     if d.get('teams') and all(t['finishedAt'] for t in d['teams'].values()):
         game['status'] = 'finished'
         game['version'] += 1
         log(game, 'system', 'All teams finished - race over')
         notice(game, 'all_finished', 'round')
+    elif end and now >= end:
+        game['status'] = 'finished'
+        game['version'] += 1
+        log(game, 'system', 'The planned days are over - race ended')
+        notice(game, 'time_up', 'round')
 
 
 # ---------------------------------------------------------------- actions
 def action(store, game, m, typ, p, now):
     s = game['settings']
+    _ensure(game)
     if game['status'] == 'running':
         _sync(game, now)
     if typ == 'checkin':
@@ -360,7 +386,6 @@ def action(store, game, m, typ, p, now):
             log(game, 'override', 'Admin manually moved %s to %s' % (G.team_name(game, tid), _terr_name(game, terr)), m['id'])
         log(game, 'checkin', '%s reached %s via %s' % (G.team_name(game, tid), _terr_name(game, terr), city['name']), m['id'])
         notice(game, 'reached', 'checkin', None, team=G.team_name(game, tid), terr=_terr_name(game, terr), city=city['name'])
-        _after_reach(game, tid, terr)
     elif typ == 'finish':
         _need_running(game)
         _need_window(game, now)
@@ -375,7 +400,6 @@ def action(store, game, m, typ, p, now):
         if available(game, tid):
             raise GameError('Reach every territory first')
         d['finishedAt'] = now
-        d['finishEffMs'] = core.eff_elapsed(game['startedAt'], now, _win(game))
         place = sum(1 for x in game['data']['teams'].values() if x['finishedAt'])
         fc = geo.CITY_BY_ID[s['finishCity']]['name']
         log(game, 'finish', '%s reached %s (finisher #%d)' % (G.team_name(game, tid), fc, place), m['id'])
@@ -385,9 +409,9 @@ def action(store, game, m, typ, p, now):
         tid = _my_team(game, m)
         d = _td(game, tid)
         task = _task(game, p.get('taskId'))
-        if not task or task['id'] not in d['mine'] or game['data']['phase'] != 'play':
-            raise GameError('That task is not active')
-        if d['done'].get(task['id']) in ('approved', 'pending'):
+        if not task or task['id'] not in game['data']['shared'] or game['data']['phase'] != 'play':
+            raise GameError('That task is not available')
+        if d['done'].get(task['id']) == 'pending':
             raise GameError('Your team already did that task')
         if s['requireProof']:
             f = game['files'].get(p.get('fid'))
@@ -399,29 +423,17 @@ def action(store, game, m, typ, p, now):
             log(game, 'proof', '%s submitted proof for "%s"' % (G.team_name(game, tid), task['title']), m['id'])
             notice(game, 'proof_submitted', 'review', None, team=G.team_name(game, tid))
         else:
-            d['done'][task['id']] = 'approved'
-            log(game, 'task', '%s completed "%s"' % (G.team_name(game, tid), task['title']), m['id'])
-            _grant_picks(game, tid, task['difficulty'])
-            _replace_mine(game, tid, task['id'])
-    elif typ == 'select_tasks':
+            _task_done(game, tid, task)
+    elif typ == 'vote_tasks':
         _need_running(game)
         tid = _my_team(game, m)
-        if game['data']['phase'] != 'plan':
-            raise GameError('Tasks can only be selected outside the playing time')
+        if game['data']['phase'] != 'vote':
+            raise GameError('Voting is only open outside the daily play window')
         ids = list(dict.fromkeys(p.get('taskIds') or []))
-        want = min(s['taskPicks'], len(game['data']['active']))
-        if len(ids) != want or any(x not in game['data']['active'] for x in ids):
-            raise GameError('Select exactly %d tasks' % want)
-        _td(game, tid)['sel'] = ids
-    elif typ == 'pin_task':
-        _need_running(game)
-        tid = _my_team(game, m)
-        task_id = p.get('taskId')
-        if not game['data'].get('shuffle'):
-            raise GameError('Protecting is only possible when a shuffle card was played')
-        if task_id is not None and task_id not in _td(game, tid)['mine']:
-            raise GameError('That task is not active')
-        _td(game, tid)['pin'] = task_id
+        want = min(s['taskVotes'], len(game['data']['shared']))
+        if len(ids) != want or any(x not in game['data']['shared'] for x in ids):
+            raise GameError('Choose exactly %d tasks' % want)
+        _td(game, tid)['vote'] = ids
     elif typ == 'review':
         _need_running(game)
         team = game['teams'].get(p.get('teamId'))
@@ -432,32 +444,15 @@ def action(store, game, m, typ, p, now):
         verdict = p.get('verdict')
         if not pr or verdict not in ('approve', 'reject'):
             raise GameError('Bad review')
-        if d['done'].get(pr['taskId']) != 'pending' and not (G.neutral_admin(game, m) and d['done'].get(pr['taskId']) == 'approved'):
+        if d['done'].get(pr['taskId']) != 'pending':
             raise GameError('Already reviewed')
-        task = _task(game, pr['taskId']) or {'title': 'task', 'difficulty': 1}
-        d['done'][pr['taskId']] = 'approved' if verdict == 'approve' else 'rejected'
+        task = _task(game, pr['taskId']) or {'id': pr['taskId'], 'title': 'task', 'difficulty': 1}
         log(game, 'review', '%s %s the proof of %s for "%s"' % (m['name'], 'approved' if verdict == 'approve' else 'rejected', team['name'], task['title']), m['id'])
-        if verdict == 'approve' and not pr.get('granted'):
-            pr['granted'] = True
-            _grant_picks(game, team['id'], task['difficulty'])
-            _replace_mine(game, team['id'], pr['taskId'])
-        elif verdict == 'reject':
+        if verdict == 'approve':
+            _task_done(game, team['id'], task)
+        else:
+            d['done'][pr['taskId']] = 'rejected'
             notice(game, 'proof_rejected', 'review', G.team_ids(game, team['id']))
-    elif typ == 'pick':
-        tid = _my_team(game, m)
-        d = _td(game, tid)
-        pk = next((x for x in d['picks'] if x['pid'] == p.get('pid')), None)
-        if not pk:
-            raise GameError('That pick is gone')
-        if not p.get('pass'):
-            idx = int(core.num(p.get('index'), 0, len(pk['options']) - 1, 'index'))
-            if len(d['cards']) >= s['handLimit']:
-                drop = next((i for i in d['cards'] if i['iid'] == p.get('discardIid')), None)
-                if not drop:
-                    raise GameError('Your hand is full (%d) - discard a card or pass on the new one' % s['handLimit'])
-                d['cards'].remove(drop)
-            d['cards'].append({'iid': core.new_id(3), 'card': pk['options'][idx], 't': now})
-        d['picks'].remove(pk)
     elif typ == 'discard':
         tid = _my_team(game, m)
         d = _td(game, tid)
@@ -468,21 +463,6 @@ def action(store, game, m, typ, p, now):
     elif typ == 'play_card':
         _need_running(game)
         _play_card(game, m, p, now)
-    elif typ == 'adjust':
-        if not G.admin_active(game, m):
-            raise GameError('Switch to Admin mode first', 403)
-        team = game['teams'].get(p.get('teamId'))
-        reason = str(p.get('reason') or '').strip()[:160]
-        if not team or not reason:
-            raise GameError('Team and a reason are required (it is logged)')
-        if m['teamId'] == team['id']:
-            raise GameError('You cannot adjust your own team')
-        minutes = int(core.num(p.get('minutes'), -600, 600, 'minutes'))
-        d = _td(game, team['id'])
-        d['penaltyMin'] += minutes
-        d['adjust'].append({'t': now, 'min': minutes, 'reason': reason})
-        log(game, 'override', 'Admin %s %d min to %s: %s' % ('added' if minutes >= 0 else 'removed', abs(minutes), team['name'], reason), m['id'])
-        notice(game, 'adjusted', 'info', None, team=team['name'], min='%+d' % minutes, reason=reason)
     else:
         raise GameError('Unknown action')
     G.bump(store, game)
@@ -525,34 +505,24 @@ def _play_card(game, m, p, now):
     t = e['type']
     if t == 'steal' and not _td(game, target['id'])['cards']:
         raise GameError('That team has no cards to steal')
-    if t == 'shuffle_tasks':
-        if game['data']['phase'] != 'play' or not any(x['mine'] for x in game['data']['teams'].values()):
-            raise GameError('There are no tasks to shuffle')
-        if game['data'].get('shuffle'):
-            raise GameError('A shuffle is already pending')
+    if t == 'swap_task' and p.get('taskId') not in game['data']['shared']:
+        raise GameError('Choose a task to replace')
     d['cards'].remove(inst)
     blocked = bool(target) and _blocked_by_shield(game, target['id'], card, tid)
     if not blocked:
         td = _td(game, target['id']) if target else None
-        if t == 'time_bonus':
-            d['bonusMin'] += e['min']
-        elif t == 'time_penalty':
-            td['penaltyMin'] += e['min']
-            notice(game, 'curse_penalty', 'curse', G.team_ids(game, target['id']), team=me_name, min=e['min'])
-        elif t == 'freeze':
+        if t == 'freeze':
             td['frozenUntil'] = max(now, td['frozenUntil']) + e['min'] * 60000
             notice(game, 'curse_freeze', 'curse', G.team_ids(game, target['id']), min=e['min'])
-        elif t == 'shuffle_tasks':
-            game['data']['shuffle'] = {'until': now + game['settings']['protectSec'] * 1000, 'by': tid}
-            for x in game['data']['teams'].values():
-                x['pin'] = None
-            notice(game, 'shuffle_pending', 'curse', None, team=me_name, sec=game['settings']['protectSec'])
-        elif t == 'extra_picks':
-            _grant_picks(game, tid, e['n'])
+        elif t == 'swap_task':
+            _replace_shared(game, p['taskId'])
+            notice(game, 'task_swapped', 'cards', None, team=me_name)
+        elif t == 'extra_card':
+            _grant_cards(game, tid, e['n'])
         elif t == 'steal':
             stolen = random.choice(td['cards'])
             td['cards'].remove(stolen)
-            d['cards'].append({'iid': core.new_id(3), 'card': stolen['card'], 't': now})
+            _add_card(game, tid, stolen['card'])
             notice(game, 'curse_steal', 'curse', G.team_ids(game, target['id']), team=me_name)
         elif t == 'spy':
             d['spyUntil'] = max(now, d['spyUntil']) + e['min'] * 60000
@@ -583,33 +553,30 @@ def view(game, me, now):
     s = game['settings']
     started = game['status'] in ('running', 'paused', 'finished')
     open_, change = core.window_state(now, _win(game))
-    out = {'window': {'open': open_, 'msToChange': change}, 'teams': [], 'reviews': [], 'ranking': [], 'active': []}
+    out = {'window': {'open': open_, 'msToChange': change}, 'teams': [], 'reviews': [], 'ranking': [], 'shared': []}
     if not started:
         return out
+    _ensure(game)
+    data = game['data']
     ranking = []
-    mine = _td(game, me['teamId']) if me['teamId'] in game['data']['teams'] else None
+    mine = _td(game, me['teamId']) if me['teamId'] in data['teams'] else None
     spy = bool(mine and mine['spyUntil'] > now)
     referee = G.is_referee(game, me)
-    out['active'] = game['data']['active'] if game['data']['phase'] == 'plan' else []
-    out['phase'] = game['data']['phase']
-    sh = game['data'].get('shuffle')
-    out['shuffleUntil'] = sh['until'] if sh else None
+    out.update({'shared': data['shared'], 'phase': data['phase'], 'day': _day_no(game, now), 'days': s.get('days', 0), 'endsAt': _end_ms(game),
+                'votesIn': sum(1 for d in data['teams'].values() if d['vote'])})
     for t in game['teams'].values():
         d = _td(game, t['id'])
         own = me['teamId'] == t['id'] or referee
-        sc = _score_ms(game, t['id'], now)
         n_done = sum(1 for v in d['done'].values() if v == 'approved')
-        row = {'id': t['id'], 'reached': d['reached'], 'available': available(game, t['id']), 'bonusMin': d['bonusMin'], 'penaltyMin': d['penaltyMin'],
-               'finishedAt': d['finishedAt'], 'scoreMs': sc, 'adjust': d['adjust'], 'frozenUntil': d['frozenUntil'], 'tasksDone': n_done,
-               'locs': _visible_locs(game, me, t, spy)}
+        row = {'id': t['id'], 'reached': d['reached'], 'available': available(game, t['id']), 'finishedAt': d['finishedAt'], 'frozenUntil': d['frozenUntil'],
+               'tasksDone': n_done, 'cardCount': len(d['cards']), 'locs': _visible_locs(game, me, t, spy)}
         if own:
-            row.update({'cards': d['cards'], 'picks': d['picks'], 'spyUntil': d['spyUntil'], 'done': d['done'], 'pin': d['pin'], 'mine': d['mine'], 'sel': d['sel']})
+            row.update({'cards': d['cards'], 'spyUntil': d['spyUntil'], 'done': d['done'], 'vote': d['vote']})
         out['teams'].append(row)
         for pr in d['proofs']:
             if d['done'].get(pr['taskId']) == 'pending' and _can_review(game, me, t['id']):
                 out['reviews'].append({'teamId': t['id'], 'taskId': pr['taskId'], 'fid': pr['fid'], 'note': pr['note']})
-        ranking.append((0 if d['finishedAt'] else 1, sc if d['finishedAt'] else -len(d['reached']) * 1000 - n_done, t['id']))
+        ranking.append(((0, d['finishedAt']) if d['finishedAt'] else (1, -(len(d['reached']) * 1000 + n_done)), t['id']))
     ranking.sort()
-    out['ranking'] = [r[2] for r in ranking]
-    out['claims'] = game['data']['claims']
+    out['ranking'] = [r[1] for r in ranking]
     return out

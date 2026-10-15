@@ -217,11 +217,11 @@ class AccountTests(unittest.TestCase):
         self.assertIsNone(G.authenticate(store, g, t1))
         with self.assertRaises(GameError):
             G.account_rejoin(store, g, reg(self.A, 'Stranger')[0])
-        G.do_action(store, g, m1, 'team_create', {'name': 'Red'})
-        G.do_action(store, g, m2, 'team_create', {'name': 'Blue'})
+        G.do_action(store, g, m1, 'team_join', {'cid': 'red'})
+        G.do_action(store, g, m2, 'team_join', {'cid': 'blue'})
         G.do_action(store, g, admin, 'start', {})
         self.assertEqual(a1['stats'].get('games_played'), 1)
-        task = g['data']['teams'][m1['teamId']]['mine'][0]
+        task = g['data']['shared'][0]
         G.do_action(store, g, m1, 'complete_task', {'taskId': task})
         self.assertEqual(a1['stats'].get('tasks_done'), 1)
         # owner console: list, dump (no hashes), act as a member, edit by path, set a PIN, delete
@@ -229,8 +229,8 @@ class AccountTests(unittest.TestCase):
         d = owner.dump_game(store, self.A, g['code'])
         self.assertTrue(all('pinHash' not in m and 'tokenHash' not in m for m in d['members'].values()))
         self.assertEqual(d['members'][m1['id']]['accountName'], 'PlayerOne')
-        owner.game_action(store, g, {'action': 'patch', 'path': ['data', 'teams', m1['teamId'], 'bonusMin'], 'value': 99})
-        self.assertEqual(g['data']['teams'][m1['teamId']]['bonusMin'], 99)
+        owner.game_action(store, g, {'action': 'patch', 'path': ['data', 'teams', m1['teamId'], 'frozenUntil'], 'value': 99})
+        self.assertEqual(g['data']['teams'][m1['teamId']]['frozenUntil'], 99)
         owner.game_action(store, g, {'action': 'act', 'memberId': admin['id'], 'type': 'pause', 'payload': {'reason': 'owner'}})
         self.assertEqual(g['status'], 'paused')
         owner.game_action(store, g, {'action': 'set_pin', 'memberId': m1['id'], 'pin': '9999'})
@@ -243,8 +243,8 @@ class AccountTests(unittest.TestCase):
         g2, key, tok, admin2 = G.create_game(store, 'race', 'Test two', 'Boss', '12345678', False, {'useWindow': False})
         n1, _ = G.account_join(store, g2, a1, 'player')
         n2, _ = G.account_join(store, g2, a2, 'player')
-        G.do_action(store, g2, n1, 'team_create', {'name': 'Red'})
-        G.do_action(store, g2, n2, 'team_create', {'name': 'Blue'})
+        G.do_action(store, g2, n1, 'team_join', {'cid': 'red'})
+        G.do_action(store, g2, n2, 'team_join', {'cid': 'blue'})
         G.do_action(store, g2, admin2, 'start', {})
         g2['startedAt'] -= 3600000
         G.do_action(store, g2, admin2, 'end', {})

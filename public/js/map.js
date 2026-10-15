@@ -1,17 +1,21 @@
-import { html, useEffect, useRef } from '/vendor/preact.js';
+import { html, useEffect, useRef, useState } from '/vendor/preact.js';
+import { Ico } from './ui.js';
+import { t } from './i18n.js';
 
 /*  Generic Leaflet wrapper.
     items: [{k:'marker'|'circle'|'line', ...}]   munis: GeoJSON (administrative units)   muniColor(props) -> colour
     Layers are rebuilt only when their content actually changes, so popups stay open while live data refreshes. */
 const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim() || '#888';
+const LV_BOUNDS = [[55.1, 20.2], [58.8, 29.0]];  // the map cannot be dragged away from Latvia
 const themeKey = () => document.documentElement.getAttribute('data-theme') || 'sakura';
 
-export function LMap({ items = [], munis, muniColor, onMuniClick, onMapClick, fitKey, fitTo, overlay, cls = '' }) {
-  const el = useRef(), S = useRef({}), cb = useRef({});
+export function LMap({ items = [], munis, muniColor, onMuniClick, onMapClick, fitKey, fitTo, overlay, panel, cls = '' }) {
+  const el = useRef(), wrap = useRef(), S = useRef({}), cb = useRef({});
+  const [full, setFull] = useState(false);
   cb.current = { onMuniClick, onMapClick, muniColor };
 
   useEffect(() => {
-    const map = L.map(el.current, { zoomControl: true, worldCopyJump: false }).setView([56.88, 24.9], 7);
+    const map = L.map(el.current, { zoomControl: true, worldCopyJump: false, minZoom: 6, maxBounds: LV_BOUNDS, maxBoundsViscosity: 1 }).setView([56.88, 24.9], 7);
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; OpenStreetMap' }).addTo(map);
     S.current = { map, group: L.layerGroup().addTo(map), muni: null, fitted: null, muniKey: null, itemKey: null };
     map.on('click', (e) => cb.current.onMapClick && cb.current.onMapClick({ lat: e.latlng.lat, lng: e.latlng.lng }));
@@ -76,6 +80,35 @@ export function LMap({ items = [], munis, muniColor, onMuniClick, onMapClick, fi
     if (overlay) { s.overlay = L.imageOverlay(overlay.url, overlay.bounds, { opacity: overlay.opacity ?? 1, interactive: false }).addTo(s.map); if (s.muni) s.muni.bringToBack(); }
   }, [ovKey]);
 
+  // fullscreen: a fixed overlay everywhere, the real Fullscreen API (and a landscape lock) where the browser allows it
+  const toggleFull = () => {
+    const on = !full;
+    setFull(on);
+    try {
+      if (on) {
+        const r = wrap.current.requestFullscreen ? wrap.current.requestFullscreen() : null;
+        if (r && r.then) r.then(() => screen.orientation.lock('landscape')).catch(() => {});
+      } else {
+        if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+        screen.orientation.unlock();
+      }
+    } catch {}
+  };
+  useEffect(() => {
+    const out = () => { if (!document.fullscreenElement) setFull(false); };
+    const esc = (e) => { if (e.key === 'Escape') setFull(false); };
+    document.addEventListener('fullscreenchange', out); window.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('fullscreenchange', out); window.removeEventListener('keydown', esc); };
+  }, []);
+  useEffect(() => {
+    if (full) document.body.style.overflow = 'hidden';
+    const id = setTimeout(() => { const s = S.current; if (s.map) s.map.invalidateSize(); }, 150);
+    return () => {
+      clearTimeout(id);
+      if (full) { document.body.style.overflow = ''; if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); }
+    };
+  }, [full]);
+
   // fit view when fitKey changes
   useEffect(() => {
     const s = S.current;
@@ -85,5 +118,7 @@ export function LMap({ items = [], munis, muniColor, onMuniClick, onMapClick, fi
     s.refit();
   }, [fitKey]);
 
-  return html`<div class="map ${cls}" ref=${el}></div>`;
+  return html`<div class="mapwrap ${full ? 'full' : ''}" ref=${wrap}><div class="map ${cls}" ref=${el}></div>
+    <button class="map-full" aria-label=${t(full ? 'map.exit_fullscreen' : 'map.fullscreen')} title=${t(full ? 'map.exit_fullscreen' : 'map.fullscreen')} onClick=${toggleFull}><${Ico} n=${full ? 'shrink' : 'expand'} size=${18} /></button>
+    ${panel && html`<div class="map-panel">${panel}</div>`}</div>`;
 }

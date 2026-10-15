@@ -98,10 +98,10 @@ function Lobby(ctx) {
       <div class="stack" style="gap:6px;align-items:flex-end"><span class="chip plain">${t('mode.' + st.mode + '.title')}</span>
         <button class="sm ghost" onClick=${() => toast(copy(link) ? t('lobby.link_copied') : t('copy_failed'), true)}><${Ico} n="copy" size=${14} /> ${t('lobby.copy_link')}</button></div></div></section>
     ${st.mode !== 'hide' ? html`<${Teams} ...${ctx} players=${players} admin=${admin} />` : html`<section class="card"><p class="eyebrow">${t('lobby.players', { n: players.length })}</p><div class="list">
-      ${players.map((m) => html`<div class="row sp nw" key=${m.id}><span><b>${m.name}</b> ${m.role === 'admin' ? html`<${Chip}>${t('role.admin')}<//>` : ''} ${m.id === st.me.id ? html`<${Chip} cls="plain">${t('you')}<//>` : ''}</span>
-        ${admin && m.role !== 'admin' && html`<button class="sm ghost" onClick=${() => confirm(t('lobby.remove_confirm', { name: m.name })) && act('kick', { memberId: m.id })}>${t('remove')}</button>`}</div>`)}</div>
+      ${players.map((m) => html`<div class="row sp nw" key=${m.id}><span><b>${m.name}</b> ${m.role === 'admin' ? html`<${Chip}>${t('role.admin')}<//>` : ''}${m.co ? html`<${Chip}>${t('role.coadmin')}<//>` : ''} ${m.id === st.me.id ? html`<${Chip} cls="plain">${t('you')}<//>` : ''}</span>
+        ${admin && m.role !== 'admin' && html`<span class="row nw" style="gap:6px"><${CoAdminBtn} st=${st} act=${act} m=${m} /><button class="sm ghost" onClick=${() => confirm(t('lobby.remove_confirm', { name: m.name })) && act('kick', { memberId: m.id })}>${t('remove')}</button></span>`}</div>`)}</div>
       <p class="small dim">${t('lobby.hide_rounds', { n: players.length * st.settings.hidesPerPlayer })}</p></section>`}
-    ${specs.length > 0 && html`<section class="card"><p class="eyebrow">${t('lobby.spectators')}</p><div class="pill-row">${specs.map((m) => html`<${Chip} cls="plain">${m.name}<//>`)}</div></section>`}
+    ${specs.length > 0 && html`<section class="card"><p class="eyebrow">${t('lobby.spectators')}</p>${specs.map((m) => html`<div class="row sp nw" key=${m.id} style="padding:4px 0"><span>${m.name}${m.co ? html` <${Chip}>${t('role.coadmin')}<//>` : ''}</span><${CoAdminBtn} st=${st} act=${act} m=${m} /></div>`)}</section>`}
     ${admin ? html`<${LobbySettings} ...${ctx} />
       <section class="card"><div class="row"><button class="ghost" onClick=${() => act('lock_join', { locked: !st.joinLocked })}>${st.joinLocked ? t('lobby.unlock') : t('lobby.lock')}</button>
         <${AsyncBtn} class="grow" onClick=${() => act('start')}>${t('lobby.start')}<//></div></section>`
@@ -109,28 +109,30 @@ function Lobby(ctx) {
   </div>`;
 }
 
+// the main admin can hand out admin rights to anybody in the game
+function CoAdminBtn({ st, act, m }) {
+  if (st.me.role !== 'admin' || m.role === 'admin') return null;
+  return html`<button class="sm ghost" onClick=${() => act('set_admin', { memberId: m.id, on: !m.co })}>${m.co ? t('lobby.remove_admin') : t('lobby.make_admin')}</button>`;
+}
+
+// teams are just colours: tap a colour to join it (the first one to tap makes the team); max 4 per team
 function Teams({ st, act, players, admin }) {
-  const [tn, setTn] = useState('');
-  const [tc, setTc] = useState('#e0457b');
+  const mine = st.me.teamId, canJoin = st.me.plays;
   const free = players.filter((m) => !m.teamId);
-  const mine = st.me.teamId;
-  const canJoin = st.me.plays;
+  const team = (c) => st.teams.find((x) => x.cid === c.id);
   return html`<div class="stack">
-    <div class="grid">${st.teams.map((tm) => {
-      const ms = players.filter((m) => m.teamId === tm.id);
-      return html`<section class="card" style=${{ borderColor: tm.color, margin: 0 }} key=${tm.id}><div class="row sp"><b style="font-family:var(--font-d)"><i class="dot" style=${{ background: tm.color }}></i> ${tm.name}</b>
-        ${canJoin && mine !== tm.id && html`<button class="sm" onClick=${() => act('team_join', { teamId: tm.id })}>${t('join_team')}</button>`}
-        ${mine === tm.id && html`<button class="sm ghost" onClick=${() => act('team_leave')}>${t('leave_team')}</button>`}</div>
-        <div class="list">${ms.map((m) => html`<div class="row sp nw" key=${m.id}><span>${m.name}${m.id === st.me.id ? ' (' + t('you') + ')' : ''}</span>
-          ${admin && html`<span class="row nw" style="gap:6px"><select style="width:auto;padding:5px 8px" onChange=${(e) => act('assign_team', { memberId: m.id, teamId: e.target.value || null })}>
-            <option value="">${t('lobby.move')}</option>${st.teams.filter((x) => x.id !== tm.id).map((x) => html`<option value=${x.id}>${x.name}</option>`)}<option value="">${t('lobby.no_team')}</option></select>
-            ${m.role !== 'admin' && html`<button class="sm ghost icon" aria-label=${t('remove')} onClick=${() => confirm(t('lobby.remove_confirm', { name: m.name })) && act('kick', { memberId: m.id })}><${Ico} n="close" size=${14} /></button>`}</span>`}</div>`)}</div></section>`;
-    })}</div>
-    ${free.length > 0 && html`<section class="card"><p class="eyebrow">${t('lobby.no_team_yet')}</p>${free.map((m) => html`<div class="row sp nw" key=${m.id} style="padding:4px 0"><span>${m.name}${m.id === st.me.id ? ' (' + t('you') + ')' : ''}</span>
-      ${admin && html`<select style="width:auto;padding:5px 8px" onChange=${(e) => e.target.value && act('assign_team', { memberId: m.id, teamId: e.target.value })}>
-        <option value="">${t('lobby.assign')}</option>${st.teams.map((x) => html`<option value=${x.id}>${x.name}</option>`)}</select>`}</div>`)}</section>`}
-    ${canJoin && !mine && html`<section class="card"><p class="eyebrow">${t('lobby.create_team')}</p><div class="row nw"><input class="grow" placeholder=${t('lobby.team_name')} value=${tn} maxlength="24" onInput=${(e) => setTn(e.target.value)} />
-      <input type="color" value=${tc} onInput=${(e) => setTc(e.target.value)} /><${AsyncBtn} onClick=${async () => { if (await act('team_create', { name: tn, color: tc })) setTn(''); }}>${t('create')}<//></div></section>`}
+    <section class="card"><p class="eyebrow">${canJoin ? t('team.pick') : t('team.teams')}</p>
+      <div class="colors">${META.teamColors.map((c) => {
+        const tm = team(c), ms = tm ? players.filter((m) => m.teamId === tm.id) : [];
+        const on = !!tm && mine === tm.id, full = ms.length >= 4;
+        return html`<button class="colorbtn ${on ? 'on' : ''}" style=${{ '--c': c.color }} key=${c.id} disabled=${!canJoin || (full && !on)} onClick=${() => (on ? act('team_leave') : act('team_join', { cid: c.id }))}>
+          <i class="swatch"></i><b>${t('color.' + c.id)}</b><span class="small">${ms.length}/4</span>${ms.length > 0 && html`<span class="names">${ms.map((m) => m.name).join(', ')}</span>`}</button>`; })}</div>
+      ${free.length > 0 && html`<p class="small dim mt">${t('team.no_team_yet', { names: free.map((m) => m.name).join(', ') })}</p>`}</section>
+    ${admin && html`<section class="card"><p class="eyebrow">${t('team.assign')}</p>${players.map((m) => html`<div class="prow" key=${m.id}>
+      <span class="grow"><b>${m.name}</b>${m.co ? html` <${Chip}>${t('role.coadmin')}<//>` : ''}${m.id === st.me.id ? ' (' + t('you') + ')' : ''}</span>
+      <span class="row nw" style="gap:5px">${META.teamColors.map((c) => { const tm = team(c); return html`<button class="swbtn ${tm && m.teamId === tm.id ? 'on' : ''}" key=${c.id} style=${{ background: c.color }} aria-label=${t('color.' + c.id)} title=${t('color.' + c.id)} onClick=${() => act('assign_team', { memberId: m.id, cid: c.id })}></button>`; })}
+        <button class="swbtn none ${m.teamId ? '' : 'on'}" aria-label=${t('lobby.no_team')} title=${t('lobby.no_team')} onClick=${() => act('assign_team', { memberId: m.id, cid: null })}></button></span>
+      ${m.role !== 'admin' && html`<span class="row nw" style="gap:6px"><${CoAdminBtn} st=${st} act=${act} m=${m} /><button class="sm ghost icon" aria-label=${t('remove')} onClick=${() => confirm(t('lobby.remove_confirm', { name: m.name })) && act('kick', { memberId: m.id })}><${Ico} n="close" size=${14} /></button></span>`}</div>`)}</section>`}
   </div>`;
 }
 
@@ -154,7 +156,7 @@ function LobbySettings({ st, act, openModal }) {
       ${st.mode === 'race' && html`<div class="grid">
         <${Field} label=${t('set.start_city')}><${CitySelect} value=${s.startCity} onChange=${(v) => setS({ ...s, startCity: v })} /><//>
         <${Field} label=${t('set.finish_city')}><${CitySelect} value=${s.finishCity} onChange=${(v) => setS({ ...s, finishCity: v })} /><//>
-        ${num('territoryBonusMin', t('set.first_bonus'))}${num('taskSlots', t('set.task_slots'))}${num('taskPicks', t('set.task_picks'))}${num('protectSec', t('set.protect_sec'))}${num('handLimit', t('set.hand_limit'))}${num('days', t('set.days'))}</div>
+        ${num('taskSlots', t('set.task_slots'))}${num('taskVotes', t('set.task_votes'))}${num('handLimit', t('set.hand_limit'))}${num('days', t('set.days'))}</div>
         ${sw('ordered', t('set.ordered'))}${sw('tasksEnabled', t('set.tasks_cards'))}${sw('requireProof', t('set.require_proof'))}${win}
         ${editors(true, true)}<${TerritoryEditor} st=${st} act=${act} />`}
       ${st.mode === 'hide' && html`<div class="grid">${num('hidesPerPlayer', t('set.hides_per'))}${num('hideMinutes', t('set.hide_minutes'))}${num('zoneRadiusM', t('set.zone_radius'))}

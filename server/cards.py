@@ -13,11 +13,9 @@ from core import GameError
 
 # effect type -> spec. params: name -> (min, max, default).  target: needs another team.  passive: cannot be played.
 RACE_EFFECTS = {
-    'time_bonus': {'label': 'Time bonus (minutes off your time)', 'params': {'min': (1, 180, 15)}, 'target': False},
-    'time_penalty': {'label': 'Time penalty for another team', 'params': {'min': (1, 180, 20)}, 'target': True},
     'freeze': {'label': 'Freeze another team (no check-in / finish)', 'params': {'min': (1, 180, 20)}, 'target': True},
-    'shuffle_tasks': {'label': 'Shuffle all tasks except protected ones', 'params': {}, 'target': False},
-    'extra_picks': {'label': 'Extra card picks', 'params': {'n': (1, 4, 1)}, 'target': False},
+    'swap_task': {'label': 'Replace one of the shared tasks with a new one', 'params': {}, 'target': False},
+    'extra_card': {'label': 'Draw extra cards', 'params': {'n': (1, 3, 1)}, 'target': False},
     'steal': {'label': 'Steal a random card from another team', 'params': {}, 'target': True},
     'spy': {'label': 'See all teams live for a while', 'params': {'min': (1, 60, 10)}, 'target': False},
     'shield': {'label': 'Shield (blocks the next hostile card)', 'params': {}, 'target': False, 'passive': True},
@@ -45,15 +43,10 @@ def _c(i, name, desc, weight, typ, **params):
 
 
 DEFAULT_RACE_CARDS = [
-    _c('rc01', 'Pīrāgu pauze', 'Atņem savai komandai 10 minūtes no laika.', 5, 'time_bonus', min=10),
-    _c('rc02', 'Rupjmaizes spēks', 'Atņem savai komandai 20 minūtes no laika.', 3, 'time_bonus', min=20),
-    _c('rc03', 'Zelta saule', 'Atņem savai komandai 45 minūtes no laika.', 1, 'time_bonus', min=45),
-    _c('rc04', 'Raganas slota', 'Izvēlētajai komandai tiek pieskaitītas 15 minūtes.', 3, 'time_penalty', min=15),
-    _c('rc05', 'Pērkona negaiss', 'Izvēlētajai komandai tiek pieskaitītas 30 minūtes.', 1, 'time_penalty', min=30),
     _c('rc06', 'Miglas aizsegs', 'Izvēlētā komanda 15 minūtes nevar reģistrēties pilsētā vai finišēt.', 3, 'freeze', min=15),
     _c('rc07', 'Sals', 'Izvēlētā komanda 30 minūtes nevar reģistrēties pilsētā vai finišēt.', 1, 'freeze', min=30),
-    _c('rc08', 'Uzdevumu virpulis', 'Sajauc visus uzdevumus, izņemot tos, kurus komandas ir aizsargājušas.', 2, 'shuffle_tasks'),
-    _c('rc09', 'Laimes kurpīte', 'Uzreiz saņem vēl vienu kārts izvēli.', 3, 'extra_picks', n=1),
+    _c('rc08', 'Uzdevuma maiņa', 'Aizstāj vienu no kopīgajiem uzdevumiem ar jaunu (jaunais ir vienāds visām komandām).', 4, 'swap_task'),
+    _c('rc09', 'Laimes kurpīte', 'Uzreiz saņem vēl vienu kārti.', 3, 'extra_card', n=1),
     _c('rc10', 'Zaglēna roka', 'Nozādz nejaušu kārti no izvēlētās komandas.', 2, 'steal'),
     _c('rc11', 'Putna skatiens', '10 minūtes redzi visu komandu atrašanās vietu.', 3, 'spy', min=10),
     _c('rc12', 'Ozollapu vainags', 'Automātiski bloķē nākamo pret tevi vērsto kārti.', 3, 'shield'),

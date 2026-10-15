@@ -88,11 +88,11 @@ function GamePanel({ code, onChange }) {
       <input placeholder="PIN" value=${pin} onInput=${(e) => setPin(e.target.value)} /><${AsyncBtn} class="sm" disabled=${!/^\d{4,8}$/.test(pin)} onClick=${() => run({ action: 'set_pin', memberId: mid, pin }, t('saved'))}>${t('owner.set_pin')}<//></div>
     <p class="small dim" style="margin:0">${t('owner.hash_note')}</p>
     <p class="eyebrow">${t('owner.act_as')}</p>
-    <div class="row nw"><input placeholder="type (play_card, adjust, pause, ...)" value=${type} onInput=${(e) => setType(e.target.value)} /></div>
+    <div class="row nw"><input placeholder="type (play_card, checkin, pause, ...)" value=${type} onInput=${(e) => setType(e.target.value)} /></div>
     <textarea rows="3" value=${payload} onInput=${(e) => setPayload(e.target.value)} placeholder='{"iid": "..."}'></textarea>
     <${AsyncBtn} class="sm" onClick=${() => { let p; try { p = JSON.parse(payload || '{}'); } catch { return toast('JSON?'); } return act(type, p, d.members[mid]); }}>${t('owner.run')}<//>
     <p class="eyebrow">${t('owner.edit_value')}</p>
-    <input placeholder="data.teams.<id>.bonusMin" value=${path} onInput=${(e) => setPath(e.target.value)} />
+    <input placeholder="data.teams.<id>.frozenUntil" value=${path} onInput=${(e) => setPath(e.target.value)} />
     ${path.trim() && html`<pre class="small owner-json">${JSON.stringify(shown, null, 1) || 'undefined'}</pre>`}
     <div class="row nw"><input placeholder='JSON: 10, "text", {"a":1}' value=${value} onInput=${(e) => setValue(e.target.value)} /><${AsyncBtn} class="sm" disabled=${!path.trim()} onClick=${() => run({ action: 'patch', path: path.trim().split('.'), value: parsed() }, t('saved'))}>${t('owner.set')}<//></div>
     <details onToggle=${(e) => setRaw(e.target.open)}><summary class="small">${t('owner.raw')}</summary>${raw && html`<pre class="small owner-json">${JSON.stringify(d, null, 1)}</pre>`}</details>

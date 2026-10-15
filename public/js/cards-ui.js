@@ -71,13 +71,15 @@ export function RaceCardModal({ inst, st, onPlay, onDiscard, onClose }) {
   const spec = META.effects.race[e.type] || {};
   const needsTarget = spec.target || (e.type === 'text' && e.target);
   const [target, setTarget] = useState('');
+  const [task, setTask] = useState('');
   const others = st.teams.filter((x) => x.id !== st.me.teamId && !(st.g.teams.find((r) => r.id === x.id) || {}).finishedAt);
   return html`<${Modal} title=${tx(inst.card, 'name')} onClose=${onClose}>
     <div class="row nw" style="align-items:flex-start;gap:16px"><${GCard} card=${inst.card} mode="race" />
       <div class="grow"><p class="small dim">${effectSummary('race', e)}</p>
         ${spec.passive ? html`<div class="callout">${t('card.passive')}</div>` : html`<div>
           ${needsTarget && html`<${Field} label=${t('card.target')}><select value=${target} onChange=${(ev) => setTarget(ev.target.value)}><option value="">${t('choose')}</option>${others.map((x) => html`<option value=${x.id}>${x.name}</option>`)}</select><//>`}
-          <${AsyncBtn} class="block mt" disabled=${needsTarget && !target} confirm=${t('card.confirm_play', { name: tx(inst.card, 'name') })} onClick=${async () => { if (await onPlay({ iid: inst.iid, targetTeamId: target || undefined })) onClose(); }}>${t('card.play')}<//></div>`}
+          ${e.type === 'swap_task' && html`<${Field} label=${t('card.pick_task')}><select value=${task} onChange=${(ev) => setTask(ev.target.value)}><option value="">${t('choose')}</option>${st.g.shared.map((id) => { const tk = st.settings.tasks.find((x) => x.id === id); return tk && html`<option value=${id}>${tx(tk, 'title')}</option>`; })}</select><//>`}
+          <${AsyncBtn} class="block mt" disabled=${(needsTarget && !target) || (e.type === 'swap_task' && !task)} confirm=${t('card.confirm_play', { name: tx(inst.card, 'name') })} onClick=${async () => { if (await onPlay({ iid: inst.iid, targetTeamId: target || undefined, taskId: task || undefined })) onClose(); }}>${t('card.play')}<//></div>`}
         <${AsyncBtn} class="ghost block mt" confirm=${t('card.confirm_discard')} onClick=${async () => { if (await onDiscard(inst.iid)) onClose(); }}>${t('card.discard')}<//></div></div>
   <//>`;
 }

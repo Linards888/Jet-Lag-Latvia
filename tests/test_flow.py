@@ -53,8 +53,8 @@ def keys(g, m):
 class RaceTests(unittest.TestCase):
     def setUp(self):
         self.store, self.g, self.admin, self.key, self.tok, (self.a, self.b) = mk('race', {'useWindow': False}, n=2)
-        act(self.store, self.g, self.a, 'team_create', name='Red')
-        act(self.store, self.g, self.b, 'team_create', name='Blue')
+        act(self.store, self.g, self.a, 'team_join', cid='red')
+        act(self.store, self.g, self.b, 'team_join', cid='blue')
         act(self.store, self.g, self.admin, 'start')
         self.ta, self.tb = self.a['teamId'], self.b['teamId']
         self.d = self.g['data']
@@ -69,109 +69,103 @@ class RaceTests(unittest.TestCase):
         with self.assertRaises(GameError):
             act(store, g, a, 'checkin', cityId='liepaja')  # already in it
         act(store, g, a, 'checkin', cityId='jelgava')  # no GPS needed
-        self.assertEqual(g['data']['claims']['zemgale'], self.ta)  # first to reach gets the bonus
-        self.assertEqual(self.d['teams'][self.ta]['bonusMin'], 20)
+        self.assertNotIn('claims', self.d)  # no bonus for being first
         with self.assertRaises(GameError):
             act(store, g, a, 'finish', cityId='daugavpils')  # not all territories reached yet
         for city in ('riga', 'valmiera', 'rezekne'):
             act(store, g, a, 'checkin', cityId=city)
         act(store, g, a, 'finish', cityId='daugavpils')
         self.assertTrue(self.d['teams'][self.ta]['finishedAt'])
+        self.assertEqual(G.view(g, self.b)['g']['ranking'][0], self.ta)  # first to the finish wins, no clock involved
         self.assertTrue(core.verify_log(g))
         json.dumps(G.view(g, self.b))
 
-    def test_shared_tasks_picks_and_hand_limit(self):
-        g, store, a, b = self.g, self.store, self.a, self.b
-        mine = list(self.d['teams'][self.ta]['mine'])
-        self.assertEqual(len(mine), 3)
-        self.assertEqual(len(set(mine)), 3)
-        self.assertEqual(team_row(G.view(g, b), self.ta).get('mine'), None)  # rivals do not see my tasks
-        task = next(t for t in g['settings']['tasks'] if t['id'] == mine[0])
-        act(store, g, a, 'complete_task', taskId=mine[0])  # no start, no proof by default
-        self.assertEqual(len(self.d['teams'][self.ta]['mine']), 3)  # a new one is drawn
-        self.assertNotIn(mine[0], self.d['teams'][self.ta]['mine'])
-        active = [mine[0]]
-        row = team_row(G.view(g, a), self.ta)
-        self.assertEqual(len(row['picks']), task['difficulty'])
-        self.assertEqual(len(row['picks'][0]['options']), 3)
+    def test_teams_are_just_colours(self):
+        g = self.g
+        self.assertEqual({t['name'] for t in g['teams'].values()}, {'Red', 'Blue'})
+        self.assertEqual({t['cid'] for t in g['teams'].values()}, {'red', 'blue'})
         with self.assertRaises(GameError):
-            act(store, g, a, 'complete_task', taskId=active[0])  # no longer one of my tasks
+            act(self.store, g, self.a, 'team_join', cid='magenta')  # only the main colours
+
+    def test_shared_tasks_disappear_for_everybody_and_pay_cards(self):
+        g, store, a, b = self.g, self.store, self.a, self.b
+        shared = list(self.d['shared'])
+        self.assertEqual(len(shared), 5)
+        self.assertEqual(len(set(shared)), 5)
+        self.assertEqual(G.view(g, a)['g']['shared'], shared)
+        self.assertEqual(G.view(g, b)['g']['shared'], shared)  # the very same five for every team
+        task = next(t for t in g['settings']['tasks'] if t['id'] == shared[0])
+        act(store, g, a, 'complete_task', taskId=shared[0])  # no start, no proof by default
+        now_shared = G.view(g, b)['g']['shared']
+        self.assertEqual(len(now_shared), 5)
+        self.assertNotIn(shared[0], now_shared)  # gone for the rival too
+        self.assertEqual(now_shared[1:], shared[1:])  # and a new one took its place
+        self.assertEqual(len(self.d['teams'][self.ta]['cards']), 1 if task['difficulty'] <= 3 else 2)  # cards straight into the hand
+        self.assertEqual(len(self.d['teams'][self.tb]['cards']), 0)
+        with self.assertRaises(GameError):
+            act(store, g, b, 'complete_task', taskId=shared[0])  # too late
         with self.assertRaises(GameError):
             act(store, g, a, 'complete_task', taskId='nope')
-        self.assertNotIn('picks', team_row(G.view(g, b), self.ta))  # rivals cannot see them
-        # hand limit 6: a 7th card needs a discard (or a pass)
+        self.assertNotIn('cards', team_row(G.view(g, b), self.ta))  # rivals cannot see the hand
+        self.assertEqual(team_row(G.view(g, b), self.ta)['cardCount'], len(self.d['teams'][self.ta]['cards']))
+        # hand limit 6: the oldest card goes when a new one arrives
         d = self.d['teams'][self.ta]
         d['cards'] = []
         for _ in range(6):
             give(g, self.ta, 'shield')
-        d['picks'] = [{'pid': 'p1', 'options': cards.draw(g['settings']['cards'], 3)}, {'pid': 'p2', 'options': cards.draw(g['settings']['cards'], 3)}]
-        with self.assertRaises(GameError):
-            act(store, g, a, 'pick', pid='p1', index=0)
-        act(store, g, a, 'pick', pid='p1', index=0, discardIid=d['cards'][0]['iid'])
+        oldest = d['cards'][0]['iid']
+        G.MODES['race']._grant_cards(g, self.ta, 1)
         self.assertEqual(len(d['cards']), 6)
-        act(store, g, a, 'pick', pid='p2', **{'pass': True})
-        self.assertEqual((len(d['cards']), len(d['picks'])), (6, 0))
+        self.assertNotIn(oldest, [c['iid'] for c in d['cards']])
 
-    def test_shuffle_card_opens_protect_window(self):
-        g, store, a, b = self.g, self.store, self.a, self.b
-        da, db = self.d['teams'][self.ta], self.d['teams'][self.tb]
-        with self.assertRaises(GameError):
-            act(store, g, a, 'pin_task', taskId=da['mine'][0])  # Protect only exists after a shuffle card
-        ma, mb = list(da['mine']), list(db['mine'])
-        act(store, g, a, 'play_card', iid=give(g, self.ta, 'shuffle_tasks'))
-        self.assertEqual(da['mine'], ma)  # nothing changes until the protect window ends
-        self.assertTrue(G.view(g, a)['g']['shuffleUntil'])
-        with self.assertRaises(GameError):
-            act(store, g, a, 'play_card', iid=give(g, self.ta, 'shuffle_tasks'))
-        act(store, g, a, 'pin_task', taskId=ma[0])
-        act(store, g, b, 'pin_task', taskId=mb[1])
-        self.d['shuffle']['until'] = 0
-        act(store, g, b, 'discard', iid=give(g, self.tb, 'shield'))  # any action resolves it
-        self.assertEqual(da['mine'][0], ma[0])
-        self.assertEqual(db['mine'][1], mb[1])
-        self.assertTrue(all(x not in ma[1:] for x in da['mine'][1:]))
-        self.assertIsNone(self.d['shuffle'])
-        self.assertIsNone(da['pin'])
-        with self.assertRaises(GameError):
-            act(store, g, a, 'pin_task', taskId=da['mine'][0])
+    def test_no_time_bonus_or_scoring(self):
+        s = G.MODES['race'].default_settings()
+        self.assertNotIn('territoryBonusMin', s)
+        self.assertEqual({k for k in cards.RACE_EFFECTS} & {'time_bonus', 'time_penalty', 'shuffle_tasks'}, set())
+        self.assertNotIn('scoreMs', team_row(G.view(self.g, self.a), self.ta))
 
-    def test_night_planning_redraws_matching_selections(self):
+    def test_days_zero_means_no_limit_and_days_end_the_race(self):
+        g, race = self.g, G.MODES['race']
+        g['settings']['days'] = 0
+        self.assertIsNone(race._end_ms(g))
+        v = G.view(g, self.a)['g']
+        self.assertEqual((v['days'], v['endsAt'], v['day']), (0, None, 1))
+        g['settings']['days'] = 2
+        end = race._end_ms(g)
+        self.assertEqual(end, g['startedAt'] + 2 * core.DAY)  # no window: whole days
+        race.tick(g, end + 1)
+        self.assertEqual(g['status'], 'finished')
+
+    def test_night_vote_replaces_only_tasks_all_teams_chose(self):
         store, g, admin, key, tok, (a, b) = mk('race', {'useWindow': True, 'window': {'start': '08:00', 'end': '21:00'}}, n=2)
-        act(store, g, a, 'team_create', name='Red')
-        act(store, g, b, 'team_create', name='Blue')
+        act(store, g, a, 'team_join', cid='red')
+        act(store, g, b, 'team_join', cid='blue')
         act(store, g, admin, 'start')
-        d, ta, tb = g['data'], a['teamId'], b['teamId']
+        d = g['data']
         day = core.local_day_start(core.now_ms())
         night, morning = day + 23 * 3600000, day + 24 * 3600000 + 9 * 3600000
         race = G.MODES['race']
         g['startedAt'] = night - 3600000
         race._sync(g, night)
-        self.assertEqual(d['phase'], 'plan')
-        self.assertEqual(len(d['active']), 5)
-        view = G.view(g, a)['g']
-        self.assertEqual(view['active'], d['active'])
+        self.assertEqual(d['phase'], 'vote')
+        shared = list(d['shared'])
         with self.assertRaises(GameError):
-            race.action(store, g, a, 'select_tasks', {'taskIds': d['active'][:2]}, night)  # exactly 3
-        race.action(store, g, a, 'select_tasks', {'taskIds': d['active'][:3]}, night)
-        race.action(store, g, b, 'select_tasks', {'taskIds': d['active'][1:4]}, night)  # overlap: tasks 1 and 2
+            race.action(store, g, a, 'vote_tasks', {'taskIds': shared[:2]}, night)  # exactly 3
+        race.action(store, g, a, 'vote_tasks', {'taskIds': shared[:3]}, night)
+        race.action(store, g, b, 'vote_tasks', {'taskIds': shared[1:4]}, night)  # both chose tasks 1 and 2
         with self.assertRaises(GameError):
-            race.action(store, g, a, 'complete_task', {'taskId': d['active'][0]}, night)  # no tasks at night
+            race.action(store, g, a, 'complete_task', {'taskId': shared[0]}, night)  # no tasks at night
         race._sync(g, morning)
         self.assertEqual(d['phase'], 'play')
-        ma, mb = d['teams'][ta]['mine'], d['teams'][tb]['mine']
-        self.assertEqual((len(ma), len(mb)), (3, 3))
-        pool = d['active']
-        self.assertEqual(ma[0], pool[0])  # unique picks stay
-        self.assertEqual(mb[2], pool[3])
-        self.assertFalse((set(ma) | set(mb)) & set(pool[1:3]) & (set(ma) & set(mb)))
-        self.assertNotEqual(ma[1:], pool[1:3])  # matching picks were redrawn
-        self.assertFalse(set(ma) & set(mb))
+        self.assertEqual(len(d['shared']), 5)
+        self.assertEqual((d['shared'][0], d['shared'][3], d['shared'][4]), (shared[0], shared[3], shared[4]))  # chosen by one team: kept
+        self.assertTrue(set(d['shared'][1:3]).isdisjoint(shared))  # chosen by both: replaced by new ones
+        with self.assertRaises(GameError):
+            race.action(store, g, a, 'vote_tasks', {'taskIds': d['shared'][:3]}, morning)  # voting is a night thing
 
     def test_card_effects(self):
         g, store, a, b = self.g, self.store, self.a, self.b
         d_a, d_b = self.d['teams'][self.ta], self.d['teams'][self.tb]
-        act(store, g, a, 'play_card', iid=give(g, self.ta, 'time_bonus', min=15))
-        self.assertEqual(d_a['bonusMin'], 15)
         iid = give(g, self.ta, 'freeze', min=30)
         with self.assertRaises(GameError):
             act(store, g, a, 'play_card', iid=iid)  # needs a target
@@ -180,11 +174,9 @@ class RaceTests(unittest.TestCase):
             act(store, g, b, 'checkin', cityId='jelgava')  # frozen
         self.assertIn('curse_freeze', keys(g, b))
         give(g, self.tb, 'shield')  # shield absorbs the next hostile card
-        act(store, g, a, 'play_card', iid=give(g, self.ta, 'time_penalty', min=20), targetTeamId=self.tb)
-        self.assertEqual((d_b['penaltyMin'], d_b['cards']), (0, []))
+        act(store, g, a, 'play_card', iid=give(g, self.ta, 'freeze', min=20), targetTeamId=self.tb)
+        self.assertEqual(d_b['cards'], [])
         self.assertIn('card_blocked', keys(g, a))
-        act(store, g, a, 'play_card', iid=give(g, self.ta, 'time_penalty', min=20), targetTeamId=self.tb)
-        self.assertEqual(d_b['penaltyMin'], 20)
         give(g, self.tb, 'spy', min=5)
         act(store, g, a, 'play_card', iid=give(g, self.ta, 'steal'), targetTeamId=self.tb)
         self.assertEqual([c['card']['effect']['type'] for c in d_a['cards']], ['spy'])
@@ -196,26 +188,38 @@ class RaceTests(unittest.TestCase):
         self.assertTrue(team_row(G.view(g, a), self.tb)['locs'][0]['live'])
         act(store, g, a, 'play_card', iid=give(g, self.ta, 'text'))
         self.assertIn('card_text', keys(g, b))
+        before = list(self.d['shared'])
+        swap = give(g, self.ta, 'swap_task')
+        with self.assertRaises(GameError):
+            act(store, g, a, 'play_card', iid=swap)  # which task?
+        act(store, g, a, 'play_card', iid=swap, taskId=before[2])
+        self.assertNotIn(before[2], self.d['shared'])
+        self.assertEqual(len(self.d['shared']), 5)
+        d_a['cards'] = []
+        act(store, g, a, 'play_card', iid=give(g, self.ta, 'extra_card', n=2))
+        self.assertEqual(len(d_a['cards']), 2)
 
 
 class RaceProofTests(unittest.TestCase):
     def test_optional_proof_and_review(self):
         store, g, admin, key, tok, (a, b) = mk('race', {'useWindow': False, 'requireProof': True}, n=2)
-        act(store, g, a, 'team_create', name='Red')
-        act(store, g, b, 'team_create', name='Blue')
+        act(store, g, a, 'team_join', cid='red')
+        act(store, g, b, 'team_join', cid='blue')
         act(store, g, admin, 'start')
         ta = a['teamId']
-        t0 = g['data']['teams'][ta]['mine'][0]
+        t0 = g['data']['shared'][0]
         with self.assertRaises(GameError):
             act(store, g, a, 'complete_task', taskId=t0)  # a photo is required in this lobby setting
         fid = G.put_file(store, g, a, JPEG, 'members')
         act(store, g, a, 'complete_task', taskId=t0, fid=fid, note='done')
-        self.assertEqual(team_row(G.view(g, a), ta)['picks'], [])  # nothing until reviewed
+        self.assertEqual(team_row(G.view(g, a), ta)['cards'], [])  # nothing until reviewed
+        self.assertIn(t0, g['data']['shared'])  # and the task stays for everybody until it is approved
         with self.assertRaises(GameError):
             act(store, g, a, 'review', teamId=ta, taskId=t0, verdict='approve')  # own team
         self.assertEqual(len(G.view(g, b)['g']['reviews']), 1)
         act(store, g, b, 'review', teamId=ta, taskId=t0, verdict='approve')
-        self.assertGreater(len(team_row(G.view(g, a), ta)['picks']), 0)
+        self.assertGreater(len(team_row(G.view(g, a), ta)['cards']), 0)
+        self.assertNotIn(t0, g['data']['shared'])
 
 
 class AdminModeTests(unittest.TestCase):
@@ -248,13 +252,37 @@ class AdminModeTests(unittest.TestCase):
         self.assertFalse(G.is_referee(g, admin))
         self.assertTrue(G.admin_active(g, admin))
 
+    def test_co_admins(self):
+        store, g, admin, key, tok, (a, b) = mk('race', {'useWindow': False}, n=2)
+        with self.assertRaises(GameError):
+            act(store, g, a, 'announce', text='no')  # players are not admins
+        with self.assertRaises(GameError):
+            act(store, g, a, 'set_admin', memberId=b['id'])  # only the creator hands out admin rights
+        act(store, g, admin, 'set_admin', memberId=a['id'])
+        self.assertTrue(G.view(g, a)['members'][1]['co'])
+        act(store, g, a, 'announce', text='hello from a co-admin')
+        act(store, g, a, 'team_join', cid='red')
+        act(store, g, a, 'assign_team', memberId=b['id'], cid='blue')  # co-admins can sort the teams
+        self.assertEqual(b['teamId'] is not None, True)
+        v = G.view(g, a)
+        self.assertTrue(v['me']['canAdmin'])
+        self.assertIn('log', v)
+        self.assertFalse(G.is_referee(g, a))  # never the all-seeing view
+        with self.assertRaises(GameError):
+            act(store, g, a, 'admin_mode', mode='full')  # the mode switch belongs to the creator
+        with self.assertRaises(GameError):
+            act(store, g, a, 'kick', memberId=admin['id'])
+        act(store, g, admin, 'set_admin', memberId=a['id'], on=False)
+        with self.assertRaises(GameError):
+            act(store, g, a, 'announce', text='again')
+
     def test_catalog_editing_and_lean_state(self):
         store, g, admin, key, tok, _ = mk('race', n=0)
         act(store, g, admin, 'edit_catalog', kind='cards', items=[
             {'name': 'Mans prikols', 'desc': 'Dejo!', 'weight': 2, 'effect': {'type': 'text', 'target': True}},
-            {'name': 'Bonuss', 'desc': '', 'weight': 9, 'effect': {'type': 'time_bonus', 'min': 999}}])
+            {'name': 'Bonuss', 'desc': '', 'weight': 9, 'effect': {'type': 'spy', 'min': 999}}])
         cs = g['settings']['cards']
-        self.assertEqual((len(cs), cs[1]['effect']['min'], cs[1]['weight']), (2, 180, 8))
+        self.assertEqual((len(cs), cs[1]['effect']['min'], cs[1]['weight']), (2, 60, 8))
         with self.assertRaises(GameError):
             act(store, g, admin, 'edit_catalog', kind='cards', items=[{'name': 'x?', 'effect': {'type': 'nope'}}])
         act(store, g, admin, 'edit_catalog', kind='tasks', items=[{'title': 'Mans uzdevums', 'desc': 'x', 'difficulty': 4}])
@@ -424,8 +452,8 @@ class ThrottleTests(unittest.TestCase):
 class TagTests(unittest.TestCase):
     def setup_game(self, **s):
         store, g, admin, key, tok, (a, b) = mk('tag', dict({'useWindow': False}, **s), n=2)
-        act(store, g, a, 'team_create', name='Red')
-        act(store, g, b, 'team_create', name='Blue')
+        act(store, g, a, 'team_join', cid='red')
+        act(store, g, b, 'team_join', cid='blue')
         act(store, g, admin, 'start')
         d = g['data']
         it_m = a if a['teamId'] == d['it'] else b

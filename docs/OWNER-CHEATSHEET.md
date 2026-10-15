@@ -8,18 +8,17 @@ Visas komandas un vērtības, ko vari lietot Owner console (`#/owner`).
 Atver spēli sarakstā. Zem tās ir: (1) pogas Pauze, Atsākt, Beigt, Paziņojums (darbojas kā spēles admins); (2) Dalībnieki ar viņu ID; (3) PIN maiņa; (4) 'Darboties kā izvēlētais dalībnieks': izvēlies dalībnieku, ieraksti darbības nosaukumu (type) un JSON datus (payload), spied Izpildīt. Tā ir tā pati darbība, ko dalībnieks izdara spēlē, tāpēc spēles noteikumi paliek spēkā (piem. kārti var spēlēt tikai tad, ja tā ir rokā); (5) 'Mainīt jebkuru vērtību' ignorē noteikumus: ieraksti ceļu ar punktiem un JSON vērtību; (6) 'Spēles neapstrādātie dati' rāda visu spēles saturu, no kura vari nolasīt ID.
 
 
-## Komandu darbības (jebkurā režīmā)
+## Komandu darbības (jebkurā režīmā, tikai lobby)
 
-Dara dalībnieks, kuram ir komanda.
+Komanda ir krāsa: red, blue, green, yellow, orange, purple, pink, teal. Dara dalībnieks, kuram ir komanda.
 
 
 | Nosaukums / ceļš | Piemērs | Ko dara |
 |---|---|---|
-| `team_create` | `{"name":"Sarkanie"}` | Izveido komandu un ieliek tajā dalībnieku |
-| `team_join` | `{"teamId":"..."}` | Pievienojas komandai (līdz 4) |
+| `team_join` | `{"cid":"red"}` | Pievienojas komandai ar šo krāsu (izveido to, ja vēl nav; līdz 4 cilvēkiem) |
 | `team_leave` | `{}` | Iziet no komandas |
 
-## Admina darbības (izvēlies dalībnieku ar lomu admin)
+## Admina darbības (galvenais admins vai līdzadmins)
 
 Lobby un spēles laikā.
 
@@ -32,12 +31,12 @@ Lobby un spēles laikā.
 | `end` | `{}` | Beidz spēli (izmaksā kontu balvas, ja izpildīti nosacījumi) |
 | `announce` | `{"text":"Ziņa visiem"}` | Paziņojums visiem |
 | `lock_join` | `{"locked":true}` | Aizver vai atver pievienošanos |
-| `assign_team` | `{"memberId":"...","teamId":"..."}` | Ieliek dalībnieku komandā (teamId null = bez komandas) |
-| `rename_team` | `{"teamId":"...","name":"Jaunais","color":"#e63946"}` | Pārdēvē un pārkrāso komandu |
+| `assign_team` | `{"memberId":"...","cid":"blue"}` | Ieliek dalībnieku komandā ar krāsu cid (cid null = bez komandas) |
 | `kick` | `{"memberId":"..."}` | Izmet dalībnieku (tikai lobby) |
 | `update_settings` | `{"settings":{"handLimit":8}}` | Maina spēles iestatījumus (tikai lobby) |
 | `edit_catalog` | `{"kind":"tasks","items":[...]}` | Aizstāj uzdevumu vai kāršu sarakstu ({"kind":"tasks","reset":true} atjauno noklusējumu) |
 | `admin_mode` | `{"mode":"full"}` | Admina režīms: player, fair vai full |
+| `set_admin` | `{"memberId":"...","on":true}` | Tikai galvenais admins: dod vai atņem līdzadmina tiesības |
 
 ## Race darbības
 
@@ -47,15 +46,12 @@ Jāspēlē kā dalībnieks, kas ir komandā. Kartes un uzdevumu ID redzami Raw g
 | Nosaukums / ceļš | Piemērs | Ko dara |
 |---|---|---|
 | `checkin` | `{"cityId":"jelgava"}` | Atzīmēties pilsētā (iziet no teritorijas). Admins: {"manual":true,"teamId":"...","cityId":"..."} |
-| `finish` | `{"cityId":"daugavpils"}` | Finišēt finiša pilsētā |
-| `complete_task` | `{"taskId":"t07"}` | Atzīmēt uzdevumu izpildītu (ar foto: pievieno fid un note) |
-| `select_tasks` | `{"taskIds":["t01","t02","t03"]}` | Nakts plānošana: izvēlas 3 uzdevumus |
-| `pin_task` | `{"taskId":"t07"}` | Aizsargā uzdevumu (tikai pēc Task shuffle kārts) |
+| `finish` | `{"cityId":"daugavpils"}` | Finišēt finiša pilsētā (pirmā komanda uzvar) |
+| `complete_task` | `{"taskId":"t07"}` | Izpildīt kopīgu uzdevumu (ar foto: pievieno fid un note). Uzdevums pazūd visām komandām |
+| `vote_tasks` | `{"taskIds":["t01","t02","t03"]}` | Vakara balsojums: 3 uzdevumi, ko nomainīt (nomaina tos, ko izvēlējās visas komandas) |
 | `review` | `{"teamId":"...","taskId":"t07","verdict":"approve"}` | Apstiprina vai noraida pierādījumu (approve/reject) |
-| `pick` | `{"pid":"...","index":0}` | Paņem kārti no izvēles (pass:true atsakās, discardIid izmet kārti, ja roka pilna) |
 | `discard` | `{"iid":"..."}` | Izmet kārti no rokas |
-| `play_card` | `{"iid":"...","targetTeamId":"..."}` | Izspēlē kārti (targetTeamId vajadzīgs kartēm pret citu komandu) |
-| `adjust` | `{"teamId":"...","minutes":-10,"reason":"bonuss"}` | Admins: pieskaita vai atņem komandas laiku (negatīvs = bonuss) |
+| `play_card` | `{"iid":"...","targetTeamId":"..."}` | Izspēlē kārti (targetTeamId pret citu komandu; swap_task kārtij {"taskId":"..."}) |
 
 ## Hide & Seek darbības
 
@@ -101,10 +97,7 @@ Ieraksti ceļu un JSON vērtību (skaitlis 10, teksts "abc", true/false, null, m
 | `name` | `"Jauns nosaukums"` | Spēles nosaukums |
 | `joinLocked` | `false` | Atver pievienošanos |
 | `startedAt` | `1790000000000` | Spēles sākuma laiks (milisekundes) |
-| `data.teams.<teamId>.bonusMin` | `20` | Race/Tag komandas bonusa minūtes |
-| `data.teams.<teamId>.penaltyMin` | `0` | Soda minūtes |
 | `data.teams.<teamId>.frozenUntil` | `0` | Race: aizsalšanas beigas (ms; 0 = nav). Uzliec nākotnes laiku, lai komandu iesaldētu |
-| `data.teams.<teamId>.mine` | `["t01","t02","t03"]` | Race: komandas aktīvie uzdevumi |
 | `data.teams.<teamId>.cards` | `[]` | Race: komandas kārtis (rokas saturs) |
 | `data.teams.<teamId>.money` | `500` | Tag: komandas nauda |
 | `data.it` | `"<teamId>"` | Tag: kura komanda ir IT |
@@ -113,6 +106,9 @@ Ieraksti ceļu un JSON vērtību (skaitlis 10, teksts "abc", true/false, null, m
 | `settings.window.start` | `"06:00"` | Dienas spēles loga sākums (arī .end) |
 | `members.<memberId>.name` | `"Anna"` | Dalībnieka vārds |
 | `teams.<teamId>.name` | `"Sarkanie"` | Komandas nosaukums |
+| `data.shared` | `["t01","t02","t03","t04","t05"]` | Race: pašreizējie kopīgie uzdevumi |
+| `data.teams.<teamId>.finishedAt` | `1790000000000` | Race: komandas finiša laiks (null = vēl nav finišējusi) |
+| `settings.days` | `0` | Race: plānotās dienas (0 = bez ierobežojuma) |
 
 ## Konti (Owner console, Visi konti)
 

@@ -76,15 +76,10 @@ TASKS = {
 }
 
 CARDS = {
-    'rc01': {'en': ('Pie break', "Take 10 minutes off your team's time."), 'ru': ('Перерыв на пирожки', 'Вычтите 10 минут из времени вашей команды.')},
-    'rc02': {'en': ('Rye bread power', "Take 20 minutes off your team's time."), 'ru': ('Сила ржаного хлеба', 'Вычтите 20 минут из времени вашей команды.')},
-    'rc03': {'en': ('Golden sun', "Take 45 minutes off your team's time."), 'ru': ('Золотое солнце', 'Вычтите 45 минут из времени вашей команды.')},
-    'rc04': {'en': ("Witch's broom", "Add 15 minutes to the chosen team's time."), 'ru': ('Метла ведьмы', 'Добавьте 15 минут к времени выбранной команды.')},
-    'rc05': {'en': ('Thunderstorm', "Add 30 minutes to the chosen team's time."), 'ru': ('Гроза', 'Добавьте 30 минут к времени выбранной команды.')},
     'rc06': {'en': ('Veil of fog', 'The chosen team cannot check in or finish for 15 minutes.'), 'ru': ('Пелена тумана', 'Выбранная команда 15 минут не может отмечаться в городе и финишировать.')},
     'rc07': {'en': ('Frost', 'The chosen team cannot check in or finish for 30 minutes.'), 'ru': ('Мороз', 'Выбранная команда 30 минут не может отмечаться в городе и финишировать.')},
-    'rc08': {'en': ('Task whirlwind', 'Shuffles all tasks except the ones teams have protected.'), 'ru': ('Вихрь заданий', 'Перемешивает все задания, кроме защищённых командами.')},
-    'rc09': {'en': ('Lucky slipper', 'Immediately get one more card pick.'), 'ru': ('Счастливый башмачок', 'Сразу получите ещё один выбор карты.')},
+    'rc08': {'en': ('Task swap', 'Replaces one of the shared tasks with a new one (the new one is the same for every team).'), 'ru': ('Смена задания', 'Заменяет одно из общих заданий новым (новое одинаково для всех команд).')},
+    'rc09': {'en': ('Lucky slipper', 'Immediately draw one more card.'), 'ru': ('Счастливый башмачок', 'Сразу получите ещё одну карту.')},
     'rc10': {'en': ("Thief's hand", 'Steal a random card from the chosen team.'), 'ru': ('Рука вора', 'Украдите случайную карту у выбранной команды.')},
     'rc11': {'en': ("Bird's eye", "See every team's location for 10 minutes."), 'ru': ('Взгляд птицы', '10 минут видите местоположение всех команд.')},
     'rc12': {'en': ('Oak-leaf wreath', 'Automatically blocks the next hostile card aimed at you.'), 'ru': ('Дубовый венок', 'Автоматически блокирует следующую враждебную карту против вас.')},

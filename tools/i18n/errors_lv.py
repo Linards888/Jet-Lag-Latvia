@@ -171,4 +171,10 @@ E = {
     'You can only message friends': 'Rakstīt var tikai draugiem',
     'Empty message': 'Tukša ziņa',
     'The owner account cannot be renamed or deleted': 'Īpašnieka kontu nevar pārdēvēt vai dzēst',
+    'Choose a task to replace': 'Izvēlies uzdevumu, ko nomainīt',
+    'Choose exactly {1} tasks': 'Izvēlies tieši {1} uzdevumus',
+    'Choose one of the team colours': 'Izvēlies vienu no komandu krāsām',
+    'Only the game creator can add admins': 'Adminus var pievienot tikai spēles izveidotājs',
+    'That task is not available': 'Šis uzdevums nav pieejams',
+    'Voting is only open outside the daily play window': 'Balsot var tikai ārpus dienas spēles loga',
 }

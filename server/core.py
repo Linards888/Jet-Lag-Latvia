@@ -72,6 +72,14 @@ def _next_day(day_start):
     return local_day_start(day_start + DAY + 3 * 3600000)
 
 
+def nth_day_start(a, n):
+    """UTC ms of local midnight n days after the day containing a."""
+    day = local_day_start(a)
+    for _ in range(n):
+        day = _next_day(day)
+    return day
+
+
 def eff_elapsed(a, b, win):
     """Milliseconds between a and b that fall inside the daily play window win={'start','end'}."""
     if b <= a:
