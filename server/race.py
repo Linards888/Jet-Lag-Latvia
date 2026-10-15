@@ -219,11 +219,13 @@ def _sync(game, now):
     sh = data.get('shuffle')
     if sh and now >= sh['until']:
         for tid, d in data['teams'].items():
+            avoid = set(d['mine'])  # a shuffle never hands back a task the team just had
             for i, task_id in enumerate(list(d['mine'])):
                 if task_id != d['pin']:
-                    new = _fresh_task(game, tid, set(d['mine']))
+                    new = _fresh_task(game, tid, avoid)
                     if new:
                         d['mine'][i] = new
+                        avoid.add(new)
             d['pin'] = None
         data['shuffle'] = None
         notice(game, 'shuffled', 'cards', None)
