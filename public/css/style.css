@@ -608,3 +608,24 @@ html button.tile.locked .tn { color: var(--dim); } html button.tile.on .tn { fon
   .topbar .right { flex: 1 1 100%; justify-content: flex-end; flex-wrap: wrap; }
   .info-tiles { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* community: people lists, podium, profile facts */
+.people { display: flex; flex-direction: column; gap: 2px; }
+.person { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 8px 6px; border-radius: 14px; background: transparent; color: var(--text); border: 0; box-shadow: none; }
+.person:hover, .person:active { background: var(--accent-soft); transform: none; }
+.person .rk { width: 22px; text-align: center; font-weight: 800; color: var(--dim); flex: none; }
+.person .av { position: relative; flex: none; display: inline-flex; } .person .av i.on { position: absolute; right: -1px; bottom: -1px; width: 12px; height: 12px; border-radius: 50%; background: var(--good); border: 2px solid var(--surface); }
+.person .who { flex: 1; min-width: 0; display: flex; flex-direction: column; } .person .who b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .person .who small, .person .val small { color: var(--dim); font-size: .72rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.person .val { display: flex; flex-direction: column; align-items: flex-end; flex: none; font-variant-numeric: tabular-nums; }
+.podium { display: grid; grid-template-columns: 1fr 1.15fr 1fr; align-items: end; gap: 8px; margin-bottom: 8px; }
+.podium .step { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 4px 10px; border-radius: 16px; background: var(--surface2); border: 1px solid var(--line); color: var(--text); box-shadow: none; min-width: 0; }
+.podium .step b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .podium .step small { color: var(--dim); }
+.podium .step .n { font: 800 .95rem var(--font-b); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--line2); color: var(--text); }
+.podium .s1 { padding-top: 18px; background: linear-gradient(180deg, color-mix(in srgb, var(--gold) 26%, var(--surface2)), var(--surface2)); } .podium .s1 .n { background: var(--gold); color: #fff; }
+.facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; text-align: center; } .facts b { display: block; font: var(--fw-d) 1.1rem var(--font-d); } .facts span { color: var(--dim); font-size: .7rem; }
+.presence { display: inline-flex; align-items: center; gap: 6px; font-size: .8rem; color: var(--dim); } .presence i { width: 9px; height: 9px; border-radius: 50%; background: var(--line2); } .presence.on { color: var(--good); } .presence.on i { background: var(--good); }
+.friends-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 10px; }
+.fcell { display: flex; flex-direction: column; align-items: center; gap: 4px; background: transparent; border: 0; box-shadow: none; color: var(--text); padding: 4px; min-width: 0; } .fcell small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rar-rare { border-color: #4a8fd8; } .rar-epic { border-color: #9a63d8; } .rar-legendary { border-color: var(--gold); } .rar-mythic { border-color: #e0457b; }
+.steps { margin: 4px 0 0; padding-left: 22px; } .steps li { margin: 4px 0; }
+@media (max-width: 430px) { .facts { grid-template-columns: repeat(2, 1fr); } }

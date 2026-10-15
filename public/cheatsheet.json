@@ -93,7 +93,7 @@
    [
     "checkin",
     "{\"muniId\":\"liepajas\"} vai {\"cityId\":\"jelgava\"}",
-    "Atzīmēties atvērtā novadā (vispirms jāizpilda uzdevums blakus novadā). Admins: {\"manual\":true,\"teamId\":\"...\",\"muniId\":\"...\"}"
+    "Atzīmēties blakus novadā (tikai pēc uzdevuma izpildes pašreizējā novadā; vienā novadā uz vienu uzdevumu). Admins: {\"manual\":true,\"teamId\":\"...\",\"muniId\":\"...\"}"
    ],
    [
     "finish",
@@ -103,7 +103,7 @@
    [
     "complete_task",
     "{\"taskId\":\"t07\"}",
-    "Izpildīt kopīgu uzdevumu (ar foto: pievieno fid un note). Uzdevums pazūd visām komandām"
+    "Izpildīt kopīgu uzdevumu (ar foto: pievieno fid un note). Pēc tam jāatzīmējas blakus novadā, citādi nākamais uzdevums ir bloķēts"
    ],
    [
     "vote_tasks",

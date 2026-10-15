@@ -5,7 +5,8 @@ import { loadPrefs } from './theme.js';
 import { Toasts, Mochi } from './ui.js';
 import { Home, Create, Join, NotFound } from './home.js';
 import { GamePage } from './game.js';
-import { ProfilePage, PublicProfile } from './account.js';
+import { ProfilePage } from './account.js';
+import { CommunityPage, PublicProfile } from './people.js';
 import { OwnerPage } from './owner.js';
 import { GlobalBar } from './globalbar.js';
 
@@ -29,6 +30,7 @@ function App() {
   else if (parts[0] === 'create') page = html`<${Create} />`;
   else if (parts[0] === 'join') page = html`<${Join} code=${(parts[1] || '').toUpperCase()} key=${parts[1] || ''} />`;
   else if (parts[0] === 'owner') page = html`<${OwnerPage} />`;
+  else if (parts[0] === 'people') page = html`<${CommunityPage} />`;
   else if (parts[0] === 'me') page = html`<${ProfilePage} />`;
   else if (parts[0] === 'u' && parts[1]) page = html`<${PublicProfile} name=${decodeURIComponent(parts[1])} key=${parts[1]} />`;
   else if (parts[0] === 'g' && parts[1]) page = html`<${GamePage} code=${parts[1].toUpperCase()} key=${parts[1]} />`;

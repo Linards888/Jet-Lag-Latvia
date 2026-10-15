@@ -97,7 +97,31 @@ Augšā redzams **savienojuma indikators** (zaļš = savienots) un GPS stāvokli
 
 * Visi logi (draugi, čats, iestatījumi, profils, uzaicinājumi) atveras **ekrāna apakšā** un ritinās; telefona **Atpakaļ poga aizver logu**, nevis iziet no lapas.
 * Spēles augšējā josla telefonā ir divās rindās (nosaukums + statusa pogas), lai nekas neaiziet ārpus ekrāna.
-* Kartei ir **pilnekrāna** poga, un spēli var instalēt kā **aplikāciju** (pārlūkā "Add to Home screen" / "Pievienot sākuma ekrānam").
+* Kartei ir **pilnekrāna** poga; spēli var instalēt kā **aplikāciju** (skat. zemāk).
+
+---
+
+## Kopiena (kā Steam)
+
+Lapa **Kopiena** (poga sākumlapā un augšējā joslā, adrese `/#/people`) ir sociālā vieta:
+
+* **Reitings:** top 10 pēc līmeņa, uzvarām, nospēlētajām spēlēm un uzdevumiem (pirmie trīs uz pjedestāla), plus **Tagad tiešsaistē** un **Jaunie spēlētāji**.
+* **Meklēšana** pēc lietotājvārda, vārda vai uzvārda. Katru cilvēku var uzspiest, lai atvērtu profilu.
+* **Profils** rāda vietu reitingā, līmeni, draugu skaitu, kopš kura laika spēlē, vai ir tiešsaistē, tēmu, statistiku, **kolekcijas** (pa retumiem) un **draugu sarakstu** (arī uz tiem var spiest).
+* Uz profila ir pogas **Pievienot draugu**, **Pieņemt / Noraidīt**, **Rakstīt ziņu** (atver čatu) un **Noņemt draugu**.
+* Rādās tikai tie profili, kuriem ir ieslēgts **Publisks profils** (Labot logā). Ar paroli aizsargātas lietas (parole, PIN) nekad netiek rādītas.
+
+---
+
+## Aplikācija telefonā
+
+Spēli var instalēt kā aplikāciju (PWA): sava ikona, pilnekrāna logs, darbojas bez pārlūka joslas. **Profila lapas apakšā** ir kartīte **Instalēt aplikāciju**:
+
+* Android Chrome un datorā: poga **Install app** (ja pārlūks to atļauj), vai Chrome izvēlne, **Install app / Add to Home screen**.
+* iPhone: Safari, **Share**, **Add to Home Screen**, **Add**.
+* Kartītē ir arī **saite ar kopēšanas pogu**, ko vari nosūtīt uz telefonu.
+* Instalēšanai vajadzīga **https** adrese (piem. Tailscale adrese); parastā `http://192...` adrese instalēt neļauj. Android veido īstu aplikāciju (WebAPK), iPhone pievieno sākuma ekrānam.
+* Jā, ir arī paziņojumi, bet iPhone tie darbojas tikai instalētai aplikācijai.
 
 ---
 
@@ -159,15 +183,15 @@ Spēles augšējā kartītē redzams: kur tu esi (novads), **kura diena** (piem.
 Latvija ir sadalīta **novados**, un novadi ir sagrupēti **krāsainos reģionos** (Kurzeme, Zemgale un Sēlija, Rīga un Pierīga, Vidzeme, Latgale). **Lai uzvarētu, katrā reģionā jābūt vismaz vienu reizi un tad jāfinišē.** Reģionu secības nav.
 
 * Tu sāc **starta pilsētas novadā**; visi pārējie novadi kartē ir **pelēki (slēgti)**.
-* Lai brauktu tālāk, **izpildi vienu uzdevumu novadā, kurā tu esi**. Tas atver **visus novadus, kas robežojas** ar šo novadu.
-* Pieskaries atvērtam (iekrāsotam) novadam kartē un spied **Atzīmēties šeit**: tu esi tur, un nākamajam solim atkal vajag vienu uzdevumu jaunajā novadā.
+* **Viens uzdevums = viens solis.** Izpildi uzdevumu novadā, kurā esi; tad **pieskaries blakus esošam novadam kartē** (pie novada, nevis pilsētas) un spied **Atzīmēties šeit**. Reģistrēties vari **tikai vienā** novadā.
+* **Nākamo uzdevumu drīkst izpildīt tikai pēc tam, kad esi atzīmējies nākamajā novadā.** Kamēr neesi atzīmējies, uzdevumu pogas ir bloķētas.
 * Ja uzdevumi un kārtis ir izslēgti lobby, visi novadi ir atvērti.
 
-Admins lobby var pārkrāsot novadus, pārdēvēt un pārkārtot reģionus un pievienot jaunus.
+Admins lobby var pārkrāsot novadus, pārdēvēt reģionus un pievienot jaunus.
 
 ### Reģistrēšanās
 
-* Nav "reģistrēšanās rādiusa" un nav GPS pārbaudes: **tu pats pieskaries novadam kartē** (vai pilsētai meklēšanas laukā) un spied **Atzīmēties šeit**. Spēle balstās uz godaprātu, un žurnālā viss redzams.
+* Nav "reģistrēšanās rādiusa" un nav GPS pārbaudes: **tu pats pieskaries novadam kartē** (vai ieraksti novada nosaukumu meklēšanas laukā) un spied **Atzīmēties šeit**. Pilsētu punktu kartē vairs nav, tikai novadi (un S/F markeri). Spēle balstās uz godaprātu, un žurnālā viss redzams.
 * Kad katrs reģions ir apmeklēts, atver finiša pilsētas novadu (tam jābūt atvērtam vai apmeklētam) un spied **Finišēt**. Pirmā komanda, kas finišē, uzvar.
 
 ### Karte
@@ -179,7 +203,7 @@ Admins lobby var pārkrāsot novadus, pārdēvēt un pārkārtot reģionus un pi
 
 * Visas komandas redz **tos pašus 5 uzdevumus** (visiem vienādi). Nav pogas "sākt uzdevumu": izdari to un spied **Mēs izdarījām**. Pēc noklusējuma pierādījums (foto) nav vajadzīgs; adminam to var ieslēgt lobby, tad citas komandas vai admins to apstiprina.
 * **Kad kāda komanda izpilda uzdevumu, tas pazūd visām komandām** un visiem parādās jauns, atkal vienāds uzdevums. Kas ātrāk, tas ņem.
-* Izpildīts uzdevums **atver blakus esošos novadus** (skat. augstāk).
+* Izpildīts uzdevums **atver blakus esošos novadus**, un tad jāatzīmējas vienā no tiem (skat. augstāk).
 * **Dienas beigās (kad aizveras spēles logs) katra komanda nobalso par 3 uzdevumiem, ko vēlas nomainīt.** Kad no rīta logs atveras, tiek nomainīti tie uzdevumi, ko izvēlējās **visas komandas**.
 * Katram uzdevumam ir grūtība 1-6, kas redzama kā **cipars**.
 

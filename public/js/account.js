@@ -5,6 +5,7 @@ import { AsyncBtn, Field, Modal, Mochi, Ico, Switch, copy } from './ui.js';
 import { setPrefs, useTheme } from './theme.js';
 import { go } from './home.js';
 import { ThemeCard } from './characters.js';
+import { InstallCard } from './install.js';
 
 // ---------------------------------------------------------------- state (one account per browser, token kept locally)
 const KEY = 'jll.acct', OWNER_KEY = 'jll.acct.owner';
@@ -127,8 +128,8 @@ export function Header({ v, own, onEdit }) {
       <div class="small dim">${t('acct.level', { n: v.level })}</div><i class="pbar"><u style=${{ width: Math.min(100, (v.xp - curLv) / (nextLv - curLv) * 100) + '%' }}></u></i></div></div>
     ${v.owner && html`<div class="mt"><${OwnerMark} /></div>`}${v.bio && html`<p class="bio">${v.bio}</p>`}</section>`;
 }
-const Stats = ({ v }) => html`<section class="card"><div class="sec-h"><h2>${t('acct.stats')}</h2></div><div class="statgrid">${STAT_KEYS.map((k) => html`<div class="stat" key=${k}><b>${statValue(v, k)}</b><span>${t('acct.s_' + k)}</span></div>`)}</div></section>`;
-const themeName = (id) => (cat.byId[id] ? cat.byId[id].name : id);
+export const Stats = ({ v }) => html`<section class="card"><div class="sec-h"><h2>${t('acct.stats')}</h2></div><div class="statgrid">${STAT_KEYS.map((k) => html`<div class="stat" key=${k}><b>${statValue(v, k)}</b><span>${t('acct.s_' + k)}</span></div>`)}</div></section>`;
+export const themeName = (id) => (cat.byId[id] ? cat.byId[id].name : id);
 
 // ---------------------------------------------------------------- edit: bio, name and the whole look (hidden behind the small Edit button)
 const SLOT = { symbol: 'symbols' };
@@ -169,18 +170,9 @@ export function ProfilePage() {
   return html`<div class="wrap"><div class="row sp">${back}<span class="row" style="gap:8px">
       ${isImpersonating() && html`<button class="sm" onClick=${returnToOwner}>${t('owner.back')}</button>`}
       ${m.owner && html`<button class="sm soft" onClick=${() => go('#/owner')}>${t('owner.console')}</button>`}
+      <button class="ghost sm" onClick=${() => go('#/people')}>${t('people.find')}</button>
       <button class="ghost sm" onClick=${() => { copy(location.origin + '/#/u/' + m.name); toast(t('copied'), true); }}>${t('acct.share')}</button></span></div>
-    <div class="stack mt"><${Header} v=${m} own=${true} onEdit=${() => setEdit(true)} /><${ThemeCard} theme=${theme} name=${themeName(theme)} /><${Stats} v=${m} />
+    <div class="stack mt"><${Header} v=${m} own=${true} onEdit=${() => setEdit(true)} /><${ThemeCard} theme=${theme} name=${themeName(theme)} /><${Stats} v=${m} /><${InstallCard} />
       <section class="card"><button class="ghost block" onClick=${() => { logout(); go('#/'); }}>${t('acct.logout')}</button></section></div>
     ${edit && html`<${EditModal} v=${m} onClose=${() => setEdit(false)} />`}</div>`;
-}
-
-export function PublicProfile({ name }) {
-  const [v, setV] = useState(null);
-  const [err, setErr] = useState(null);
-  useEffect(() => { loadCatalog().then(() => api('GET', '/account/u/' + encodeURIComponent(name))).then(setV).catch((e) => setErr(e.message)); }, [name]);
-  const back = html`<div class="row"><button class="ghost icon" aria-label=${t('back')} onClick=${() => go('#/')}><${Ico} n="back" /></button></div>`;
-  if (err) return html`<div class="wrap center"><${Mochi} size=${90} mood="sleepy" /><p class="dim">${err}</p><button onClick=${() => go('#/')}>${t('nf.back')}</button></div>`;
-  if (!v || !cat) return html`<div class="wrap center"><${Mochi} size=${90} mood="sleepy" /></div>`;
-  return html`<div class="wrap">${back}<div class="stack mt"><${Header} v=${v} />${v.equip.theme && html`<${ThemeCard} theme=${v.equip.theme} name=${themeName(v.equip.theme)} />`}<${Stats} v=${v} /></div></div>`;
 }

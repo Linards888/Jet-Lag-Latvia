@@ -128,6 +128,34 @@ class AccountTests(unittest.TestCase):
         finally:
             del os.environ['JETLAG_OWNER']
 
+    def test_community_people_leaderboards_and_profiles(self):
+        x, _ = self.A.register('Anna', 'Berzina', 'Alice1', 'secret1')
+        y, _ = self.A.register('Bruno', 'Ozols', 'Bobby2', 'secret1')
+        z, _ = self.A.register('Cita', 'Liepa', 'Carol3', 'secret1')
+        hidden, _ = reg(self.A, 'Hidden4')
+        self.A.update_profile(hidden, {})
+        self.A.equip(hidden, {'kind': 'public', 'value': False})
+        x['xp'], y['xp'], z['xp'] = 500, 900, 100
+        y['stats']['wins'] = 3
+        # search by username, first name and last name; hidden profiles never show up
+        self.assertEqual([p['name'] for p in self.A.people(None, 'bruno')], ['Bobby2'])
+        self.assertEqual([p['name'] for p in self.A.people(None, 'berz')], ['Alice1'])
+        self.assertEqual([p['name'] for p in self.A.people(None, 'hidden')], [])
+        top = self.A.community(x)
+        self.assertEqual([p['name'] for p in top['top']['level']], ['Bobby2', 'Alice1', 'Carol3'])
+        self.assertEqual([p['name'] for p in top['top']['wins']], ['Bobby2'])  # only those who have any
+        self.assertEqual(top['total'], 3)
+        self.assertEqual([p['rank'] for p in top['top']['level']], [1, 2, 3])
+        # the relation to the viewer drives the Add friend / Accept / Friends buttons
+        rel = lambda viewer, name: self.A.people(viewer, name)[0]['rel']
+        self.assertEqual((rel(x, 'Alice1'), rel(x, 'Bobby2'), rel(None, 'Bobby2')), ('me', 'none', None))
+        self.A.friend_action(x, {'action': 'request', 'name': 'Bobby2'})
+        self.assertEqual((rel(x, 'Bobby2'), rel(y, 'Alice1')), ('out', 'in'))
+        self.A.friend_action(y, {'action': 'accept', 'name': 'Alice1'})
+        prof = self.A.public('Bobby2', x)
+        self.assertEqual((prof['rel'], prof['rank'], prof['friendCount'], [f['name'] for f in prof['friends']]), ('friend', 1, 1, ['Alice1']))
+        self.assertNotIn('hash', str(prof))
+
     def test_equip_needs_ownership_and_owner_owns_everything(self):
         a, _ = reg(self.A, 'Look')
         with self.assertRaises(GameError):

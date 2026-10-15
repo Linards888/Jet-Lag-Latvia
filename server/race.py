@@ -121,15 +121,12 @@ def _muni_name(mid):
 
 
 def novads_open(game, tid):
-    """Novadi the team may check in to: the neighbours of every novads where it completed a task (all of them when tasks are off)."""
+    """Where the team may check in next: only the novadi bordering the one it is in, and only after it did a task there
+    (so one task = one move). With tasks switched off every novads is open."""
     d = _td(game, tid)
-    seen = set(d['visited'])
     if not game['settings']['tasksEnabled']:
-        return sorted(m for m in geo.MUNI_BY_ID if m not in seen)
-    out = set()
-    for u in d['unlocked']:
-        out |= geo.ADJ.get(u, set())
-    return sorted(out - seen)
+        return sorted(m for m in geo.MUNI_BY_ID if m != d['at'])
+    return sorted(geo.ADJ.get(d['at'], ())) if d['at'] in d['unlocked'] else []
 
 
 def _novads_of(game, p):
@@ -399,13 +396,14 @@ def action(store, game, m, typ, p, now):
         if d['frozenUntil'] > now and not manual:
             raise GameError('Your team is frozen for %d more minutes' % ((d['frozenUntil'] - now) // 60000 + 1))
         mid = _novads_of(game, p)
-        if mid in d['visited']:
-            raise GameError('You already visited %s' % _muni_name(mid))
+        if mid == d['at']:
+            raise GameError('You are already in %s' % _muni_name(mid))
         if not manual and mid not in novads_open(game, tid):
             if d['at'] not in d['unlocked']:
                 raise GameError('Complete a task in %s first to open the neighbouring novadi' % _muni_name(d['at']))
-            raise GameError('%s does not border a novads where you completed a task' % _muni_name(mid))
-        d['visited'].append(mid)
+            raise GameError('%s does not border %s' % (_muni_name(mid), _muni_name(d['at'])))
+        if mid not in d['visited']:
+            d['visited'].append(mid)
         d['at'] = mid
         terr = s['muniTerritory'].get(mid)
         if terr and terr not in d['reached']:
@@ -457,8 +455,10 @@ def action(store, game, m, typ, p, now):
         task = _task(game, p.get('taskId'))
         if not task or task['id'] not in game['data']['shared'] or game['data']['phase'] != 'play':
             raise GameError('That task is not available')
-        if d['done'].get(task['id']) == 'pending':
-            raise GameError('Your team already did that task')
+        if s['tasksEnabled'] and d['at'] in d['unlocked']:
+            raise GameError('Check in to a neighbouring novads before the next task')
+        if 'pending' in d['done'].values():
+            raise GameError('Your team already has a task waiting for review')
         if s['requireProof']:
             f = game['files'].get(p.get('fid'))
             if not f or game['members'].get(f['owner'], {}).get('teamId') != tid:

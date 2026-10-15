@@ -182,4 +182,8 @@ E = {
     'Complete a task in {1} first to open the neighbouring novadi': 'Сначала выполните задание в {1}, чтобы открыть соседние новады',
     '{1} does not border a novads where you completed a task': '{1} не граничит с новадом, где вы выполнили задание',
     'The finish is not open to you yet: complete a task in a novads next to it': 'Финиш пока закрыт: выполните задание в соседнем новаде',
+    'You are already in {1}': 'Вы уже в: {1}',
+    '{1} does not border {2}': '{1} не граничит с {2}',
+    'Check in to a neighbouring novads before the next task': 'Перед следующим заданием отметьтесь в соседнем новаде',
+    'Your team already has a task waiting for review': 'У вашей команды уже есть задание на проверке',
 }

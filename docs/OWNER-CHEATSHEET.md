@@ -45,9 +45,9 @@ Jāspēlē kā dalībnieks, kas ir komandā. Kartes un uzdevumu ID redzami Raw g
 
 | Nosaukums / ceļš | Piemērs | Ko dara |
 |---|---|---|
-| `checkin` | `{"muniId":"liepajas"} vai {"cityId":"jelgava"}` | Atzīmēties atvērtā novadā (vispirms jāizpilda uzdevums blakus novadā). Admins: {"manual":true,"teamId":"...","muniId":"..."} |
+| `checkin` | `{"muniId":"liepajas"} vai {"cityId":"jelgava"}` | Atzīmēties blakus novadā (tikai pēc uzdevuma izpildes pašreizējā novadā; vienā novadā uz vienu uzdevumu). Admins: {"manual":true,"teamId":"...","muniId":"..."} |
 | `finish` | `{"cityId":"daugavpils"}` | Finišēt finiša pilsētā (pirmā komanda uzvar) |
-| `complete_task` | `{"taskId":"t07"}` | Izpildīt kopīgu uzdevumu (ar foto: pievieno fid un note). Uzdevums pazūd visām komandām |
+| `complete_task` | `{"taskId":"t07"}` | Izpildīt kopīgu uzdevumu (ar foto: pievieno fid un note). Pēc tam jāatzīmējas blakus novadā, citādi nākamais uzdevums ir bloķēts |
 | `vote_tasks` | `{"taskIds":["t01","t02","t03"]}` | Vakara balsojums: 3 uzdevumi, ko nomainīt (nomaina tos, ko izvēlējās visas komandas) |
 | `review` | `{"teamId":"...","taskId":"t07","verdict":"approve"}` | Apstiprina vai noraida pierādījumu (approve/reject) |
 | `pick` | `{"pid":"...","index":0,"discardIid":"..."}` | Paņem vienu no piedāvātajām kārtīm (discardIid vajadzīgs, ja roka pilna; "pass":true = neņemt nevienu) |

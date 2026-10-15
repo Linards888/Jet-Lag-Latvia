@@ -35,6 +35,10 @@ def _day(now):
     return core.local_day_start(now) // DAY_MS
 
 
+def _level(xp):
+    return 1 + int((xp / 60) ** 0.5)
+
+
 def _clean(v):
     return json.loads(json.dumps(v))
 
@@ -422,7 +426,7 @@ class Accounts:
         owned = self.owned_ids(a)
         return {
             'name': a['name'], 'first': a['first'], 'last': a['last'], 'bio': a['bio'], 'owner': self.is_owner(a),
-            'level': 1 + int((a['xp'] / 60) ** 0.5), 'xp': a['xp'], 'created': a['created'], 'equip': a['equip'],
+            'level': _level(a['xp']), 'xp': a['xp'], 'created': a['created'], 'equip': a['equip'],
             'stats': dict(a['stats'], modes=len(a['modes']), streak=a['streak']['best']), 'owned': owned, 'showTheme': a['showTheme'],
         }
 
@@ -436,7 +440,54 @@ class Accounts:
                 self._mark()
             return v
 
-    def public(self, name):
+    def _online(self, u):
+        return _now() - self.seen.get(u['id'], 0) < ONLINE_MS
+
+    def _relation(self, viewer, u):
+        """How the viewer stands to this account: me / friend / in (they asked me) / out (I asked them) / none; None when nobody is logged in."""
+        if not viewer:
+            return None
+        if viewer is u:
+            return 'me'
+        uid = u['id']
+        return 'friend' if uid in viewer['friends'] else 'in' if uid in viewer['reqIn'] else 'out' if uid in viewer['reqOut'] else 'none'
+
+    def _entry(self, u, viewer=None):
+        """One row of a people list / leaderboard."""
+        e = u['equip']
+        return {'name': u['name'], 'first': u['first'], 'last': u['last'], 'level': _level(u['xp']), 'xp': u['xp'], 'owner': self.is_owner(u), 'online': self._online(u),
+                'equip': {'title': e.get('title'), 'frame': e.get('frame'), 'skin': e.get('skin'), 'symbols': e.get('symbols', [])}, 'created': u['created'],
+                'stats': {k: u['stats'].get(k, 0) for k in ('wins', 'games_played', 'tasks_done')}, 'rel': self._relation(viewer, u)}
+
+    def _ranked(self, sort, q=''):
+        """Public accounts, best first. sort: level | wins | games | tasks | new | online."""
+        q = q.strip().lower()
+        pool = [u for u in self.users.values() if u['public'] and (not q or q in ' '.join((u['name'], u['first'], u['last'])).lower())]
+        stat = {'wins': 'wins', 'games': 'games_played', 'tasks': 'tasks_done'}.get(sort)
+        if sort == 'new':
+            pool.sort(key=lambda u: -u['created'])
+        elif stat:
+            pool = [u for u in pool if u['stats'].get(stat, 0) > 0]
+            pool.sort(key=lambda u: (-u['stats'].get(stat, 0), -u['xp'], u['name'].lower()))
+        elif sort == 'online':
+            pool = [u for u in pool if self._online(u)]
+            pool.sort(key=lambda u: (-u['xp'], u['name'].lower()))
+        else:
+            pool.sort(key=lambda u: (-u['xp'], u['name'].lower()))
+        return pool
+
+    def people(self, viewer, q='', sort='level', limit=50):
+        with LOCK:
+            return [dict(self._entry(u, viewer), rank=i + 1) for i, u in enumerate(self._ranked(sort, q)[:limit])]
+
+    def community(self, viewer):
+        """Everything the community page shows at once."""
+        with LOCK:
+            top = lambda sort, n=10: [dict(self._entry(u, viewer), rank=i + 1) for i, u in enumerate(self._ranked(sort)[:n])]
+            return {'total': sum(1 for u in self.users.values() if u['public']), 'online': top('online', 12), 'newest': top('new', 8),
+                    'top': {k: top(k) for k in ('level', 'wins', 'games', 'tasks')}}
+
+    def public(self, name, viewer=None):
         with LOCK:
             a = self.users.get(self.names.get(str(name or '').strip().lower()))
             if not a or not a['public']:
@@ -444,13 +495,18 @@ class Accounts:
             v = self._common(a)
             if not a['showTheme']:  # the player hides their theme from others
                 v['equip'] = dict(v['equip'], theme=None)
+            friends = [self.users[x] for x in a['friends'] if x in self.users and self.users[x]['public']]
+            friends.sort(key=lambda u: -u['xp'])
+            v.update({'online': self._online(a), 'rel': self._relation(viewer, a), 'friendCount': len(a['friends']),
+                      'friends': [self._entry(u, viewer) for u in friends[:24]],
+                      'rank': 1 + self._ranked('level').index(a)})
             return v
 
     # ---------------------------------------------------------- owner: everything about every account
     def owner_list(self, actor):
         self.require_owner(actor)
         with LOCK:
-            return [{'id': a['id'], 'name': a['name'], 'first': a['first'], 'last': a['last'], 'level': 1 + int((a['xp'] / 60) ** 0.5), 'created': a['created'],
+            return [{'id': a['id'], 'name': a['name'], 'first': a['first'], 'last': a['last'], 'level': _level(a['xp']), 'created': a['created'],
                      'items': len(a['inv']), 'devices': len(a['tokens']), 'friends': len(a['friends']), 'public': a['public'], 'stats': a['stats'], 'owner': self.is_owner(a)}
                     for a in sorted(self.users.values(), key=lambda x: x['created'])]
 

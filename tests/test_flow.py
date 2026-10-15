@@ -77,9 +77,6 @@ class RaceTests(unittest.TestCase):
             path.append(cur)
             cur = prev[cur]
         for step in reversed(path):
-            if step in d['visited']:
-                d['at'] = step
-                continue
             if d['at'] not in d['unlocked']:
                 act(self.store, g, member, 'complete_task', taskId=self.d['shared'][0])
             act(self.store, g, member, 'checkin', muniId=step)
@@ -97,13 +94,20 @@ class RaceTests(unittest.TestCase):
         act(store, g, a, 'complete_task', taskId=self.d['shared'][0])
         self.assertEqual(d['unlocked'], [start])
         self.assertEqual(team_row(G.view(g, a), self.ta)['open'], sorted(geo.ADJ[start]))
+        with self.assertRaises(GameError):
+            act(store, g, a, 'complete_task', taskId=self.d['shared'][0])  # the next task only after checking in next door
         far = next(m for m in geo.MUNI_BY_ID if m != start and m not in geo.ADJ[start])
         with self.assertRaises(GameError):
             act(store, g, a, 'checkin', muniId=far)  # only the neighbours of where the task was done
         act(store, g, a, 'checkin', muniId=nb)
         self.assertEqual((d['at'], d['visited']), (nb, [start, nb]))
         with self.assertRaises(GameError):
-            act(store, g, a, 'checkin', muniId=nb)  # already visited
+            act(store, g, a, 'checkin', muniId=nb)  # already there
+        self.assertEqual(team_row(G.view(g, a), self.ta)['open'], [])  # one task = one move: the other neighbours closed again
+        other = [m for m in sorted(geo.ADJ[start]) if m != nb]
+        if other:
+            with self.assertRaises(GameError):
+                act(store, g, a, 'checkin', muniId=other[0])
         with self.assertRaises(GameError):
             act(store, g, a, 'checkin', muniId=sorted(geo.ADJ[nb] - {start})[0])  # nothing done in the new novads yet
         self.assertIn('novads_open', keys(g, a))

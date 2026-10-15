@@ -271,8 +271,14 @@ class Handler(BaseHTTPRequestHandler):
             if 'loot' not in META_CACHE:
                 META_CACHE['loot'] = json.dumps(loot.catalog(), ensure_ascii=False, separators=(',', ':')).encode('utf8')
             return self._send_blob(META_CACHE['loot'], 'application/json', False, 'loot')
+        viewer = A.by_token(self.headers.get('X-Account'))  # optional here: the community is readable without an account
         if sub == 'u' and len(rest) == 2 and method == 'GET':
-            return self.send_json(A.public(rest[1]))
+            return self.send_json(A.public(rest[1], viewer))
+        if sub == 'community' and method == 'GET':
+            return self.send_json(A.community(viewer))
+        if sub == 'people' and method == 'GET':
+            sort = (q.get('sort') or ['level'])[0]
+            return self.send_json(A.people(viewer, (q.get('q') or [''])[0][:40], sort if sort in ('level', 'wins', 'games', 'tasks', 'new', 'online') else 'level'))
         if sub in ('register', 'login') and method == 'POST':
             if not rate_ok(('acct-' + sub, self.ip()), 30 if sub == 'login' else 10, 3600):
                 raise GameError('Too many attempts - wait a few minutes', 429)

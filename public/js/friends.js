@@ -31,13 +31,17 @@ function useSocial() {
 }
 
 // the global bar / game top bar button with the number of unread messages
+export const openFriends = (name) => window.dispatchEvent(new CustomEvent('jll-friends', { detail: name }));  // e.g. the Message button on a profile
+
 export function FriendsButton() {
   const { me } = useAccount();
   const s = useSocial();
   const [open, setOpen] = useState(false);
+  const [start, setStart] = useState(null);
+  useEffect(() => { const f = (e) => { setStart(e.detail || null); setOpen(true); }; window.addEventListener('jll-friends', f); return () => window.removeEventListener('jll-friends', f); }, []);
   if (!me) return null;
   const n = s ? s.unread + s.incoming.length : 0;
-  return html`<span><button class="ghost sm" onClick=${() => setOpen(true)}>${t('friends.title')}${n > 0 && html` <span class="count">${n}</span>`}</button>${open && html`<${FriendsModal} onClose=${() => setOpen(false)} />`}</span>`;
+  return html`<span><button class="ghost sm" onClick=${() => setOpen(true)}>${t('friends.title')}${n > 0 && html` <span class="count">${n}</span>`}</button>${open && html`<${FriendsModal} start=${start} onClose=${() => { setOpen(false); setStart(null); }} />`}</span>`;
 }
 
 function Chat({ friend, onBack, onClose }) {
@@ -59,10 +63,10 @@ function Chat({ friend, onBack, onClose }) {
       ${pick && html`<div class="list mt">${mine.map(([code, g]) => html`<button class="ghost block" key=${code} style="text-align:left" onClick=${async () => { if (await send({ invite: { code, game: g.gameName, mode: g.mode } })) setPick(false); }}>${g.gameName || code} (${code})</button>`)}</div>`}</div>`}</div>`;
 }
 
-function FriendsModal({ onClose }) {
+function FriendsModal({ onClose, start }) {
   const s = useSocial();
   const [name, setName] = useState('');
-  const [chatWith, setChatWith] = useState(null);
+  const [chatWith, setChatWith] = useState(start ? { name: start } : null);
   const act = async (action, who) => { try { await call('POST', '/friends', { action, name: who }); await refreshSocial(); return true; } catch (e) { toast(e.message); return false; } };
   if (chatWith) return html`<${Modal} title=${t('friends.title')} onClose=${onClose}><${Chat} friend=${chatWith} onBack=${() => setChatWith(null)} onClose=${onClose} /><//>`;
   return html`<${Modal} title=${t('friends.title')} onClose=${onClose}><div class="stack">

@@ -17,6 +17,7 @@ export function Home() {
     <div class="stack mt2">
       <button class="block" style="padding:15px" onClick=${() => go('#/create')}>${t('home.create')}</button>
       <button class="block ghost" style="padding:15px" onClick=${() => go('#/join')}>${t('home.join')}</button>
+      <button class="block ghost" style="padding:15px" onClick=${() => go('#/people')}>${t('people.title')}</button>
     </div>
     ${mine.length > 0 && html`<div class="card"><p class="eyebrow">${t('home.mine')}</p><div class="list">
       ${mine.map(([code, g]) => html`<div class="row sp nw" key=${code}>

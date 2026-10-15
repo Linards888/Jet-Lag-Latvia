@@ -182,4 +182,8 @@ E = {
     'Complete a task in {1} first to open the neighbouring novadi': 'Vispirms izpildi uzdevumu {1}, lai atvērtu blakus esošos novadus',
     '{1} does not border a novads where you completed a task': '{1} nerobežojas ar novadu, kurā tu izpildīji uzdevumu',
     'The finish is not open to you yet: complete a task in a novads next to it': 'Finišs tev vēl nav atvērts: izpildi uzdevumu novadā blakus',
+    'You are already in {1}': 'Tu jau esi: {1}',
+    '{1} does not border {2}': '{1} nerobežojas ar {2}',
+    'Check in to a neighbouring novads before the next task': 'Pirms nākamā uzdevuma atzīmējies blakus novadā',
+    'Your team already has a task waiting for review': 'Tavai komandai jau ir uzdevums, kas gaida pārbaudi',
 }

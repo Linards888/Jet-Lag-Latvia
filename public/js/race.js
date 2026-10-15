@@ -49,7 +49,9 @@ function RaceTasks(ctx) {
       <p class="small dim mt">${t('task.voted_n', { a: g.votesIn, b: g.teams.length })}</p>
     </section>`;
   }
-  return html`<${ActiveTasks} st=${st} ctx=${ctx} active=${g.shared} doneMap=${my && my.done} canDo=${!!my && st.me.plays} title=${t('race.tasks')} reward=${reward} />`;
+  const moveFirst = !!my && my.unlocked.includes(my.at);  // one task per novads: check in next door before the next one
+  return html`<div class="stack">${moveFirst && html`<div class="callout warn">${t('task.move_first')}</div>`}
+    <${ActiveTasks} st=${st} ctx=${ctx} active=${g.shared} doneMap=${my && my.done} canDo=${!!my && st.me.plays && !moveFirst} title=${t('race.tasks')} reward=${reward} /></div>`;
 }
 
 // the top card: my team, where it is and a few useful numbers (no clock: the first team to the finish wins)
@@ -79,22 +81,18 @@ function MapCard({ st, act, loc, my }) {
   const open = useMemo(() => new Set(my ? my.open : []), [my && my.open.join()]), seen = useMemo(() => new Set(my ? my.visited : []), [my && my.visited.join()]);
   const locked = (id) => !!my && !seen.has(id) && !open.has(id);
   const items = [];
-  for (const c of META.cities) {
-    const tid = s.cityTerritory[c.id]; const off = s.disabledCities.includes(c.id);
-    items.push({ k: 'marker', shape: 'dot', lat: c.lat, lng: c.lng, color: terr(st, tid).color, dim: off || locked(c.muni) || (seen.has(c.muni) && c.id !== s.startCity), label: c.name, onClick: () => c.muni && setSel(c.muni) });
-  }
   for (const [k, id] of [['start', s.startCity], ['finish', s.finishCity]]) { const c = META.byId[id]; items.push({ k: 'marker', lat: c.lat, lng: c.lng, color: k === 'start' ? '#2e9d69' : '#222', text: k === 'start' ? 'S' : 'F', label: t('race.' + k) + ' ' + c.name, z: 500, onClick: () => setSel(c.muni) }); }
   for (const tr of st.g.teams) for (const l of tr.locs) items.push({ k: 'marker', lat: l.lat, lng: l.lng, color: teamOf(st, tr.id).color, text: teamOf(st, tr.id).name[0], label: `${teamOf(st, tr.id).name} - ${l.name}`, z: 900 });
   if (loc.pos) items.push({ k: 'circle', lat: loc.pos.lat, lng: loc.pos.lng, r: Math.max(loc.pos.acc, 15), color: '#3b82c4' });
-  const matches = q.trim() ? META.cities.filter((c) => c.name.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 6) : [];
+  const matches = q.trim() && geo ? geo.features.map((f) => f.properties).filter((p) => p.name.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 6) : [];
   const here = useMemo(() => (geo && loc.pos ? muniAt(geo, loc.pos.lat, loc.pos.lng) : null), [geo, loc.pos && loc.pos.lat, loc.pos && loc.pos.lng]);
   return html`<section class="card"><div class="sec-h"><h2>${t('race.map')}</h2></div>
     <${LMap} munis=${geo} muniColor=${(p) => (locked(p.id) ? '#8d8d8d' : terr(st, s.muniTerritory[p.id]).color)} items=${items} fitKey="race" onMuniClick=${(p) => setSel(p.id)}
       panel=${sel && html`<${NovadsPanel} st=${st} act=${act} my=${my} geo=${geo} mid=${sel} onClose=${() => setSel(null)} />`} />
     ${my && html`<p class="small dim mt">${t('race.map_legend')}</p>`}
-    <input class="mt" placeholder=${t('race.search')} value=${q} onInput=${(e) => setQ(e.target.value)} />
-    ${matches.map((c) => html`<div class="row sp" style="padding:8px 0" key=${c.id}><button class="link" onClick=${() => { if (c.muni) setSel(c.muni); setQ(''); }}>${c.name}</button>
-      <${Chip} color=${terr(st, s.cityTerritory[c.id]).color}>${terr(st, s.cityTerritory[c.id]).name}<//></div>`)}
+    <input class="mt" placeholder=${t('race.search_novads')} value=${q} onInput=${(e) => setQ(e.target.value)} />
+    ${matches.map((p) => html`<div class="row sp" style="padding:8px 0" key=${p.id}><button class="link" onClick=${() => { setSel(p.id); setQ(''); }}>${p.name}</button>
+      <${Chip} color=${terr(st, s.muniTerritory[p.id]).color}>${terr(st, s.muniTerritory[p.id]).name}<//></div>`)}
     ${here && html`<p class="small mt">${t('race.gps_in', { muni: here.name })} <b style=${{ color: terr(st, s.muniTerritory[here.id]).color }}>${terr(st, s.muniTerritory[here.id]).name}</b></p>`}</section>`;
 }
 
@@ -102,12 +100,12 @@ function NovadsPanel({ st, act, my, geo, mid, onClose }) {
   const s = st.settings, region = terr(st, s.muniTerritory[mid]);
   const fin = META.byId[s.finishCity];
   const isFinish = fin && fin.muni === mid;
-  const open = !!my && my.open.includes(mid), seen = !!my && my.visited.includes(mid);
+  const open = !!my && my.open.includes(mid), seen = !!my && my.visited.includes(mid), here = !!my && my.at === mid;
   const regionsLeft = my ? s.territories.length - my.reached.length : 0;
   let note = '';
   if (my && !my.finishedAt) {
-    if (seen) note = t('race.visited');
-    else if (!open) note = my.unlocked.includes(my.at) ? t('race.not_border') : t('race.do_task_first', { muni: novadsName(geo, my.at) });
+    if (here) note = t('race.here');
+    else if (!open) note = my.unlocked.includes(my.at) ? t('race.not_border', { muni: novadsName(geo, my.at) }) : t('race.do_task_first', { muni: novadsName(geo, my.at) });
   }
   return html`<div class="sheet card flat accent mt"><div class="row sp"><div><h3 style="margin:0">${novadsName(geo, mid)}</h3><${Chip} color=${region.color}>${region.name}<//>${isFinish && html` <${Chip}>${t('race.finish')} ${fin.name}<//>`}</div>
     <button class="ghost icon sm" onClick=${onClose} aria-label=${t('close')}>×</button></div>
