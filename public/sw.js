@@ -4,7 +4,7 @@
 const VERSION = '__VERSION__';
 const PRECACHE = __PRECACHE__;
 const APP = 'app-' + VERSION, RUNTIME = 'rt-v1';
-importScripts('/i18n/en.js', '/i18n/lv.js', '/i18n/ru.js', '/i18n/uk.js');
+importScripts('/i18n/en.js', '/i18n/lv.js', '/i18n/ru.js');
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(APP).then((c) => c.addAll(PRECACHE)).then(() => self.skipWaiting()));

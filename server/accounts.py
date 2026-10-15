@@ -1,9 +1,10 @@
-"""Player accounts: a persistent profile across games with stats, achievements, collectibles and cosmetics.
+"""Player accounts: a persistent profile across games with stats, achievements, collectibles and themes.
 
-* No e-mail, no real money. Register with a name + password; the profile is public (achievements, collection) unless hidden.
-* Game events (task done, tag, ...) feed counters -> achievements -> rewards. Stardust (earned by playing) used to buy standard
-  summons; Sakura tickets (rare achievements / rare encounters only) buy the Anime banner, the ONLY place anime fonts drop.
-* Server-side RNG and bookkeeping only: the client never decides what drops.
+* No e-mail, no real money. Register with a name + password (stored only as a salted hash); the profile is public unless hidden.
+* Game events (task done, tag, ...) feed counters -> xp/level and achievements; every achievement unlocks a cosmetic item and
+  a very rare random encounter can drop one of the scarce items.
+* The six character themes (pool 'owner') belong to the server owner only. The owner (JETLAG_OWNER env or data/owner.json)
+  can see and change every account and game: see the owner_* methods and the /api/owner routes in app.py.
 """
 import json
 import os
@@ -11,7 +12,6 @@ import random
 import secrets
 import tempfile
 import threading
-import time
 
 import core
 import loot
@@ -19,8 +19,7 @@ from core import GameError
 
 LOCK = threading.RLock()
 DAY_MS = 86400000
-DAILY_EVENT_DUST_CAP = 400
-STD_PITY_EPIC, STD_PITY_LEG, ANI_PITY_LEG, ANI_PITY_MYTH = 30, 90, 10, 40
+DAILY_EVENT_XP_CAP = 400
 NAME_OK = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-')
 
 
@@ -30,6 +29,10 @@ def _now():
 
 def _day(now):
     return core.local_day_start(now) // DAY_MS
+
+
+def _clean(v):
+    return json.loads(json.dumps(v))
 
 
 class Accounts:
@@ -51,10 +54,11 @@ class Accounts:
         for uid, a in self.users.items():
             a['inv'] = {i: v for i, v in a.get('inv', {}).items() if i in loot.BY_ID}
             a['ach'] = {i: v for i, v in a.get('ach', {}).items() if i in loot.ACH_BY_ID}
+            for k in ('dust', 'tickets', 'pity', 'earnedToday'):
+                a.pop(k, None)
             a['equip'].pop('font', None)
-            for k, v in list(a['equip'].items()):
-                if k in ('theme', 'frame', 'skin') and v and v not in loot.BASE and v not in a['inv']:
-                    a['equip'][k] = loot.DEFAULT_EQUIP[k]
+            a['equip']['widgets'] = [w for w in a['equip'].get('widgets', []) if w in loot.BY_ID] or list(loot.DEFAULT_EQUIP['widgets'])
+            a['earned'] = a.get('earned', {'day': 0, 'n': 0})
             self.names[a['name'].lower()] = uid
             for h in a['tokens']:
                 self.tokens[h] = uid
@@ -86,13 +90,20 @@ class Accounts:
     def _hash_pw(salt, pw):
         return core.sha('acct:' + salt + ':' + pw)
 
-    def register(self, name, pw):
-        name = str(name or '').strip()
-        pw = str(pw or '')
+    @staticmethod
+    def _check_name(name):
         if not (3 <= len(name) <= 16) or any(c not in NAME_OK for c in name):
             raise GameError('Account name: 3-16 letters, digits, _ or -')
+
+    @staticmethod
+    def _check_pw(pw):
         if not (6 <= len(pw) <= 64):
             raise GameError('Password must be 6-64 characters')
+
+    def register(self, name, pw):
+        name, pw = str(name or '').strip(), str(pw or '')
+        self._check_name(name)
+        self._check_pw(pw)
         with LOCK:
             if name.lower() in self.names:
                 raise GameError('That account name is taken')
@@ -100,16 +111,13 @@ class Accounts:
                 raise GameError('Registration is closed')
             uid = core.new_id(5)
             salt = secrets.token_hex(8)
-            now = _now()
-            a = {'id': uid, 'name': name, 'salt': salt, 'pw': self._hash_pw(salt, pw), 'tokens': [], 'created': now,
-                 'dust': 300, 'tickets': {'std': 0, 'sakura': 0}, 'pity': {'se': 0, 'sl': 0, 'al': 0, 'am': 0},
-                 'inv': {}, 'stats': {}, 'modes': [], 'ach': {}, 'equip': json.loads(json.dumps(loot.DEFAULT_EQUIP)), 'xp': 0,
-                 'streak': {'day': 0, 'n': 0, 'best': 0}, 'pending': [], 'log': [], 'earnedToday': {'day': 0, 'n': 0}, 'public': True}
+            a = {'id': uid, 'name': name, 'salt': salt, 'pw': self._hash_pw(salt, pw), 'tokens': [], 'created': _now(),
+                 'inv': {}, 'stats': {}, 'modes': [], 'ach': {}, 'equip': _clean(loot.DEFAULT_EQUIP), 'xp': 0,
+                 'streak': {'day': 0, 'n': 0, 'best': 0}, 'pending': [], 'log': [], 'earned': {'day': 0, 'n': 0}, 'public': True}
             self.users[uid] = a
             self.names[name.lower()] = uid
-            self._mark()
             token = self._new_token(a)
-            self._daily(a, now)
+            self._daily(a, _now())
             return a, token
 
     def login(self, name, pw):
@@ -124,16 +132,13 @@ class Accounts:
         h = core.sha(token)
         a['tokens'].append(h)
         if len(a['tokens']) > 6:
-            old = a['tokens'].pop(0)
-            self.tokens.pop(old, None)
+            self.tokens.pop(a['tokens'].pop(0), None)
         self.tokens[h] = a['id']
         self._mark()
         return token
 
     def by_token(self, token):
-        if not token:
-            return None
-        return self.users.get(self.tokens.get(core.sha(token)))
+        return self.users.get(self.tokens.get(core.sha(token))) if token else None
 
     def logout(self, a, token):
         h = core.sha(token or '')
@@ -142,9 +147,46 @@ class Accounts:
             self.tokens.pop(h, None)
             self._mark()
 
-    # ---------------------------------------------------------- inventory helpers
+    # ---------------------------------------------------------- owner identity
+    _owner_cache = (None, frozenset())  # (owner.json mtime, names): the file is re-read only when it changes
+
+    @classmethod
+    def owner_names(cls):
+        names = {n.strip().lower() for n in os.environ.get('JETLAG_OWNER', '').split(',') if n.strip()}
+        path = os.path.join(core.DATA_DIR, 'owner.json')
+        try:
+            mtime = os.stat(path).st_mtime_ns
+        except OSError:
+            return names
+        if cls._owner_cache[0] != mtime:
+            try:
+                with open(path, encoding='utf8') as f:
+                    v = json.load(f).get('owner', [])
+                cls._owner_cache = (mtime, frozenset(str(n).strip().lower() for n in (v if isinstance(v, list) else [v])))
+            except (OSError, ValueError, AttributeError):
+                cls._owner_cache = (mtime, frozenset())
+        return names | cls._owner_cache[1]
+
+    def is_owner(self, a):
+        return a['name'].lower() in self.owner_names()
+
+    def require_owner(self, a):
+        if not self.is_owner(a):
+            raise GameError('Only the admin can do that', 403)
+
+    # ---------------------------------------------------------- inventory
     def owns(self, a, item_id):
-        return item_id in loot.BASE or item_id in a['inv']
+        it = loot.BY_ID.get(item_id)
+        if not it:
+            return False
+        if it['pool'] == 'base':
+            return True
+        if it['pool'] == 'owner':
+            return self.is_owner(a)
+        return item_id in a['inv']
+
+    def owned_ids(self, a):
+        return [i['id'] for i in loot.ITEMS if i['pool'] != 'base' and self.owns(a, i['id'])]
 
     def _push(self, a, ev):
         a['pending'].append(dict(ev, t=_now()))
@@ -155,54 +197,38 @@ class Accounts:
         del a['log'][:-30]
 
     def grant_item(self, a, item_id, source):
-        """Returns True if new, False if duplicate (converted to stardust)."""
-        it = loot.BY_ID[item_id]
-        if item_id in loot.BASE:
+        """True if it was new. Owner-only items are never given to other accounts."""
+        it = loot.BY_ID.get(item_id)
+        if not it or it['pool'] in ('base', 'owner') or item_id in a['inv']:
             return False
-        if item_id in a['inv']:
-            a['inv'][item_id]['n'] += 1
-            gain = loot.SHARDS[it['rarity']]
-            a['dust'] += gain
-            self._push(a, {'k': 'dupe', 'item': item_id, 'dust': gain})
-            return False
-        a['inv'][item_id] = {'n': 1, 't': _now(), 'src': source}
+        a['inv'][item_id] = {'t': _now(), 'src': source}
         self._push(a, {'k': 'item', 'item': item_id, 'src': source})
         self._log(a, 'item', item=item_id, src=source)
         return True
 
     # ---------------------------------------------------------- stats and achievements
     def _stat_value(self, a, stat):
-        s = a['stats']
         if stat == 'modes':
             return len(a['modes'])
         if stat == 'items':
             return len(a['inv'])
         if stat == 'streak':
             return a['streak']['best']
-        if stat == 'mythics':
-            return sum(1 for i in a['inv'] if loot.BY_ID[i]['rarity'] == 'mythic')
-        if stat == 'themes_owned':
-            return sum(1 for t in loot.THEMES if self.owns(a, t))
-        if stat == 'secret':
-            return sum(1 for i in a['inv'] if loot.BY_ID[i]['rarity'] == 'secret')
-        return s.get(stat, 0)
+        return a['stats'].get(stat, 0)
 
     def check_achievements(self, a):
         again = True
-        while again:  # rewards can themselves unlock other achievements
+        while again:  # an unlocked item can itself complete another achievement (collection size)
             again = False
-            for aid, stat, goal, reward, _ in loot.ACH:
+            for aid, stat, goal, item, _ in loot.ACH:
                 if aid in a['ach'] or self._stat_value(a, stat) < goal:
                     continue
                 a['ach'][aid] = _now()
-                a['dust'] += reward.get('dust', 0)
-                a['tickets']['std'] += reward.get('std', 0)
-                a['tickets']['sakura'] += reward.get('sakura', 0)
                 a['xp'] += 25
                 self._push(a, {'k': 'ach', 'id': aid})
                 self._log(a, 'ach', id=aid)
-                if reward.get('item'):
-                    self.grant_item(a, reward['item'], 'achievement')
+                if item:
+                    self.grant_item(a, item, 'achievement')
                 again = True
         self._mark()
 
@@ -214,181 +240,156 @@ class Accounts:
             if not a:
                 return
             a['stats'][stat] = a['stats'].get(stat, 0) + n
-            hour = ((now + core.riga_offset_ms(now)) // 3600000) % 24
-            if hour < 4 and stat in loot.EVENT_DUST:
-                a['stats']['night'] = a['stats'].get('night', 0) + 1
-            gain = loot.EVENT_DUST.get(stat, 0) * n
-            if gain:
-                day = _day(now)
-                e = a['earnedToday']
+            xp = loot.EVENT_XP.get(stat, 0) * n
+            if xp:
+                if ((now + core.riga_offset_ms(now)) // 3600000) % 24 < 4:
+                    a['stats']['night'] = a['stats'].get('night', 0) + 1
+                e, day = a['earned'], _day(now)
                 if e['day'] != day:
                     e['day'], e['n'] = day, 0
-                gain = max(0, min(gain, DAILY_EVENT_DUST_CAP - e['n']))
-                e['n'] += gain
-                a['dust'] += gain
-                a['xp'] += gain
+                xp = max(0, min(xp, DAILY_EVENT_XP_CAP - e['n']))
+                e['n'] += xp
+                a['xp'] += xp
                 if random.random() < loot.RARE_ENCOUNTER_CHANCE * n:
                     self._encounter(a)
             self.check_achievements(a)
 
     def _encounter(self, a):
+        """Very rare random drop of one of the scarce items."""
         a['stats']['encounters'] = a['stats'].get('encounters', 0) + 1
-        a['tickets']['sakura'] += 1
-        a['dust'] += 150
-        self._push(a, {'k': 'encounter', 'sakura': 1, 'dust': 150})
+        self._push(a, {'k': 'encounter'})
         self._log(a, 'encounter')
-        if random.random() < 0.2:
-            secrets_left = [i['id'] for i in loot.ITEMS if i['rarity'] == 'secret' and i['id'] not in a['inv']]
-            if secrets_left:
-                self.grant_item(a, random.choice(secrets_left), 'encounter')
+        pool = [i['id'] for i in loot.ITEMS if i['id'] in loot.RARE_DROPS and i['id'] not in a['inv']]
+        if pool:
+            self.grant_item(a, random.choice(pool), 'encounter')
 
     def game_started(self, uid, mode):
         with LOCK:
             a = self.users.get(uid)
-            if not a:
-                return
-            if mode not in a['modes']:
-                a['modes'].append(mode)
-            self.event(uid, 'games_played')
+            if a:
+                if mode not in a['modes']:
+                    a['modes'].append(mode)
+                self.event(uid, 'games_played')
 
     def game_finished(self, uid, won):
         with LOCK:
             a = self.users.get(uid)
-            if not a:
-                return
-            a['dust'] += 40 + (120 if won else 0)
-            a['xp'] += 40 + (120 if won else 0)
-            self.event(uid, 'games_finished')
-            if won:
-                self.event(uid, 'wins')
+            if a:
+                a['xp'] += 40 + (120 if won else 0)
+                self.event(uid, 'games_finished')
+                if won:
+                    self.event(uid, 'wins')
 
-    # ---------------------------------------------------------- daily login
+    # ---------------------------------------------------------- daily login streak
     def _daily(self, a, now):
-        day = _day(now)
-        st = a['streak']
+        day, st = _day(now), a['streak']
         if st['day'] == day:
             return False
         st['n'] = st['n'] + 1 if st['day'] == day - 1 else 1
         st['day'] = day
         st['best'] = max(st['best'], st['n'])
-        gain = 30 + min(st['n'], 10) * 5
-        a['dust'] += gain
-        extra = {}
-        if st['n'] % 7 == 0:
-            a['tickets']['std'] += 1
-            extra['std'] = 1
-        self._push(a, dict({'k': 'daily', 'dust': gain, 'streak': st['n']}, **extra))
+        a['xp'] += 10 + min(st['n'], 10) * 2
         self.check_achievements(a)
-        self._mark()
         return True
 
-    # ---------------------------------------------------------- summon
-    def _roll_rarity(self, a, banner, guaranteed_min):
-        w = dict(loot.STD_WEIGHTS if banner == 'std' else loot.ANIME_WEIGHTS)
-        have = {i['rarity'] for i in loot.POOLS[banner]}
-        order = loot.RARITIES
-        w = {r: v for r, v in w.items() if r in have and (guaranteed_min is None or order.index(r) >= order.index(guaranteed_min))}
-        total = sum(w.values())
-        x = random.random() * total
-        for r, v in w.items():
-            x -= v
-            if x <= 0:
-                return r
-        return list(w)[-1]
-
-    def summon(self, a, banner, n):
-        if banner not in ('std', 'anime') or n not in (1, 10):
-            raise GameError('Bad summon')
+    # ---------------------------------------------------------- equip
+    def equip(self, a, p):
         with LOCK:
-            if banner == 'std':
-                use_t = min(a['tickets']['std'], n)
-                dust_cost = (n - use_t) * loot.STD_COST
-                if n == 10 and use_t == 0:
-                    dust_cost = 900
-                if a['dust'] < dust_cost:
-                    raise GameError('Not enough stardust')
-                a['tickets']['std'] -= use_t
-                a['dust'] -= dust_cost
+            e, kind, item = a['equip'], p.get('kind'), p.get('item')
+            if kind in ('theme', 'title', 'frame', 'skin'):
+                if item is None:
+                    if kind != 'title':
+                        raise GameError('Not found')
+                    e[kind] = None
+                else:
+                    it = loot.BY_ID.get(item)
+                    if not it or it['kind'] != kind or not self.owns(a, item):
+                        raise GameError('You do not own that')
+                    e[kind] = item
+            elif kind in ('badges', 'widgets'):
+                want, limit = ('badge', 3) if kind == 'badges' else ('widget', 8)
+                items = list(dict.fromkeys(x for x in (p.get('items') or []) if isinstance(x, str)))[:limit]
+                if any(x not in loot.BY_ID or loot.BY_ID[x]['kind'] != want or not self.owns(a, x) for x in items):
+                    raise GameError('You do not own that')
+                e[kind] = items
+            elif kind == 'public':
+                a['public'] = bool(p.get('value'))
             else:
-                if a['tickets']['sakura'] < n:
-                    raise GameError('Not enough Sakura tickets')
-                a['tickets']['sakura'] -= n
-            p = a['pity']
-            results = []
-            for k in range(n):
-                if banner == 'std':
-                    p['se'] += 1
-                    p['sl'] += 1
-                    floor = 'legendary' if p['sl'] >= STD_PITY_LEG else 'epic' if p['se'] >= STD_PITY_EPIC else ('rare' if (n == 10 and k == 9 and not any(loot.RARITIES.index(r['rarity']) >= 1 for r in results)) else None)
-                else:
-                    p['al'] += 1
-                    p['am'] += 1
-                    floor = 'mythic' if p['am'] >= ANI_PITY_MYTH else 'legendary' if p['al'] >= ANI_PITY_LEG else None
-                rar = self._roll_rarity(a, banner, floor)
-                pool = [i for i in loot.POOLS[banner] if i['rarity'] == rar]
-                it = random.choice(pool)
-                idx = loot.RARITIES.index(rar)
-                if banner == 'std':
-                    if idx >= 2:
-                        p['se'] = 0
-                    if idx >= 3:
-                        p['sl'] = 0
-                else:
-                    if idx >= 3:
-                        p['al'] = 0
-                    if idx >= 4:
-                        p['am'] = 0
-                new = self.grant_item(a, it['id'], banner)
-                results.append({'item': it['id'], 'rarity': rar, 'new': new})
-            a['stats']['summons'] = a['stats'].get('summons', 0) + n
-            self.check_achievements(a)
+                raise GameError('Not found')
             self._mark()
-            return results
 
-    # ---------------------------------------------------------- owner tools (only for the account(s) the server owner names)
-    def _owner_names(self):
-        names = {n.strip().lower() for n in os.environ.get('JETLAG_OWNER', '').split(',') if n.strip()}
-        try:
-            with open(os.path.join(os.path.dirname(self.path), 'owner.json'), encoding='utf8') as f:
-                v = json.load(f).get('owner', [])
-            names |= {str(n).strip().lower() for n in (v if isinstance(v, list) else [v])}
-        except (OSError, ValueError, AttributeError):
-            pass
-        return names
+    # ---------------------------------------------------------- views
+    def _common(self, a):
+        owned = self.owned_ids(a)
+        return {
+            'name': a['name'], 'level': 1 + int((a['xp'] / 60) ** 0.5), 'xp': a['xp'], 'created': a['created'], 'equip': a['equip'],
+            'stats': dict(a['stats'], modes=len(a['modes']), best_streak=a['streak']['best']), 'ach': a['ach'], 'owned': owned,
+            'counts': {r: sum(1 for i in owned if loot.BY_ID[i]['rarity'] == r) for r in loot.RARITIES},
+            'rarest': sorted(owned, key=lambda i: -loot.RARITIES.index(loot.BY_ID[i]['rarity']))[:6],
+            'recent': a['log'][-12:][::-1],
+        }
 
-    def is_owner(self, a):
-        return a['name'].lower() in self._owner_names()
-
-    def owner_action(self, a, p):
-        if not self.is_owner(a):
-            raise GameError('Only the admin can do that', 403)
+    def me(self, a):
         with LOCK:
-            act = p.get('action')
-            if act == 'give':
-                for k, lim in (('dust', 10 ** 9), ('xp', 10 ** 9)):
-                    if k in p:
-                        a[k] += int(core.num(p[k], -lim, lim, k))
-                a['dust'] = max(0, a['dust'])
-                for k, f in (('std', 'std'), ('sakura', 'sakura')):
-                    if k in p:
-                        a['tickets'][f] = max(0, a['tickets'][f] + int(core.num(p[k], -10 ** 6, 10 ** 6, k)))
-            elif act == 'item':
+            changed = self._daily(a, _now()) or bool(a['pending'])
+            v = self._common(a)
+            v.update({'owner': self.is_owner(a), 'id': a['id'], 'public': a['public'], 'streak': a['streak'], 'pending': a['pending']})
+            a['pending'] = []
+            if changed:
+                self._mark()
+            return v
+
+    def public(self, name):
+        with LOCK:
+            a = self.users.get(self.names.get(str(name or '').strip().lower()))
+            if not a or not a['public']:
+                raise GameError('Not found', 404)
+            return self._common(a)
+
+    # ---------------------------------------------------------- owner: everything about every account
+    def owner_list(self, actor):
+        self.require_owner(actor)
+        with LOCK:
+            return [{'id': a['id'], 'name': a['name'], 'level': 1 + int((a['xp'] / 60) ** 0.5), 'created': a['created'], 'items': len(a['inv']),
+                     'ach': len(a['ach']), 'devices': len(a['tokens']), 'public': a['public'], 'stats': a['stats']}
+                    for a in sorted(self.users.values(), key=lambda x: x['created'])]
+
+    def owner_view(self, actor, uid):
+        self.require_owner(actor)
+        a = self.users.get(uid)
+        if not a:
+            raise GameError('Not found', 404)
+        v = self._common(a)
+        v.update({'id': a['id'], 'public': a['public'], 'streak': a['streak'], 'inv': a['inv'], 'modes': a['modes'], 'devices': len(a['tokens'])})
+        return v
+
+    def owner_action(self, actor, p):
+        """Any change to any account (default: the owner's own). Passwords cannot be read (they are hashed) but can be replaced."""
+        self.require_owner(actor)
+        with LOCK:
+            a = self.users.get(p.get('target')) if p.get('target') else actor
+            if not a:
+                raise GameError('Not found', 404)
+            act, out = p.get('action'), {}
+            if act in ('rename', 'delete') and self.is_owner(a):
+                raise GameError('Not found')
+            if act == 'item':
                 it = p.get('id')
-                if it not in loot.BY_ID or it in loot.BASE:
+                if it not in loot.BY_ID or loot.BY_ID[it]['pool'] == 'base':
                     raise GameError('Not found')
                 if p.get('have', True):
-                    a['inv'].setdefault(it, {'n': 1, 't': _now(), 'src': 'owner'})
+                    a['inv'].setdefault(it, {'t': _now(), 'src': 'owner'})
                 else:
                     a['inv'].pop(it, None)
                     for k, v in list(a['equip'].items()):
                         if v == it:
                             a['equip'][k] = loot.DEFAULT_EQUIP[k]
-                    a['equip']['badges'] = [x for x in a['equip'].get('badges', []) if x != it]
-                    a['equip']['widgets'] = [x for x in a['equip'].get('widgets', []) if x != it] or loot.DEFAULT_EQUIP['widgets']
+                    for k in ('badges', 'widgets'):
+                        a['equip'][k] = [x for x in a['equip'].get(k, []) if x != it] or list(loot.DEFAULT_EQUIP[k])
             elif act == 'all_items':
                 for i in loot.ITEMS:
-                    if i['id'] not in loot.BASE:
-                        a['inv'].setdefault(i['id'], {'n': 1, 't': _now(), 'src': 'owner'})
+                    if i['pool'] not in ('base', 'owner'):
+                        a['inv'].setdefault(i['id'], {'t': _now(), 'src': 'owner'})
             elif act == 'ach':
                 aid = p.get('id')
                 if aid == 'all':
@@ -407,79 +408,44 @@ class Accounts:
                     raise GameError('Not found')
                 a['stats'][stat] = int(core.num(p.get('value'), 0, 10 ** 9, 'value'))
                 self.check_achievements(a)
+            elif act == 'xp':
+                a['xp'] = int(core.num(p.get('value'), 0, 10 ** 9, 'value'))
+            elif act == 'equip':  # set any look, owned or not
+                kind, item = p.get('kind'), p.get('item')
+                if kind in ('theme', 'title', 'frame', 'skin') and (item is None or loot.BY_ID.get(item, {}).get('kind') == kind):
+                    a['equip'][kind] = item
+                else:
+                    raise GameError('Not found')
+            elif act == 'set_password':
+                pw = str(p.get('password') or '')
+                self._check_pw(pw)
+                a['salt'] = secrets.token_hex(8)
+                a['pw'] = self._hash_pw(a['salt'], pw)
+                for h in a['tokens']:
+                    self.tokens.pop(h, None)
+                a['tokens'] = []
+            elif act == 'rename':
+                name = str(p.get('name') or '').strip()
+                self._check_name(name)
+                if self.names.get(name.lower(), a['id']) != a['id']:
+                    raise GameError('That account name is taken')
+                self.names.pop(a['name'].lower(), None)
+                a['name'] = name
+                self.names[name.lower()] = a['id']
             elif act == 'reset':
-                for k in ('inv', 'stats', 'ach'):
-                    a[k] = {}
-                a['modes'], a['dust'], a['xp'] = [], 300, 0
-                a['tickets'] = {'std': 0, 'sakura': 0}
-                a['pity'] = {'se': 0, 'sl': 0, 'al': 0, 'am': 0}
-                a['equip'] = json.loads(json.dumps(loot.DEFAULT_EQUIP))
+                a.update(inv={}, stats={}, ach={}, modes=[], xp=0, equip=_clean(loot.DEFAULT_EQUIP), streak={'day': 0, 'n': 0, 'best': 0}, log=[], pending=[])
+            elif act == 'delete':
+                self.users.pop(a['id'], None)
+                self.names.pop(a['name'].lower(), None)
+                for h in a['tokens']:
+                    self.tokens.pop(h, None)
+            elif act == 'impersonate':  # a fresh login token for that account (the owner keeps their own)
+                out['token'] = self._new_token(a)
             else:
                 raise GameError('Not found')
             self._log(a, 'owner')
             self._mark()
-
-    # ---------------------------------------------------------- equip
-    def equip(self, a, p):
-        with LOCK:
-            e = a['equip']
-            kind, item = p.get('kind'), p.get('item')
-            if kind in ('theme', 'title', 'frame', 'skin'):
-                if item is None:
-                    if kind != 'title':
-                        raise GameError('Not found')
-                    e[kind] = None
-                else:
-                    it = loot.BY_ID.get(item)
-                    if not it or it['kind'] != kind or not self.owns(a, item):
-                        raise GameError('You do not own that')
-                    e[kind] = item
-            elif kind in ('badges', 'widgets'):
-                items = [x for x in (p.get('items') or []) if isinstance(x, str)]
-                limit = 3 if kind == 'badges' else 8
-                want = 'badge' if kind == 'badges' else 'widget'
-                items = list(dict.fromkeys(items))[:limit]
-                for x in items:
-                    it = loot.BY_ID.get(x)
-                    if not it or it['kind'] != want or not self.owns(a, x):
-                        raise GameError('You do not own that')
-                e[kind] = items
-            elif kind == 'public':
-                a['public'] = bool(p.get('value'))
-            else:
-                raise GameError('Not found')
-            self._mark()
-
-    # ---------------------------------------------------------- views
-    def _common(self, a):
-        owned = [i for i in a['inv']]
-        return {
-            'name': a['name'], 'level': 1 + int((a['xp'] / 60) ** 0.5), 'xp': a['xp'], 'created': a['created'], 'equip': a['equip'],
-            'stats': dict(a['stats'], modes=len(a['modes']), best_streak=a['streak']['best']),
-            'ach': a['ach'], 'owned': owned,
-            'counts': {r: sum(1 for i in owned if loot.BY_ID[i]['rarity'] == r) for r in loot.RARITIES},
-            'rarest': sorted(owned, key=lambda i: (-loot.RARITIES.index(loot.BY_ID[i]['rarity']), a['inv'][i]['t']))[:6],
-            'recent': a['log'][-12:][::-1],
-        }
-
-    def me(self, a):
-        with LOCK:
-            now = _now()
-            self._daily(a, now)
-            v = self._common(a)
-            v.update({'owner': self.is_owner(a), 'id': a['id'], 'dust': a['dust'], 'tickets': a['tickets'], 'pity': a['pity'], 'inv': a['inv'], 'public': a['public'],
-                      'streak': a['streak'], 'pending': a['pending'], 'todayEarned': a['earnedToday']['n'] if a['earnedToday']['day'] == _day(now) else 0,
-                      'dailyCap': DAILY_EVENT_DUST_CAP})
-            a['pending'] = []
-            self._mark()
-            return v
-
-    def public(self, name):
-        with LOCK:
-            a = self.users.get(self.names.get(str(name or '').strip().lower()))
-            if not a or not a['public']:
-                raise GameError('Not found', 404)
-            return self._common(a)
+            return out
 
 
 # ---------------------------------------------------------------- hooks used by the game code
@@ -502,11 +468,10 @@ def on_action(game, m, typ):
 
 
 def on_start(game, participants):
-    if ACC is None:
-        return
-    for m in participants:
-        if m.get('acct'):
-            ACC.game_started(m['acct'], game['mode'])
+    if ACC is not None:
+        for m in participants:
+            if m.get('acct'):
+                ACC.game_started(m['acct'], game['mode'])
 
 
 def on_finish(game, winner_ids):

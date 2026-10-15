@@ -3,7 +3,7 @@
   try {
     var p = JSON.parse(localStorage.getItem('jll.prefs') || '{}'), r = document.documentElement;
     r.setAttribute('data-theme', p.theme || 'sakura');
-    ['cards:theme', 'motion:full', 'map:theme'].forEach(function (x) {
+    ['motion:full', 'map:theme'].forEach(function (x) {
       var k = x.split(':'); if (p[k[0]] && p[k[0]] !== k[1]) r.setAttribute('data-' + k[0], p[k[0]]);
     });
   } catch (e) {}

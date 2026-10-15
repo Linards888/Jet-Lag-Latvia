@@ -17,7 +17,7 @@ Spēles, kas iedvesmotas no **Jet Lag: The Game**, bet pielāgotas Latvijai: vil
 1. [Ātrā sākšana](#ātrā-sākšana)
 2. [Kā pieslēgties spēlei](#kā-pieslēgties-spēlei)
 3. [Iestatījumi (zobrats), valodas, tēmas](#iestatījumi-zobrats-valodas-tēmas)
-4. [Konti, sasniegumi un kolekcija](#konti-sasniegumi-un-kolekcija)
+4. [Konti, kolekcija un īpašnieka konsole](#konti-kolekcija-un-īpašnieka-konsole)
 5. [Paziņojumi telefonā](#paziņojumi-telefonā)
 5. [Lomas un admin režīmi](#lomas-un-admin-režīmi)
 6. [Lobby](#lobby)
@@ -56,8 +56,8 @@ Spēlē jāļauj **atrašanās vieta (GPS)**. Augšā redzēsi GPS precizitāti.
 Nekādu cilņu nav: viss ir vienā logā. Augšējā labajā stūrī ir **zobrata** poga, kas atver iestatījumus:
 
 * **Kā spēlēt**: visa īsā instrukcija vienā logā.
-* **Valoda**: angļu, latviešu, krievu, ukraiņu. Valoda tiek atcerēta ierīcē. Spēles noklusējuma uzdevumi un kartiņas ir tulkoti uz angļu un krievu valodu (ukraiņu valodā tie rādās angliski). Tavi paša uzdevumi un kartiņas paliek tavā rakstītajā valodā.
-* **Izskats**: 3 bezmaksas tēmas (*Sakura*, *Sora*, *Latvija*) un 3 ekskluzīvas, ko var iegūt ar kontu (*Hoshi*, *Kintsugi*, *Hanabi*). Papildus var izvēlēties kartiņu stilu, kartes izskatu un animācijas.
+* **Valoda**: angļu, latviešu, krievu. Valoda tiek atcerēta ierīcē. Spēles noklusējuma uzdevumi un kartiņas ir tulkoti uz angļu un krievu valodu (ukraiņu valodā tie rādās angliski). Tavi paša uzdevumi un kartiņas paliek tavā rakstītajā valodā.
+* **Izskats**: 8 tēmas visiem (varoņu tēmas ir tikai īpašniekam, skat. zemāk), kartes izskats un animācijas.
 * **Paziņojumi**: telefona paziņojumi (skat. zemāk).
 * **Cilvēki** un **Admins** (tikai adminam): admin režīms, pauze, beigt spēli, paziņojums visiem, kartiņu un uzdevumu redaktors, žurnāls.
 
@@ -65,17 +65,23 @@ Augšā redzams **savienojuma indikators** (zaļš = savienots) un GPS stāvokli
 
 ---
 
-## Konti, sasniegumi un kolekcija
+## Konti, kolekcija un īpašnieka konsole
 
-Konts (poga **Konts** sākuma ekrānā) saglabā tavu profilu visās spēlēs. Nav e-pasta un nav maksājumu: viss tiek nopelnīts spēlējot.
+Konts (poga **Konts** sākuma ekrānā) saglabā tavu profilu visās spēlēs. Nav e-pasta un nav maksājumu.
 
-* **Reģistrācija:** konta vārds (3-16 simboli) un parole (6+). Kad pieslēdzies kontam un pievienojies spēlei, spēle tiek piesaistīta kontam automātiski.
-* **Statistika un līmenis:** spēles, uzvaras, izpildītie uzdevumi, pirmie, kas tika ārā no teritorijas, nospēlētās kārtis, jautājumi, atrastie slēpēji, noķertie, mērķi, pirkumi u.c.
-* **Sasniegumi (39):** katrs dod zvaigžņu putekļus, dažkārt biļetes vai priekšmetu. Redzams progress, un publiskajā profilā redz tikai atvērtos.
-* **Kā iegūt priekšmetus:** ar sasniegumiem (daži dod priekšmetus) un ar īpašnieka rīkiem. Īpašnieks var sev atvērt visus priekšmetus, ierakstot pārlūka konsolē (F12) tīmekļa vietnē komandu `coc`. Tēmas *Hoshi*, *Kintsugi*, *Hanabi* un slepenie priekšmeti ir tikai šādi iegūstami.
-* **Profils:** avatārs ar rāmi, tituls, nozīmītes, izvēlēti logrīki (statistika, sasniegumi, kolekcija, sērija, pēdējie atradumi, trofeju skapis, retākie atradumi, veiksmes radars), un publiska saite `/#/u/<vārds>`. Publisko profilu var izslēgt.
-* **Īpašnieka rīki:** ja tavs konts ir norādīts kā servera īpašnieks, profila lapā parādās **Īpašnieka rīki**: vari sev pievienot zvaigžņu putekļus un biļetes, jebkuru priekšmetu (pieskaries, lai pievienotu vai noņemtu), visus sasniegumus, iestatīt statistiku vai atiestatīt kontu. Citi to neredz, un serveris pārbauda tiesības vēlreiz. Īpašnieku norāda ar `JETLAG_OWNER=tavs_konta_vārds` (serviceā) vai failā `data/owner.json`: `{"owner": "tavs_konta_vārds"}`. Citām kontiem šo nevar iespējot.
-* **Pret krāpšanu:** sasniegumu un uzvaru atlīdzības dod tikai spēles ar vismaz diviem dažādiem kontiem un vismaz 15 minūtēm spēles laika, un putekļi no darbībām ir ierobežoti dienā.
+* **Reģistrācija:** konta vārds (3-16 simboli) un parole (6+; serveris glabā tikai jaukumu, nevis pašu paroli). Kad esi pieslēdzies un pievienojies spēlei, tā tiek piesaistīta kontam.
+* **Profils:** avatārs ar rāmi, tituls, nozīmītes, līmenis, **tēmas varone ar stikeriem un īsu stāstu**, statistika un kolekcija. Publiskā saite `/#/u/<vārds>` (izslēdzama).
+* **Tēmas:** 8 visiem pieejamas (*Sakura, Sora, Latvija, Kintsugi, Mežs, Okeāns, Saulriets, Arcade*) un 6 varoņu tēmas **tikai servera īpašniekam**: *Hoshi, Hanabi, 02, Toradora, Evangelion, Kill la Kill*. Katrai tēmai ir sava varone sākuma ekrānā (bez animācijas).
+* **Sasniegumi:** 32 sasniegumi dod xp un katrs atver vienu kolekcijas priekšmetu (titulus, rāmjus, talismanu izskatus, nozīmītes, profila logrīkus). Ļoti reti nejauši notikumi spēles laikā var iedot retākos priekšmetus.
+* **Pret krāpšanu:** sasniegumu un uzvaru balvas dod tikai spēles ar vismaz diviem dažādiem kontiem un vismaz 15 minūtēm spēles laika, un xp no darbībām ir ierobežots dienā.
+
+### Īpašnieka konsole (tikai tavam kontam)
+
+Īpašnieku norāda ar `JETLAG_OWNER=tavs_konta_vārds` (servisā) vai failā `data/owner.json`: `{"owner": "tavs_konta_vārds"}`. Tikai šis konts profilā redz pogu **Owner console**, un serveris katru pieprasījumu pārbauda vēlreiz.
+
+* **Visi konti:** saraksts, un katram var mainīt visu: tēmu, titulu, rāmi, talismanu, visus priekšmetus un sasniegumus, statistiku, xp, **iestatīt jaunu paroli** (vecās ierīces tiek atslēgtas), pārdēvēt, atiestatīt, dzēst un **ieiet kā šis konts** (poga "Back to my account" atgriež).
+* **Visas spēles:** saraksts ar kodu, režīmu, stāvokli un spēlētājiem. Katrai spēlei: pauze, atsākt, beigt, paziņojums; saraksts ar dalībniekiem un viņu kontiem; **darboties kā jebkurš dalībnieks** (spēlēt kārtis, korekcijas u.c.); **mainīt jebkuru vērtību** pēc ceļa (piem. `data.teams.<id>.bonusMin`); iestatīt dalībnieka PIN; neapstrādāti spēles dati; dzēst spēli.
+* **Paroles un PIN** netiek glabāti atklātā tekstā, tāpēc tos nevar parādīt, bet var nomainīt.
 
 ---
 

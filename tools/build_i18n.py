@@ -9,7 +9,7 @@ import sys
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 sys.path.insert(0, os.path.join(ROOT, 'tools', 'i18n'))
-LANGS = ['en', 'lv', 'ru', 'uk']
+LANGS = ['en', 'lv', 'ru']
 PH = re.compile(r'\{(\w+)\}')
 
 en = importlib.import_module('en').T

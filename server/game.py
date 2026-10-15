@@ -295,7 +295,7 @@ def do_action(store, game, m, typ, p):
         return _admin_action(store, game, m, typ, p, now)
     out = mod.action(store, game, m, typ, p, now)
     accounts.on_action(game, m, typ)
-    _settle(game, now)
+    settle(game, now)
     return out
 
 
@@ -312,9 +312,13 @@ def _winners(game, now):
         return set()
 
 
-def _settle(game, now):
-    if game['status'] == 'finished' and not game.get('settled'):
-        accounts.on_finish(game, _winners(game, now))
+def settle(game, now):
+    """Pay account rewards once for a finished game (only if an account is linked)."""
+    if game['status'] == 'finished' and not game.get('settled') and accounts.ACC is not None:
+        if any(m.get('acct') for m in game['members'].values()):
+            accounts.on_finish(game, _winners(game, now))
+        else:
+            game['settled'] = True
 
 
 def _set_admin_mode(game, m, p):
@@ -469,7 +473,7 @@ def _admin_action(store, game, m, typ, p, now):
         game['status'] = 'finished'
         log(game, 'system', 'The admin ended the game', m['id'])
         notice(game, 'ended', 'info')
-        _settle(game, now)
+        settle(game, now)
 
 
 def tick(store, now):
@@ -482,8 +486,8 @@ def tick(store, now):
                     MODES[g['mode']].tick(g, now)
                 except Exception as e:  # never let one game kill the loop
                     print('tick error', g['code'], repr(e))
-                _settle(g, now)
                 store.mark(urgent=g['version'] != before)
+            settle(g, now)
 
 
 # ---------------------------------------------------------------- views

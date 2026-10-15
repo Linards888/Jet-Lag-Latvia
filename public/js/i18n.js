@@ -1,7 +1,7 @@
 // Tiny i18n layer. Locale files (/i18n/<code>.js) are classic scripts that fill self.JLL_LOCALES so the service worker
 // can use the very same texts for push notifications. English is the fallback for anything missing.
-export const LANGS = [['en', 'English'], ['lv', 'Latviešu'], ['ru', 'Русский'], ['uk', 'Українська']];
-const LOCALE = { en: 'en-GB', lv: 'lv-LV', ru: 'ru-RU', uk: 'uk-UA' };
+export const LANGS = [['en', 'English'], ['lv', 'Latviešu'], ['ru', 'Русский']];
+const LOCALE = { en: 'en-GB', lv: 'lv-LV', ru: 'ru-RU' };
 let cur = 'en';
 
 export const getLang = () => cur;

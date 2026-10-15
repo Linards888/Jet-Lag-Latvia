@@ -22,6 +22,7 @@ import game as G  # noqa: E402
 import geo  # noqa: E402
 import hide  # noqa: E402
 import loot  # noqa: E402
+import owner  # noqa: E402
 import push  # noqa: E402
 import tag as tag_mode  # noqa: E402
 from core import GameError, LOCK  # noqa: E402
@@ -269,11 +270,37 @@ class Handler(BaseHTTPRequestHandler):
         if sub == 'logout' and method == 'POST':
             A.logout(a, token)
             return self.send_json({'ok': True})
-        if sub == 'owner' and method == 'POST':
-            A.owner_action(a, self.json_body())
-            return self.send_json({'me': A.me(a)})
+        if sub == 'owner':
+            return self.owner_api(a, method, rest[1:])
         if sub == 'equip' and method == 'POST':
             A.equip(a, self.json_body())
+            return self.send_json({'ok': True})
+        raise GameError('Not found', 404)
+
+    def owner_api(self, a, method, rest):
+        A = accounts.ACC
+        A.require_owner(a)
+        what, key = (rest + [None, None])[:2]
+        if what == 'accounts' and key is None and method == 'GET':
+            return self.send_json(A.owner_list(a))
+        if what == 'accounts' and key and method == 'GET':
+            return self.send_json(A.owner_view(a, key))
+        if what == 'accounts' and method == 'POST':  # key = target account id, or 'me'
+            body = self.json_body()
+            body['target'] = None if key == 'me' else key
+            out = A.owner_action(a, body)
+            return self.send_json(dict(out, view=A.owner_view(a, body['target'] or a['id'])))
+        if what == 'games' and key is None and method == 'GET':
+            with LOCK:
+                return self.send_json(owner.list_games(STORE))
+        if what == 'games' and key and method == 'GET':
+            with LOCK:
+                return self.send_json(owner.dump_game(STORE, A, key.upper()))
+        if what == 'games' and key and method == 'POST':
+            with LOCK:
+                g = G.get_game(STORE, key.upper())
+                owner.game_action(STORE, g, self.json_body())
+            notify()
             return self.send_json({'ok': True})
         raise GameError('Not found', 404)
 
