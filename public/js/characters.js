@@ -69,6 +69,7 @@ const THEME_INFO = {
   hanabi: { girl: { hair: '#2b1a4a', fringe: '#3a2262', eyes: '#ff5fa8', outfit: '#ff5fa8', style: 'pony', acc: [['flower', '#ff8cc4']] }, stickers: [['burst', '#ff5fa8', 'Hanabi'], ['flower', '#ff8cc4', 'Matsuri'], ['spark', '#ffd166', 'Boom'], ['star', '#7ad0ff', 'Night']] },
 };
 const FREE_STICKERS = {
+  onimai: [['heart', '#ff4d9a', 'Love'], ['heart', '#ff8cc4', 'Kyun'], ['spark', '#ffd0e8', 'Uwu'], ['star', '#ffb3d9', 'Nya']],
   sakura: [['flower', '#ff8fb1', 'Sakura'], ['heart', '#e2457f', 'Mochi']], sora: [['star', '#7ad0ff', 'Sky'], ['ring', '#2e83d0', 'Cloud']],
   latvija: [['spark', '#9e3039', 'Raksts'], ['star', '#c99a3b', 'Saule']], kintsugi: [['spark', '#d9ab3f', 'Gold'], ['ring', '#d9ab3f', 'Mend']],
   mezs: [['flower', '#7fbf6a', 'Mezs'], ['star', '#3d7a4a', 'Ozols']], okeans: [['ring', '#2ec4b6', 'Wave'], ['spark', '#8be4da', 'Glow']],
@@ -104,7 +105,17 @@ const Whale = ({ size }) => html`<svg class="girl" width=${size} height=${size *
   <circle cx="42" cy="62" r="4.5" fill="#102a3a" /><circle cx="43.4" cy="60.6" r="1.4" fill="#fff" /><path d="M32 76q8 6 16 0" fill="none" stroke="#102a3a" stroke-width="2.6" stroke-linecap="round" /><ellipse cx="28" cy="72" rx="5" ry="3" fill="#ff8fa3" opacity=".55" /></svg>`;
 const SunBoat = ({ size }) => html`<svg class="girl" width=${size} height=${size * 0.8} viewBox="0 0 140 112" aria-hidden="true"><circle cx="70" cy="62" r="40" fill="#ffc45a" stroke="#d9772a" stroke-width="3" /><g stroke="#ff9a4a" stroke-width="4" stroke-linecap="round">${[-60, -30, 0, 30, 60].map((a) => html`<path key=${a} d="M70 8V0" transform=${'rotate(' + a + ' 70 62)'} />`)}</g>
   <rect y="82" width="140" height="30" fill="#e0895a" /><path d="M0 92q17-8 35 0t35 0 35 0 35 0v20H0z" fill="#b95f3f" /><path d="M60 80h40l-8 12H68z" fill="#6d3326" stroke="#3a1a10" stroke-width="2" stroke-linejoin="round" /><line x1="80" y1="80" x2="80" y2="42" stroke="#3a1a10" stroke-width="3" /><path d="M80 44l22 30H80z" fill="#fff6e8" stroke="#3a1a10" stroke-width="2" stroke-linejoin="round" /><path d="M78 50L62 74h16z" fill="#ffe2c2" stroke="#3a1a10" stroke-width="2" stroke-linejoin="round" /></svg>`;
-const SVG_MASCOT = { sora: Cloud, latvija: Flag, kintsugi: Vase, arcade: Idol, hanabi: Lantern, okeans: Whale, saulriets: SunBoat };
+// a big happy heart with a face, a bow and little hearts floating around it (original drawing)
+const HeartMascot = ({ size }) => html`<svg class="girl" width=${size} height=${size * 0.95} viewBox="0 0 140 133" aria-hidden="true">
+  <path d="M70 120C18 84 6 52 26 30c17-17 36-8 44 8 8-16 27-25 44-8 20 22 8 54-44 90z" fill="#ff6fb0" stroke="#c4146f" stroke-width="3.4" stroke-linejoin="round" />
+  <path d="M34 40c6-10 18-12 26-6" fill="none" stroke="#ffd0e8" stroke-width="5" stroke-linecap="round" opacity=".8" />
+  <path d="M46 70q7 -8 14 0M80 70q7 -8 14 0" fill="none" stroke="#5b1740" stroke-width="4" stroke-linecap="round" />
+  <ellipse cx="42" cy="82" rx="9" ry="5.5" fill="#ff3d8a" opacity=".55" /><ellipse cx="98" cy="82" rx="9" ry="5.5" fill="#ff3d8a" opacity=".55" />
+  <path d="M60 86q10 12 20 0z" fill="#8f1550" stroke="#5b1740" stroke-width="2.4" stroke-linejoin="round" /><path d="M64 90q6 5 12 0" fill="#ff8fb8" />
+  <path d="M70 28l-17-12 3 21zM70 28l17-12-3 21z" fill="#fff" stroke="#c4146f" stroke-width="2.6" stroke-linejoin="round" /><circle cx="70" cy="28" r="5" fill="#ffc24a" stroke="#c4146f" stroke-width="2.2" />
+  <path d="M122 30c-4-6-12-2-9 5 3 5 9 9 9 9s6-4 9-9c3-7-5-11-9-5z" fill="#ffb3d9" stroke="#c4146f" stroke-width="2" transform="translate(-2 -4)" /><path d="M16 14c-3-5-10-2-7 4 2 4 7 7 7 7s5-3 7-7c3-6-4-9-7-4z" fill="#ff8cc4" stroke="#c4146f" stroke-width="2" />
+  <path d="M126 92l3 7 7 3-7 3-3 7-3-7-7-3 7-3z" fill="#fff" stroke="#c4146f" stroke-width="1.6" stroke-linejoin="round" /></svg>`;
+const SVG_MASCOT = { onimai: HeartMascot, sora: Cloud, latvija: Flag, kintsugi: Vase, arcade: Idol, hanabi: Lantern, okeans: Whale, saulriets: SunBoat };
 const CUTOUT = ['toradora', 'evangelion', 'killlakill', 'zerotwo', 'mezs', 'arcade'];  // transparent character cut-outs (no photo frame)
 
 const NO_ART = new Set();  // themes whose /art/<theme> image does not exist (no repeated requests)

@@ -299,6 +299,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json({'ok': True})
         if sub == 'owner':
             return self.owner_api(a, method, rest[1:])
+        if sub == 'secret' and method == 'POST':
+            return self.send_json(A.secret_action(a, self.json_body()))
         if sub == 'social' and method == 'GET':
             return self.send_json(A.social(a))
         if sub == 'friends' and method == 'POST':

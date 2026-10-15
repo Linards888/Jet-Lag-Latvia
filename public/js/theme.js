@@ -16,6 +16,7 @@ export const THEMES = [
   { id: 'hoshi', name: 'Hoshi', pv: { bg: 'linear-gradient(160deg,#0c0f2e,#232a6e)', card: 'rgba(40,46,104,.8)', ac: '#a393ff', line: '#4a4f9c', r: 18, pill: 99, font: "'M PLUS Rounded 1c',sans-serif", glow: true } },
   { id: 'aurora', name: 'Aurora', pv: { bg: 'linear-gradient(160deg,#06121f,#0f3b3f 55%,#1d2a63)', card: 'rgba(14,40,56,.8)', ac: '#5af0c0', line: '#2f8f8a', r: 16, pill: 99, font: "'Comfortaa',sans-serif", glow: true } },
   { id: 'hanabi', name: 'Hanabi', pv: { bg: 'linear-gradient(135deg,#2a0b44,#0b0a24 55%,#3a1230)', card: 'rgba(46,32,98,.8)', ac: '#ff5fa8', line: '#8a3a78', r: 20, pill: 99, font: "'Comfortaa',sans-serif", glow: true } },
+  { id: 'onimai', name: 'Onimai', pv: { bg: 'linear-gradient(160deg,#ffe3f1,#ffbddc)', card: '#fff8fc', ac: '#ff4d9a', line: '#ffa6d1', r: 28, pill: 99, font: "'M PLUS Rounded 1c',sans-serif" } },
   { id: 'zerotwo', name: '02', pv: { bg: 'linear-gradient(160deg,#fff0f4,#ffd6e2)', card: '#ffffff', ac: '#e0114a', line: '#ff8fb1', r: 8, pill: 12, font: "'Bebas Neue',sans-serif", hard: true } },
   { id: 'toradora', name: 'Toradora', pv: { bg: '#fff3dd', card: '#fffaf0', ac: '#f08a24', line: '#5a2a0a', r: 14, pill: 14, font: "'Comfortaa',sans-serif", hard: true } },
   { id: 'evangelion', name: 'Evangelion', pv: { bg: 'linear-gradient(160deg,#170f24,#2a1d4a)', card: '#21173a', ac: '#8cff3c', line: '#6a4bb0', r: 2, pill: 2, font: "'Cinzel',serif", glow: true } },

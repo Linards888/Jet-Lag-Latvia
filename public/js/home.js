@@ -6,13 +6,14 @@ import { MODE_IDS, KANJI } from './guide.js';
 import { RequireAccount, useAccount } from './account.js';
 import { ThemeHero } from './characters.js';
 import { useTheme } from './theme.js';
+import { secretTap } from './secret.js';
 
 export const go = (h) => { location.hash = h; };
 
 export function Home() {
   const mine = Object.entries(saved.all());
   return html`<div class="wrap">
-    <div class="hero"><${ThemeHero} theme=${useTheme()} /><div class="jp">ジェットラグ</div><h1>Jet Lag: Latvia</h1>
+    <div class="hero"><div onClick=${() => secretTap('c')}><${ThemeHero} theme=${useTheme()} /></div><div class="jp" onClick=${() => secretTap('a')}>ジェットラグ</div><h1>Jet Lag: <span onClick=${() => secretTap('b')}>Latvia</span></h1>
       <p class="dim" style="margin:0">${t('home.tagline')}</p></div>
     <div class="stack mt2">
       <button class="block" style="padding:15px" onClick=${() => go('#/create')}>${t('home.create')}</button>

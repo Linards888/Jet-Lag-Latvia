@@ -629,3 +629,33 @@ html button.tile.locked .tn { color: var(--dim); } html button.tile.on .tn { fon
 .rar-rare { border-color: #4a8fd8; } .rar-epic { border-color: #9a63d8; } .rar-legendary { border-color: var(--gold); } .rar-mythic { border-color: #e0457b; }
 .steps { margin: 4px 0 0; padding-left: 22px; } .steps li { margin: 4px 0; }
 @media (max-width: 430px) { .facts { grid-template-columns: repeat(2, 1fr); } }
+
+/* ---------- onimai (secret look): hearts, hearts and more hearts, very cute and very excited ---------- */
+[data-theme="onimai"] {
+  --heart: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 92'%3E%3Cpath d='M50 90C8 60 0 36 14 20c12-13 28-6 36 6 8-12 24-19 36-6 14 16 6 40-36 70z'/%3E%3C/svg%3E");
+  --bg: #ffe6f2; --bg2: #ffc4e0; --surface: #fff9fc; --surface2: #fff0f7; --line: #ffc2dd; --line2: #ff9fcb;
+  --text: #5b1740; --dim: #a65a85; --accent: #ff4d9a; --accent-ink: #ffffff; --accent-deep: #d6177a; --accent-soft: #ffd9ec; --ink-accent: #c4146f;
+  --good: #2e9d69; --warn: #e0900a; --bad: #d4314d; --gold: #ffc24a;
+  --font-d: 'M PLUS Rounded 1c', 'Nunito', sans-serif; --font-b: 'M PLUS Rounded 1c', 'Nunito', sans-serif;
+  --fw-d: 800; --tt-d: none; --ls-d: .01em; --fs: 16px; --fw-b: 600;
+  --r0: 30px; --rsm0: 20px; --rbtn0: 999px; --bw: 2px; --bs: 0 1px 0 rgba(255,255,255,.9) inset, 0 12px 28px -12px rgba(255,60,150,.45);
+  --card-bg: linear-gradient(180deg, var(--surface), var(--surface2)); --card-blur: 0px; --btn-ledge: 4px; --btn-bd: 0px; --btn-bg: linear-gradient(180deg, #ff7fb8, var(--accent));
+  --pat-mask: var(--heart); --pat-op: .09;
+  --body-bg: radial-gradient(60vmax 40vmax at 10% 0%, rgba(255,255,255,.8), transparent 60%), linear-gradient(180deg, var(--bg), var(--bg2));
+  --tile-filter: saturate(1.1) hue-rotate(-14deg); --art: url(/img/bg/onimai.svg); --art-op: .9;
+}
+[data-theme="onimai"] body::before { background-size: 120px 110px; -webkit-mask-size: 120px 110px; mask-size: 120px 110px; }
+[data-theme="onimai"] h1::before, [data-theme="onimai"] h1::after, [data-theme="onimai"] h2::before, [data-theme="onimai"] .card.accent::after {
+  content: ''; display: inline-block; background: var(--accent); -webkit-mask: var(--heart) center / contain no-repeat; mask: var(--heart) center / contain no-repeat; }
+[data-theme="onimai"] h1::before, [data-theme="onimai"] h1::after { width: .8em; height: .72em; margin: 0 .25em; animation: heartbeat 1.1s ease-in-out infinite; }
+[data-theme="onimai"] h1::after { animation-delay: .35s; }
+[data-theme="onimai"] h2::before { width: .8em; height: .72em; margin-right: .4em; vertical-align: -.05em; animation: heartbeat 1.4s ease-in-out infinite; }
+[data-theme="onimai"] .card { position: relative; }
+[data-theme="onimai"] .card.accent::after { position: absolute; right: -8px; top: -14px; width: 44px; height: 40px; opacity: .85; transform: rotate(14deg); pointer-events: none; animation: heartbeat 1.2s ease-in-out infinite; }
+[data-theme="onimai"] .topbar { background: rgba(255,230,242,.85); }
+[data-theme="onimai"] button:not(.ghost):not(.icon):not(.link):not(.tile):not(.person):not(.step):not(.fcell):not(.colorbtn):hover { animation: heartbeat .7s ease-in-out infinite; }
+@keyframes heartbeat { 0%, 100% { transform: scale(1); } 14% { transform: scale(1.22); } 28% { transform: scale(1); } 42% { transform: scale(1.14); } 70% { transform: scale(1); } }
+[data-motion="off"][data-theme="onimai"] *, [data-motion="reduced"][data-theme="onimai"] * { animation: none !important; }
+/* the hidden heart (shown only to the owner, only after the secret taps, only until the page is reloaded) */
+.secret-heart { position: fixed; left: 8px; bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 3500; width: 30px; height: 30px; padding: 0; display: grid; place-items: center; background: transparent; border: 0; box-shadow: none; color: var(--accent); opacity: .35; }
+.secret-heart:hover, .secret-heart:active { opacity: .9; transform: none; }

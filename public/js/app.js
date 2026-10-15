@@ -9,6 +9,7 @@ import { ProfilePage } from './account.js';
 import { CommunityPage, PublicProfile } from './people.js';
 import { OwnerPage } from './owner.js';
 import { GlobalBar } from './globalbar.js';
+import { SecretButton } from './secret.js';
 
 function App() {
   const [hash, setHash] = useState(location.hash || '#/');
@@ -35,7 +36,7 @@ function App() {
   else if (parts[0] === 'u' && parts[1]) page = html`<${PublicProfile} name=${decodeURIComponent(parts[1])} key=${parts[1]} />`;
   else if (parts[0] === 'g' && parts[1]) page = html`<${GamePage} code=${parts[1].toUpperCase()} key=${parts[1]} />`;
   else page = html`<${NotFound} />`;
-  return html`<div>${parts[0] !== 'g' && html`<${GlobalBar} />`}${page}<${Toasts} /></div>`;
+  return html`<div>${parts[0] !== 'g' && html`<${GlobalBar} />`}${page}<${Toasts} /><${SecretButton} /></div>`;
 }
 
 loadPrefs();

@@ -156,6 +156,38 @@ class AccountTests(unittest.TestCase):
         self.assertEqual((prof['rel'], prof['rank'], prof['friendCount'], [f['name'] for f in prof['friends']]), ('friend', 1, 1, ['Alice1']))
         self.assertNotIn('hash', str(prof))
 
+    def test_secret_look_only_the_owner_finds_gives_and_takes(self):
+        owner, _ = reg(self.A, 'Boss1')
+        x, _ = reg(self.A, 'Alice1')
+        os.environ['JETLAG_OWNER'] = 'boss1'
+        try:
+            self.assertFalse(self.A.owns(owner, 'onimai'))  # not even the owner has it without the secret place
+            self.assertNotIn('onimai', [i['id'] for i in loot.catalog()['items']])  # and it is in no public list
+            self.assertNotIn('onimai', self.A.me(owner)['owned'])
+            self.A.owner_action(owner, {'action': 'all_items'})
+            self.assertFalse(self.A.owns(owner, 'onimai'))  # "give every item" does not include it
+            with self.assertRaises(GameError) as e:
+                self.A.secret_action(x, {'action': 'claim'})  # everybody else: it does not exist
+            self.assertEqual(e.exception.status, 404)
+            self.A.secret_action(owner, {'action': 'claim'})
+            self.assertTrue(self.A.owns(owner, 'onimai'))
+            self.A.equip(owner, {'kind': 'theme', 'item': 'onimai'})
+            me = self.A.me(owner)
+            self.assertEqual((me['equip']['theme'], [i['id'] for i in me['secret']]), ('onimai', ['onimai']))
+            self.assertNotIn('onimai', self.A.public('Boss1')['owned'])  # others never see that it exists
+            self.A.secret_action(owner, {'action': 'give', 'name': 'alice1'})
+            self.assertEqual(self.A.secret_action(owner, {'action': 'list'})['holders'], ['Alice1', 'Boss1'])
+            self.A.equip(x, {'kind': 'theme', 'item': 'onimai'})
+            with self.assertRaises(GameError):
+                self.A.secret_action(x, {'action': 'give', 'name': 'boss1'})  # holders cannot hand it on
+            self.A.secret_action(x, {'action': 'drop'})  # a holder can remove it from their own menus
+            self.assertEqual((self.A.owns(x, 'onimai'), x['equip']['theme']), (False, 'sakura'))
+            self.A.secret_action(owner, {'action': 'give', 'name': 'alice1'})
+            self.A.secret_action(owner, {'action': 'revoke', 'name': 'alice1'})
+            self.assertFalse(self.A.owns(x, 'onimai'))
+        finally:
+            del os.environ['JETLAG_OWNER']
+
     def test_equip_needs_ownership_and_owner_owns_everything(self):
         a, _ = reg(self.A, 'Look')
         with self.assertRaises(GameError):
