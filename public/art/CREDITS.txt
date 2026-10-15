@@ -1,4 +1,2 @@
-Portraits of historical figures from Wikimedia Commons (public domain). theme | person | file | licence | author | page
-mezs | Rainis | Rainis.jpg | Public domain | Unknown authorUnknown author | https://commons.wikimedia.org/wiki/File:Rainis.jpg
-saulriets | Aspazija | Aspazija_3.jpg | Public domain | Unknown authorUnknown author | https://commons.wikimedia.org/wiki/File:Aspazija_3.jpg
-okeans | Krišjānis Valdemārs | Krišjānis_Valdemārs.jpg | Public domain | Carl Schulz (1831-1884) | https://commons.wikimedia.org/wiki/File:Kri%C5%A1j%C4%81nis_Valdem%C4%81rs.jpg
+mezs.png: portrait of the Latvian poet Rainis (1865-1929), Wikimedia Commons, File:Rainis.jpg, public domain; cut out and upscaled with tools/prepare_art.py.
+zerotwo/toradora/evangelion/killlakill.png: images supplied by the site owner (not public domain); cut out and upscaled with tools/prepare_art.py.

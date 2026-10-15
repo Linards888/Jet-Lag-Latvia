@@ -1,5 +1,5 @@
 """Prepares character cut-outs from images the owner supplies: background removal (rembg, anime model) + upscaling.
-Usage: python tools/prepare_art.py <theme>=<input image> [...]   writes public/art/<theme>.png (transparent, max 900 px tall)
+Usage: python tools/prepare_art.py <theme>=<input image> [...]   writes public/art/<theme>.png (transparent, up to 1100 px tall); REMBG_MODEL=u2net_human_seg for photos
 Requires: pip install rembg pillow"""
 import os
 import sys
@@ -8,13 +8,14 @@ from PIL import Image, ImageFilter
 from rembg import new_session, remove
 
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'public', 'art')
-MAX_H = 900
+MAX_H = 1100
+TARGET_H = 1000  # upscale small sources until they are about this tall
 
 
-def prepare(src, dst, session):
+def prepare(src, dst, session, model_note=None):
     im = Image.open(src).convert('RGB')
     # upscale first so the cut-out edges are smooth, then cut the background out and sharpen a little
-    scale = max(1, min(4, MAX_H // max(1, im.height)))
+    scale = max(1, min(4, -(-TARGET_H // max(1, im.height))))
     big = im.resize((im.width * scale, im.height * scale), Image.LANCZOS) if scale > 1 else im
     cut = remove(big, session=session, alpha_matting=False, post_process_mask=True)
     r, g, b, a = cut.split()
@@ -32,7 +33,8 @@ def prepare(src, dst, session):
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
-    session = new_session('isnet-anime')
+    model = os.environ.get('REMBG_MODEL', 'isnet-anime')  # isnet-anime for drawings, u2net_human_seg for photos of people
+    session = new_session(model)
     for arg in sys.argv[1:]:
         theme, src = arg.split('=', 1)
         print(theme, prepare(src, os.path.join(OUT, theme + '.png'), session))

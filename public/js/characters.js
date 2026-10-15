@@ -99,11 +99,16 @@ const Idol = ({ size }) => html`<svg class="girl" width=${size} height=${size * 
 const Lantern = ({ size }) => html`<svg class="girl" width=${size} height=${size * 1.1} viewBox="0 0 120 130" aria-hidden="true"><g stroke="#ff5fa8" stroke-width="4" stroke-linecap="round" fill="none">${[0, 40, 80, 120, 160, 200, 240, 280, 320].map((a) => html`<path key=${a} d="M60 22V8" transform=${'rotate(' + a + ' 60 30)'} />`)}</g><circle cx="60" cy="30" r="5" fill="#ffd166" />
   <line x1="60" y1="62" x2="60" y2="70" stroke="#2a1a3a" stroke-width="3" /><ellipse cx="60" cy="96" rx="26" ry="32" fill="#ff5f7a" stroke="#ffd479" stroke-width="3" /><rect x="46" y="64" width="28" height="8" rx="2" fill="#2a1a3a" /><rect x="46" y="120" width="28" height="7" rx="2" fill="#2a1a3a" />
   <path d="M60 68v56M44 80Q60 96 44 112M76 80Q60 96 76 112" fill="none" stroke="#ffd479" stroke-width="2" opacity=".8" /></svg>`;
-const SVG_MASCOT = { sora: Cloud, latvija: Flag, kintsugi: Vase, arcade: Idol, hanabi: Lantern };
-const CUTOUT = ['toradora', 'evangelion', 'killlakill', 'zerotwo'];  // transparent character cut-outs (no photo frame)
+const Whale = ({ size }) => html`<svg class="girl" width=${size} height=${size * 0.75} viewBox="0 0 140 105" aria-hidden="true"><path d="M70 28q-2-14 6-22M76 28q6-12 16-14" fill="none" stroke="#7ad0ff" stroke-width="4" stroke-linecap="round" /><path d="M120 66c14-2 16-20 8-30 10 4 16 14 12 28-2 8-10 12-20 8z" fill="#2a86b8" stroke="#124a6a" stroke-width="2.5" stroke-linejoin="round" />
+  <path d="M14 70C14 44 38 30 70 30s56 16 56 38c0 22-24 32-56 32S14 92 14 70z" fill="#3aa3d4" stroke="#124a6a" stroke-width="3" /><path d="M20 76c20 14 70 18 100-8c0 18-24 30-52 30S26 92 20 76z" fill="#d6f2ff" /><path d="M64 88l-8 12 22-6z" fill="#2a86b8" stroke="#124a6a" stroke-width="2.5" stroke-linejoin="round" />
+  <circle cx="42" cy="62" r="4.5" fill="#102a3a" /><circle cx="43.4" cy="60.6" r="1.4" fill="#fff" /><path d="M32 76q8 6 16 0" fill="none" stroke="#102a3a" stroke-width="2.6" stroke-linecap="round" /><ellipse cx="28" cy="72" rx="5" ry="3" fill="#ff8fa3" opacity=".55" /></svg>`;
+const SunBoat = ({ size }) => html`<svg class="girl" width=${size} height=${size * 0.8} viewBox="0 0 140 112" aria-hidden="true"><circle cx="70" cy="62" r="40" fill="#ffc45a" stroke="#d9772a" stroke-width="3" /><g stroke="#ff9a4a" stroke-width="4" stroke-linecap="round">${[-60, -30, 0, 30, 60].map((a) => html`<path key=${a} d="M70 8V0" transform=${'rotate(' + a + ' 70 62)'} />`)}</g>
+  <rect y="82" width="140" height="30" fill="#e0895a" /><path d="M0 92q17-8 35 0t35 0 35 0 35 0v20H0z" fill="#b95f3f" /><path d="M60 80h40l-8 12H68z" fill="#6d3326" stroke="#3a1a10" stroke-width="2" stroke-linejoin="round" /><line x1="80" y1="80" x2="80" y2="42" stroke="#3a1a10" stroke-width="3" /><path d="M80 44l22 30H80z" fill="#fff6e8" stroke="#3a1a10" stroke-width="2" stroke-linejoin="round" /><path d="M78 50L62 74h16z" fill="#ffe2c2" stroke="#3a1a10" stroke-width="2" stroke-linejoin="round" /></svg>`;
+const SVG_MASCOT = { sora: Cloud, latvija: Flag, kintsugi: Vase, arcade: Idol, hanabi: Lantern, okeans: Whale, saulriets: SunBoat };
+const CUTOUT = ['toradora', 'evangelion', 'killlakill', 'zerotwo', 'mezs'];  // transparent character cut-outs (no photo frame)
 
 const NO_ART = new Set();  // themes whose /art/<theme> image does not exist (no repeated requests)
-const PORTRAITS = ['mezs', 'saulriets', 'okeans'];  // bundled public-domain portraits of Rainis, Aspazija, Barons and Valdemars (public/art)
+const PORTRAITS = ['mezs'];  // bundled public-domain portrait cut-out of the poet Rainis (public/art)
 export const clearArt = (theme) => NO_ART.delete(theme);
 function Mascot({ theme, size = 150 }) {
   const [missing, setMissing] = useState(NO_ART.has(theme));
