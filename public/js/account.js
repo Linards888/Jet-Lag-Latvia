@@ -29,9 +29,9 @@ export async function loadCatalog() {
 export const getCatalog = () => cat;
 export const itemName = (id) => (cat && cat.byId[id] ? cat.byId[id].name : id);
 
-// the secret look is in no public list: it reaches the page only inside the holder's own /me
-function mergeSecret(m) {
-  for (const it of (m && m.secret) || []) if (cat && !cat.byId[it.id]) { cat.items.push(it); cat.byId[it.id] = it; }
+// the special look is in no public list: it reaches the page only inside the holder's own /me
+function mergeSpecial(m) {
+  for (const it of (m && m.special) || []) if (cat && !cat.byId[it.id]) { cat.items.push(it); cat.byId[it.id] = it; }
 }
 
 function announce(pending) {
@@ -50,7 +50,7 @@ export async function loadMe(quiet) {
   try {
     await loadCatalog();
     me = await call('GET', '/me');
-    mergeSecret(me);
+    mergeSpecial(me);
     if (!quiet) announce(me.pending);
     document.documentElement.setAttribute('data-skin', me.equip.skin || 's_peach');
     const cur = document.documentElement.getAttribute('data-theme');
@@ -65,7 +65,7 @@ async function authed(path, body) {
   const d = await call('POST', path, body);
   token = d.token; store(KEY, token); store(OWNER_KEY, null);
   await loadCatalog();
-  me = d.me; mergeSecret(me); announce(d.me.pending); applyEquip(d.me); emit();
+  me = d.me; mergeSpecial(me); announce(d.me.pending); applyEquip(d.me); emit();
 }
 export const login = (name, password) => authed('/login', { name, password });
 export const register = (first, last, name, password) => authed('/register', { first, last, name, password });
@@ -152,7 +152,7 @@ function EditModal({ v, onClose }) {
       else await equip({ kind: it.kind, item: it.kind === 'title' && eq.title === it.id ? null : it.id });
     } catch (e) { toast(e.message); }
   };
-  const removeSecret = async () => { if (!confirm(t('secret.drop_confirm'))) return; try { await call('POST', '/secret', { action: 'drop' }); await loadMe(true); } catch (e) { toast(e.message); } };
+  const removeSpecial = async () => { if (!confirm(t('special.drop_confirm'))) return; try { await call('POST', '/special', { action: 'drop' }); await loadMe(true); } catch (e) { toast(e.message); } };
   const isOn = (it) => (it.kind === 'symbol' ? (eq.symbols || []).includes(it.id) : eq[it.kind] === it.id);
   const save = async () => { try { await saveProfile(f); toast(t('saved'), true); return true; } catch (e) { toast(e.message); return false; } };
   const how = (it) => (it.vis === 'show' && it.stat ? t('acct.how_to', { what: t('acct.s_' + it.stat), n: it.goal, have: Math.min(statValue(v, it.stat), it.goal) }) : t('acct.how_unknown'));
@@ -161,7 +161,7 @@ function EditModal({ v, onClose }) {
     <${Field} label=${t('acct.bio')}><textarea rows="3" maxlength="300" value=${f.bio} placeholder=${t('acct.bio_ph')} onInput=${(e) => setF({ ...f, bio: e.target.value })}></textarea><//>
     <${AsyncBtn} class="sm" onClick=${save}>${t('acct.save')}<//>
     ${KINDS.map((k) => html`<div key=${k}><p class="eyebrow mt">${t('acct.kind_' + k)}${k === 'symbol' ? ' (' + t('acct.max3') + ')' : ''}</p>${info && info.kind === k && html`<div class="callout"><b>${info.name}</b> (${t('rar.' + info.rarity)}): ${how(info)}</div>`}${k === 'title' && locked && html`<p class="small dim" style="margin:0 0 6px">${t('acct.newcomer_lock')}</p>`}
-      ${k === 'theme' && owned.has('onimai') && html`<button class="sm ghost" style="margin:0 0 6px" onClick=${removeSecret}>${t('secret.drop')}</button>`}
+      ${k === 'theme' && owned.has('onimai') && html`<button class="sm ghost" style="margin:0 0 6px" onClick=${removeSpecial}>${t('special.drop')}</button>`}
       <div class="tiles compact">${cat.items.filter((i) => i.kind === k && (owned.has(i.id) || i.vis !== 'hidden')).sort((a, b) => RAR.indexOf(a.rarity) - RAR.indexOf(b.rarity)).map((it) => {
         const has = owned.has(it.id);
         return html`<${Tile} key=${it.id} it=${it} owned=${has} on=${isOn(it)} onClick=${has ? (k === 'title' && locked ? null : () => click(it)) : () => setInfo(it)}><span class="tn">${it.name}</span>${k === 'symbol' && html`<${Sym} id=${it.id} />`}<//>`; })}</div></div>`)}

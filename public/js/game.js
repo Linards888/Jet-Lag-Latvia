@@ -7,6 +7,7 @@ import { AsyncBtn, Chip, Field, Switch, Seg, Modal, Portal, Ico, Empty, Mochi, c
 import { LMap } from './map.js';
 import { WEIGHT_OF, rarity, effectSummary } from './cards-ui.js';
 import { NotFound, go } from './home.js';
+import { SpecialPic } from './specialart.js';
 import { SettingsModal } from './settings.js';
 import * as race from './race.js';
 import * as hide from './hide.js';
@@ -44,6 +45,7 @@ export function GamePage({ code }) {
     </div></div>
     ${notices.length > 0 && html`<${Portal} z=${5000}><div class="notices">${notices.map((n) => html`<div class="notice ${n.kind}" key=${n.id} onClick=${() => dismiss(n.id)}>${noticeText(n)}</div>`)}</div><//>`}
     <div class="wrap"><div class="stack">
+      <${SpecialPic} slot="game" />
       <${PushBanner} code=${code} token=${token} plays=${st.me.plays} />
       ${st.me.plays && loc.status === 'error' && html`<div class="callout warn">${t('gps.err_' + loc.msg)}</div>`}
       ${st.me.plays && loc.status === 'denied' && html`<div class="callout warn">${t('gps.denied_msg')}</div>`}

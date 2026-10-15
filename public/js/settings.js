@@ -4,6 +4,7 @@ import { t, LANGS, getLang, setLang } from './i18n.js';
 import { AsyncBtn, Chip, Field, Modal, fmtDateTime, Seg } from './ui.js';
 import { AppearancePanel } from './theme.js';
 import { Guide } from './guide.js';
+import { SpecialPic } from './specialart.js';
 
 const Acc = ({ title, children, badge }) => html`<section class="set-sec"><h3>${title}${badge || ''}</h3>${children}</section>`;
 
@@ -14,6 +15,7 @@ export function SettingsModal({ game, guideFirst, onClose }) {
   if (guide) return html`<${Guide} mode=${game ? game.st.mode : null} onClose=${() => (guideFirst ? onClose() : setGuide(false))} />`;
   const admin = game && game.st.me.canAdmin;
   return html`<${Modal} title=${t('settings')} onClose=${onClose}><div class="stack" style="gap:8px">
+    <${SpecialPic} slot="settings" />
     <button class="ghost block" onClick=${() => setGuide(true)}>${t('guide.title')}</button>
     <${Acc} title=${t('language')} open=${false}><div class="pill-row">${LANGS.map(([c, n]) => html`<button class=${c === lang ? '' : 'ghost'} key=${c} onClick=${async () => { await setLang(c); setL(c); }}>${n}</button>`)}</div><//>
     <${Acc} title=${t('appearance')} open=${false}><${AppearancePanel} /><//>

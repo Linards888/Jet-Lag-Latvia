@@ -55,9 +55,9 @@ BY_ID = {i['id']: i for i in ITEMS}
 BASE = [i['id'] for i in ITEMS if i['stat'] is None]
 UNLOCKABLE = [i for i in ITEMS if i['stat'] is not None]
 # a look that is not in the catalogue: only the owner finds it (a hidden place in the app) and only the owner can give or take it
-SECRET = [{'id': 'onimai', 'kind': 'theme', 'rarity': 'mythic', 'name': 'Onimai', 'vis': 'hidden'}]
-SECRET_IDS = [i['id'] for i in SECRET]
-BY_ID.update({i['id']: i for i in SECRET})  # known to equip/unlock, but in no list (ITEMS, BASE, UNLOCKABLE) and never owned automatically
+SPECIAL = [{'id': 'onimai', 'kind': 'theme', 'rarity': 'mythic', 'name': 'Onimai', 'vis': 'hidden'}]
+SPECIAL_IDS = [i['id'] for i in SPECIAL]
+BY_ID.update({i['id']: i for i in SPECIAL})  # known to equip/unlock, but in no list (ITEMS, BASE, UNLOCKABLE) and never owned automatically
 DEFAULT_EQUIP = {'theme': 'sakura', 'title': 't_newcomer', 'frame': 'f_plain', 'skin': 's_peach', 'symbols': []}
 SYMBOLS_MAX = 3
 RARE_ENCOUNTER_CHANCE = 1 / 900  # per counted game action; counts toward the 'encounters' stat

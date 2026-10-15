@@ -15,6 +15,7 @@ import threading
 
 import core
 import loot
+import specialart
 from core import GameError
 
 LOCK = threading.RLock()
@@ -206,7 +207,7 @@ class Accounts:
 
     # ---------------------------------------------------------- inventory and unlocks
     def owns(self, a, item_id):
-        return item_id in loot.BY_ID and (item_id in loot.BASE or item_id in a['inv'] or (self.is_owner(a) and item_id not in loot.SECRET_IDS))
+        return item_id in loot.BY_ID and (item_id in loot.BASE or item_id in a['inv'] or (self.is_owner(a) and item_id not in loot.SPECIAL_IDS))
 
     def owned_ids(self, a):
         owner = self.is_owner(a)
@@ -293,16 +294,19 @@ class Accounts:
         self.check_unlocks(a)
         return True
 
-    # ---------------------------------------------------------- the secret look
+    # ---------------------------------------------------------- the special look
     def _take(self, a, item_id):
         a['inv'].pop(item_id, None)
         for k, v in list(a['equip'].items()):
             if v == item_id:
                 a['equip'][k] = loot.DEFAULT_EQUIP[k]
 
-    def secret_action(self, actor, p):
+    def holds_special(self, a):
+        return loot.SPECIAL_IDS[0] in a['inv']
+
+    def special_action(self, actor, p):
         """claim / give / revoke (owner only) and drop (any holder). Everybody else gets a plain 404: the place does not exist for them."""
-        item = loot.SECRET_IDS[0]
+        item = loot.SPECIAL_IDS[0]
         act = p.get('action')
         with LOCK:
             if act == 'drop' and item in actor['inv']:
@@ -312,7 +316,7 @@ class Accounts:
             if not self.is_owner(actor):
                 raise GameError('Not found', 404)
             if act == 'claim':
-                self.unlock_item(actor, item, 'secret')
+                self.unlock_item(actor, item, 'special')
             elif act in ('give', 'revoke'):
                 u = self._by_name(p.get('name'))
                 if not u:
@@ -468,8 +472,10 @@ class Accounts:
             changed = self._daily(a, _now()) or bool(a['pending'])
             v = self._common(a)
             v.update({'id': a['id'], 'public': a['public'], 'streakNow': a['streak']['n'], 'pending': a['pending'], 'newcomerUntil': a['newcomerUntil']})
-            secret = [i for i in loot.SECRET if i['id'] in a['inv']]  # only the holder ever sees these
-            v['owned'], v['secret'] = v['owned'] + [i['id'] for i in secret], secret
+            special = [i for i in loot.SPECIAL if i['id'] in a['inv']]  # only the holder ever sees these
+            v['owned'], v['special'] = v['owned'] + [i['id'] for i in special], special
+            if special:
+                v['specialArt'] = specialart.listing()
             a['pending'] = []
             if changed:
                 self._mark()

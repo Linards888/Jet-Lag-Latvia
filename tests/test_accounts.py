@@ -18,7 +18,7 @@ def fresh():
     return accounts.init(os.path.join(tempfile.mkdtemp(), 'accounts.json'))
 
 
-def reg(A, name, pw='secret1'):
+def reg(A, name, pw='special1'):
     return A.register('Test', name, name, pw)
 
 
@@ -27,18 +27,18 @@ class AccountTests(unittest.TestCase):
         self.A = fresh()
 
     def test_register_login_rules(self):
-        a, tok = self.A.register('Mara', 'Ozola', 'Mochi', 'secret1')
+        a, tok = self.A.register('Mara', 'Ozola', 'Mochi', 'special1')
         self.assertEqual((a['first'], a['last'], a['name']), ('Mara', 'Ozola', 'Mochi'))
         self.assertTrue(self.A.by_token(tok) is a)
-        for bad in (('Mara', 'Ozola', 'ab', 'secret1'), ('Mara', 'Ozola', 'has space', 'secret1'), ('Mara', 'Ozola', 'Okname', '123'), ('', 'Ozola', 'Okname', 'secret1'), ('Mara', 'x' * 30, 'Okname', 'secret1')):
+        for bad in (('Mara', 'Ozola', 'ab', 'special1'), ('Mara', 'Ozola', 'has space', 'special1'), ('Mara', 'Ozola', 'Okname', '123'), ('', 'Ozola', 'Okname', 'special1'), ('Mara', 'x' * 30, 'Okname', 'special1')):
             with self.assertRaises(GameError):
                 self.A.register(*bad)
         with self.assertRaises(GameError):
             self.A.register('A', 'B', 'mochi', 'another1')  # usernames are case-insensitive unique
-        self.assertIs(self.A.login('MOCHI', 'secret1')[0], a)
+        self.assertIs(self.A.login('MOCHI', 'special1')[0], a)
         with self.assertRaises(GameError):
             self.A.login('mochi', 'wrongpass')
-        self.assertNotIn('secret1', str(a))  # only a salted hash is stored
+        self.assertNotIn('special1', str(a))  # only a salted hash is stored
         self.A.logout(a, tok)
         self.assertIsNone(self.A.by_token(tok))
 
@@ -129,9 +129,9 @@ class AccountTests(unittest.TestCase):
             del os.environ['JETLAG_OWNER']
 
     def test_community_people_leaderboards_and_profiles(self):
-        x, _ = self.A.register('Anna', 'Berzina', 'Alice1', 'secret1')
-        y, _ = self.A.register('Bruno', 'Ozols', 'Bobby2', 'secret1')
-        z, _ = self.A.register('Cita', 'Liepa', 'Carol3', 'secret1')
+        x, _ = self.A.register('Anna', 'Berzina', 'Alice1', 'special1')
+        y, _ = self.A.register('Bruno', 'Ozols', 'Bobby2', 'special1')
+        z, _ = self.A.register('Cita', 'Liepa', 'Carol3', 'special1')
         hidden, _ = reg(self.A, 'Hidden4')
         self.A.update_profile(hidden, {})
         self.A.equip(hidden, {'kind': 'public', 'value': False})
@@ -156,35 +156,65 @@ class AccountTests(unittest.TestCase):
         self.assertEqual((prof['rel'], prof['rank'], prof['friendCount'], [f['name'] for f in prof['friends']]), ('friend', 1, 1, ['Alice1']))
         self.assertNotIn('hash', str(prof))
 
-    def test_secret_look_only_the_owner_finds_gives_and_takes(self):
+    def test_special_look_only_the_owner_finds_gives_and_takes(self):
         owner, _ = reg(self.A, 'Boss1')
         x, _ = reg(self.A, 'Alice1')
         os.environ['JETLAG_OWNER'] = 'boss1'
         try:
-            self.assertFalse(self.A.owns(owner, 'onimai'))  # not even the owner has it without the secret place
+            self.assertFalse(self.A.owns(owner, 'onimai'))  # not even the owner has it without the special place
             self.assertNotIn('onimai', [i['id'] for i in loot.catalog()['items']])  # and it is in no public list
             self.assertNotIn('onimai', self.A.me(owner)['owned'])
             self.A.owner_action(owner, {'action': 'all_items'})
             self.assertFalse(self.A.owns(owner, 'onimai'))  # "give every item" does not include it
             with self.assertRaises(GameError) as e:
-                self.A.secret_action(x, {'action': 'claim'})  # everybody else: it does not exist
+                self.A.special_action(x, {'action': 'claim'})  # everybody else: it does not exist
             self.assertEqual(e.exception.status, 404)
-            self.A.secret_action(owner, {'action': 'claim'})
+            self.A.special_action(owner, {'action': 'claim'})
             self.assertTrue(self.A.owns(owner, 'onimai'))
             self.A.equip(owner, {'kind': 'theme', 'item': 'onimai'})
             me = self.A.me(owner)
-            self.assertEqual((me['equip']['theme'], [i['id'] for i in me['secret']]), ('onimai', ['onimai']))
+            self.assertEqual((me['equip']['theme'], [i['id'] for i in me['special']]), ('onimai', ['onimai']))
             self.assertNotIn('onimai', self.A.public('Boss1')['owned'])  # others never see that it exists
-            self.A.secret_action(owner, {'action': 'give', 'name': 'alice1'})
-            self.assertEqual(self.A.secret_action(owner, {'action': 'list'})['holders'], ['Alice1', 'Boss1'])
+            self.A.special_action(owner, {'action': 'give', 'name': 'alice1'})
+            self.assertEqual(self.A.special_action(owner, {'action': 'list'})['holders'], ['Alice1', 'Boss1'])
             self.A.equip(x, {'kind': 'theme', 'item': 'onimai'})
             with self.assertRaises(GameError):
-                self.A.secret_action(x, {'action': 'give', 'name': 'boss1'})  # holders cannot hand it on
-            self.A.secret_action(x, {'action': 'drop'})  # a holder can remove it from their own menus
+                self.A.special_action(x, {'action': 'give', 'name': 'boss1'})  # holders cannot hand it on
+            self.A.special_action(x, {'action': 'drop'})  # a holder can remove it from their own menus
             self.assertEqual((self.A.owns(x, 'onimai'), x['equip']['theme']), (False, 'sakura'))
-            self.A.secret_action(owner, {'action': 'give', 'name': 'alice1'})
-            self.A.secret_action(owner, {'action': 'revoke', 'name': 'alice1'})
+            self.A.special_action(owner, {'action': 'give', 'name': 'alice1'})
+            self.A.special_action(owner, {'action': 'revoke', 'name': 'alice1'})
             self.assertFalse(self.A.owns(x, 'onimai'))
+        finally:
+            del os.environ['JETLAG_OWNER']
+
+    def test_special_pictures_are_validated_and_listed_for_holders_only(self):
+        import specialart
+        owner, _ = reg(self.A, 'Boss2')
+        x, _ = reg(self.A, 'Alice2')
+        os.environ['JETLAG_OWNER'] = 'boss2'
+        try:
+            png = bytes([0x89, 0x50, 0x4E, 0x47]) + b'0' * 50
+            with self.assertRaises(GameError):
+                specialart.save('hero', b'not an image')
+            with self.assertRaises(GameError):
+                specialart.save('../etc', png)  # only the fixed slots
+            specialart.save('hero', png)
+            self.assertIn('hero', specialart.listing())
+            with self.assertRaises(GameError):
+                specialart.save('hero', b'broken')
+            self.assertIn('hero', specialart.listing())  # a bad upload does not destroy the picture that is there
+            self.assertFalse(self.A.holds_special(x))
+            self.assertNotIn('specialArt', self.A.me(x))
+            self.A.special_action(owner, {'action': 'claim'})
+            self.assertIn('hero', self.A.me(owner)['specialArt'])
+            self.assertTrue(self.A.holds_special(owner))
+            specialart.save('hero', b'')  # an empty body removes it
+            self.assertNotIn('hero', specialart.listing())
+            import owner as owner_mod
+            self.assertIsNone(owner_mod.find_art('onimai', os.path.join(os.path.dirname(__file__), '..', 'public')))  # never via the public art route
+            with self.assertRaises(GameError):
+                owner_mod.save_art('onimai', png)
         finally:
             del os.environ['JETLAG_OWNER']
 
