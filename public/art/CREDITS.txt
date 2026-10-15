@@ -1,2 +1,2 @@
 mezs.png: portrait of the Latvian poet Rainis (1865-1929), Wikimedia Commons, File:Rainis.jpg, public domain; cut out and upscaled with tools/prepare_art.py.
-zerotwo/toradora/evangelion/killlakill.png: images supplied by the site owner (not public domain); cut out and upscaled with tools/prepare_art.py.
+zerotwo/toradora/evangelion/killlakill/arcade.png: images supplied by the site owner (not public domain); cut out and upscaled with tools/prepare_art.py.

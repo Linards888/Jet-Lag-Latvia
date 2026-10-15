@@ -79,7 +79,7 @@ Augšā redzams **savienojuma indikators** (zaļš = savienots) un GPS stāvokli
 * **Newcomer:** pirmo nedēļu pēc reģistrācijas konts automātiski nēsā Newcomer titulu, un **šajā laikā titulu nevar mainīt**.
 * **Tēmas privātums:** profila logā (Labot) ir slēdzis **"Rādīt manu tēmu citiem"**; ja izslēgts, citi tavā publiskajā profilā tēmas attēlu neredz.
 * **Draugi:** poga **Friends** augšā: pievieno draugu pēc lietotājvārda (viņš pieņem pieprasījumu), raksti ziņas (tiek saglabātas) un sūti **ielūgumus uz savām spēlēm** (adresāts redz pogu Join). Ieslēgts punkts = draugs ir tiešsaistē; skaitlis uz pogas = nelasītas ziņas un pieprasījumi.
-* **Tēmu attēli:** katrai tēmai ir savs attēls sākuma ekrānā un profilā (bez animācijas). Mežam ir dzejnieka Raiņa izgriezts portrets (Wikimedia Commons, brīvi izmantojams); Toradora, Evangelion, Kill la Kill un 02 ir īpašnieka sniegtas bildes ar noņemtu fonu (`tools/prepare_art.py`); pārējām tēmām ir mani oriģināli zīmēti talismani (valis, buru laiva, karogs, mākonis, vāze, laterna, K-pop zvaigzne) un faila `public/img/bg` ainas. Īpašnieks katrai tēmai var **augšupielādēt savu attēlu** īpašnieka konsolē.
+* **Tēmu attēli:** katrai tēmai ir savs attēls sākuma ekrānā un profilā (bez animācijas). Mežam ir dzejnieka Raiņa izgriezts portrets (Wikimedia Commons, brīvi izmantojams); Toradora, Evangelion, Kill la Kill, 02 un Arcade (spēļu automāts) ir īpašnieka sniegtas bildes ar noņemtu fonu (`tools/prepare_art.py`); pārējām tēmām ir mani oriģināli zīmēti talismani (valis, buru laiva, karogs, mākonis, vāze, laterna) un faila `public/img/bg` ainas. Īpašnieks katrai tēmai var **augšupielādēt savu attēlu** īpašnieka konsolē.
 * **Pret krāpšanu:** balvas par uzvarām dod tikai spēles ar vismaz diviem dažādiem kontiem un vismaz 15 minūtēm spēles laika, un xp no darbībām ir ierobežots dienā.
 
 ### Īpašnieka konsole (tikai tavam kontam)
@@ -124,6 +124,8 @@ Spēli var instalēt kā aplikāciju (PWA): sava ikona, pilnekrāna logs, darboj
 * Jā, ir arī paziņojumi, bet iPhone tie darbojas tikai instalētai aplikācijai.
 
 ---
+
+**Logo:** retro reaktīvā lidmašīna ar saulrieta joslām uz tumši zila fona; zīmē `python tools/make_logo.py` (ģenerē `public/icon.svg` un PNG ikonas).
 
 ## Paziņojumi telefonā
 

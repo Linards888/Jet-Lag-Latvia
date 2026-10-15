@@ -105,7 +105,7 @@ const Whale = ({ size }) => html`<svg class="girl" width=${size} height=${size *
 const SunBoat = ({ size }) => html`<svg class="girl" width=${size} height=${size * 0.8} viewBox="0 0 140 112" aria-hidden="true"><circle cx="70" cy="62" r="40" fill="#ffc45a" stroke="#d9772a" stroke-width="3" /><g stroke="#ff9a4a" stroke-width="4" stroke-linecap="round">${[-60, -30, 0, 30, 60].map((a) => html`<path key=${a} d="M70 8V0" transform=${'rotate(' + a + ' 70 62)'} />`)}</g>
   <rect y="82" width="140" height="30" fill="#e0895a" /><path d="M0 92q17-8 35 0t35 0 35 0 35 0v20H0z" fill="#b95f3f" /><path d="M60 80h40l-8 12H68z" fill="#6d3326" stroke="#3a1a10" stroke-width="2" stroke-linejoin="round" /><line x1="80" y1="80" x2="80" y2="42" stroke="#3a1a10" stroke-width="3" /><path d="M80 44l22 30H80z" fill="#fff6e8" stroke="#3a1a10" stroke-width="2" stroke-linejoin="round" /><path d="M78 50L62 74h16z" fill="#ffe2c2" stroke="#3a1a10" stroke-width="2" stroke-linejoin="round" /></svg>`;
 const SVG_MASCOT = { sora: Cloud, latvija: Flag, kintsugi: Vase, arcade: Idol, hanabi: Lantern, okeans: Whale, saulriets: SunBoat };
-const CUTOUT = ['toradora', 'evangelion', 'killlakill', 'zerotwo', 'mezs'];  // transparent character cut-outs (no photo frame)
+const CUTOUT = ['toradora', 'evangelion', 'killlakill', 'zerotwo', 'mezs', 'arcade'];  // transparent character cut-outs (no photo frame)
 
 const NO_ART = new Set();  // themes whose /art/<theme> image does not exist (no repeated requests)
 const PORTRAITS = ['mezs'];  // bundled public-domain portrait cut-out of the poet Rainis (public/art)
