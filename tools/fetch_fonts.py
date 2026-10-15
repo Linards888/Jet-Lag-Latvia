@@ -11,23 +11,8 @@ FAMILIES = {  # css name -> (fontsource id, weights)
     'M PLUS Rounded 1c': ('m-plus-rounded-1c', (700, 800)),
     'Nunito': ('nunito', (400, 700)),
     'Lora': ('lora', (400, 700)),
-    'Source Sans 3': ('source-sans-3', (400, 700)),
     'Comfortaa': ('comfortaa', (400, 700)),
-    'Unbounded': ('unbounded', (700,)),
-    'Rubik': ('rubik', (400, 700)),
     'Cormorant Garamond': ('cormorant-garamond', (700,)),
-    'JetBrains Mono': ('jetbrains-mono', (400, 700)),
-    'Playfair Display': ('playfair-display', (700,)),
-    'IBM Plex Sans': ('ibm-plex-sans', (400, 700)),
-    # anime collection (exclusive unlocks, Latin glyphs; Cyrillic only where the font has it, else the UI font fills in)
-    'Zen Maru Gothic': ('zen-maru-gothic', (700,)),
-    'RocknRoll One': ('rocknroll-one', (400,)),
-    'Reggae One': ('reggae-one', (400,)),
-    'DotGothic16': ('dotgothic16', (400,)),
-    'Dela Gothic One': ('dela-gothic-one', (400,)),
-    'Potta One': ('potta-one', (400,)),
-    'Mochiy Pop One': ('mochiy-pop-one', (400,)),
-    'Hachi Maru Pop': ('hachi-maru-pop', (400,)),
 }
 RANGES = {
     'latin': 'U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD',

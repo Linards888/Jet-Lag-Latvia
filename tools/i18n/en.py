@@ -221,7 +221,7 @@ T = {
     'acct.dupe': 'Duplicate: +{n} stardust',
     'acct.collection': 'Collection',
     'acct.owned': '{a} of {b} owned',
-    'acct.locked': 'Locked - tap to find out how',
+    'acct.locked': 'Locked',
     'acct.unlock_hint': 'Unlock {name} through summons in your account',
     'acct.anime_fonts': 'Anime fonts',
     'acct.how_std': 'Standard summon',

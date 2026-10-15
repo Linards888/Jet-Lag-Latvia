@@ -35,7 +35,7 @@
 "acct.kind_title": "Титулы",
 "acct.kind_widget": "Виджеты профиля",
 "acct.level": "Уровень {n}",
-"acct.locked": "Закрыто - нажмите, чтобы узнать как",
+"acct.locked": "Закрыто",
 "acct.login": "Войти",
 "acct.logout": "Выйти",
 "acct.n_ach": "Достижение: {name}",

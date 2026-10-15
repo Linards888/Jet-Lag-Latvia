@@ -25,15 +25,6 @@ ITEMS = [
     _i('hoshi', 'theme', 'epic', 'std', 'Hoshi', 'A night sky full of stars.'),
     _i('kintsugi', 'theme', 'legendary', 'std', 'Kintsugi', 'Black lacquer mended with gold.'),
     _i('hanabi', 'theme', 'mythic', 'anime', 'Hanabi', 'Fireworks over a summer festival.'),
-    # ---- anime fonts: only on the Anime banner
-    _i('zenmaru', 'font', 'rare', 'anime', 'Zen Maru', 'Soft rounded gothic.'),
-    _i('rocknroll', 'font', 'epic', 'anime', 'RocknRoll', 'Manga title lettering.'),
-    _i('reggae', 'font', 'epic', 'anime', 'Reggae', 'Heavy brush-ink caps.'),
-    _i('dotgothic', 'font', 'legendary', 'anime', 'Dot Gothic', 'Pixel-perfect retro game text.'),
-    _i('dela', 'font', 'legendary', 'anime', 'Dela Gothic', 'Ultra-bold shonen headline.'),
-    _i('potta', 'font', 'legendary', 'anime', 'Potta', 'Hand-brushed calligraphy.'),
-    _i('mochiy', 'font', 'mythic', 'anime', 'Mochiy Pop', 'Bubbly pop idol letters.'),
-    _i('hachi', 'font', 'mythic', 'anime', 'Hachi Maru', 'Cute handwriting from a school notebook.'),
     # ---- titles
     _i('t_newcomer', 'title', 'common', 'std', 'Newcomer'), _i('t_rupjmaize', 'title', 'common', 'std', 'Rupjmaize Rider'),
     _i('t_piragi', 'title', 'common', 'std', 'Piragi Enjoyer'), _i('t_wanderer', 'title', 'rare', 'std', 'Daugava Drifter'),
@@ -69,9 +60,8 @@ ITEMS = [
 BY_ID = {i['id']: i for i in ITEMS}
 BASE = [i['id'] for i in ITEMS if i['pool'] == 'base']
 POOLS = {p: [i for i in ITEMS if i['pool'] == p] for p in ('std', 'anime')}
-ANIME_FONTS = [i['id'] for i in ITEMS if i['kind'] == 'font']
 THEMES = [i['id'] for i in ITEMS if i['kind'] == 'theme']
-DEFAULT_EQUIP = {'theme': 'sakura', 'font': 'theme', 'title': None, 'frame': 'f_plain', 'skin': 's_peach', 'badges': [], 'widgets': ['w_stats', 'w_ach', 'w_collection']}
+DEFAULT_EQUIP = {'theme': 'sakura', 'title': None, 'frame': 'f_plain', 'skin': 's_peach', 'badges': [], 'widgets': ['w_stats', 'w_ach', 'w_collection']}
 
 # stardust per game event (capped per day, see accounts.py)
 EVENT_DUST = {'tasks_done': 4, 'territories': 6, 'first_claims': 12, 'cards_played': 2, 'picks_taken': 1, 'questions_asked': 1, 'found': 8, 'tags_made': 8, 'dest_claims': 6, 'shop_buys': 2}
@@ -80,7 +70,7 @@ ACTION_STAT = {'complete_task': 'tasks_done', 'checkin': 'territories', 'play_ca
 
 # ---- achievements: id, stat, goal, reward {dust, std, sakura, item}, texts {lang: (name, description)}
 # stats are plain counters, except: modes (distinct game modes played), items (collection size), streak (best login streak),
-# anime_fonts / mythics / themes_owned (collection checks), secret (owns a secret item), night (actions between 00:00 and 04:00)
+# mythics / themes_owned (collection checks), secret (owns a secret item), night (actions between 00:00 and 04:00)
 ACH = [
     ('first_steps', 'games_played', 1, {'dust': 50}, {'en': ('First Steps', 'Start your first game.'), 'lv': ('Pirmie soļi', 'Sāc savu pirmo spēli.'), 'ru': ('Первые шаги', 'Начните первую игру.')}),
     ('regular', 'games_played', 10, {'dust': 150, 'std': 1}, {'en': ('Regular', 'Play 10 games.'), 'lv': ('Pastāvīgais', 'Nospēlē 10 spēles.'), 'ru': ('Завсегдатай', 'Сыграйте 10 игр.')}),
@@ -112,8 +102,6 @@ ACH = [
     ('streak30', 'streak', 30, {'dust': 900, 'sakura': 2, 'item': 'b_void'}, {'en': ('Unbreakable', 'Log in 30 days in a row.'), 'lv': ('Nesalaužamais', 'Pieslēdzies 30 dienas pēc kārtas.'), 'ru': ('Несокрушимый', 'Заходите 30 дней подряд.')}),
     ('collector', 'items', 15, {'dust': 200, 'item': 't_collector'}, {'en': ('Collector', 'Own 15 collectibles.'), 'lv': ('Kolekcionārs', 'Savāc 15 priekšmetus.'), 'ru': ('Коллекционер', 'Соберите 15 предметов.')}),
     ('hoarder', 'items', 40, {'dust': 800, 'sakura': 2}, {'en': ('Dragon Hoard', 'Own 40 collectibles.'), 'lv': ('Pūķa krājums', 'Savāc 40 priekšmetus.'), 'ru': ('Сокровища дракона', 'Соберите 40 предметов.')}),
-    ('otaku', 'anime_fonts', 1, {'dust': 300, 'item': 't_otaku'}, {'en': ('Otaku', 'Win an anime font.'), 'lv': ('Otaku', 'Laimē anime fontu.'), 'ru': ('Отаку', 'Получите аниме-шрифт.')}),
-    ('font_hoard', 'anime_fonts', 5, {'dust': 1000, 'sakura': 3, 'item': 't_senpai'}, {'en': ('Calligraphy Hoard', 'Own 5 anime fonts.'), 'lv': ('Kaligrāfijas krājums', 'Savāc 5 anime fontus.'), 'ru': ('Коллекция шрифтов', 'Соберите 5 аниме-шрифтов.')}),
     ('mythic', 'mythics', 1, {'dust': 500, 'item': 'f_prism'}, {'en': ('Mythic Find', 'Obtain a mythic item.'), 'lv': ('Mītisks atradums', 'Iegūsti mītisku priekšmetu.'), 'ru': ('Мифическая находка', 'Получите мифический предмет.')}),
     ('all_themes', 'themes_owned', 6, {'dust': 700, 'sakura': 1}, {'en': ('Wardrobe', 'Own every theme.'), 'lv': ('Garderobe', 'Savāc visas tēmas.'), 'ru': ('Гардероб', 'Соберите все темы.')}),
     ('night_owl', 'night', 5, {'dust': 120, 'item': 't_ghost'}, {'en': ('Night Owl', 'Play 5 actions between midnight and 4 am.'), 'lv': ('Naktssikspārnis', 'Veic 5 darbības starp pusnakti un 4:00.'), 'ru': ('Ночная сова', 'Сделайте 5 действий между полуночью и 4:00.')}),

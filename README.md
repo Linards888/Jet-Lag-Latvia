@@ -57,7 +57,7 @@ Nekādu cilņu nav: viss ir vienā logā. Augšējā labajā stūrī ir **zobrat
 
 * **Kā spēlēt**: visa īsā instrukcija vienā logā.
 * **Valoda**: angļu, latviešu, krievu, ukraiņu. Valoda tiek atcerēta ierīcē. Spēles noklusējuma uzdevumi un kartiņas ir tulkoti uz angļu un krievu valodu (ukraiņu valodā tie rādās angliski). Tavi paša uzdevumi un kartiņas paliek tavā rakstītajā valodā.
-* **Izskats**: 3 bezmaksas tēmas (*Sakura*, *Sora*, *Latvija*), kas atšķiras ne tikai pēc krāsām, bet arī pēc formas, burtu veida un izkārtojuma, un 3 ekskluzīvas tēmas, ko var iegūt ar kontu (*Hoshi*, *Kintsugi*, *Hanabi*). Papildus var mainīt akcenta krāsu, noapaļojumu, teksta izmēru, blīvumu, fonu, kartiņu un pogu stilu, kartes izskatu, animācijas un fontu. Anime fonti ir pieejami tikai ar kontu (skat. zemāk).
+* **Izskats**: 3 bezmaksas tēmas (*Sakura*, *Sora*, *Latvija*) un 3 ekskluzīvas, ko var iegūt ar kontu (*Hoshi*, *Kintsugi*, *Hanabi*). Papildus var izvēlēties kartiņu stilu, kartes izskatu un animācijas.
 * **Paziņojumi**: telefona paziņojumi (skat. zemāk).
 * **Cilvēki** un **Admins** (tikai adminam): admin režīms, pauze, beigt spēli, paziņojums visiem, kartiņu un uzdevumu redaktors, žurnāls.
 
@@ -72,7 +72,7 @@ Konts (poga **Konts** sākuma ekrānā) saglabā tavu profilu visās spēlēs. N
 * **Reģistrācija:** konta vārds (3-16 simboli) un parole (6+). Kad pieslēdzies kontam un pievienojies spēlei, spēle tiek piesaistīta kontam automātiski.
 * **Statistika un līmenis:** spēles, uzvaras, izpildītie uzdevumi, pirmie, kas tika ārā no teritorijas, nospēlētās kārtis, jautājumi, atrastie slēpēji, noķertie, mērķi, pirkumi u.c.
 * **Sasniegumi (39):** katrs dod zvaigžņu putekļus, dažkārt biļetes vai priekšmetu. Redzams progress, un publiskajā profilā redz tikai atvērtos.
-* **Kā iegūt priekšmetus:** ar sasniegumiem (daži dod priekšmetus) un ar īpašnieka rīkiem. Īpašnieks var sev atvērt visus priekšmetus, ierakstot pārlūka konsolē (F12) tīmekļa vietnē komandu `coc`. Anime fonti (Zen Maru, RocknRoll, Reggae, Dot Gothic, Dela Gothic, Potta, Mochiy Pop, Hachi Maru), tēmas *Hoshi*, *Kintsugi*, *Hanabi* un slepenie priekšmeti ir tikai šādi iegūstami.
+* **Kā iegūt priekšmetus:** ar sasniegumiem (daži dod priekšmetus) un ar īpašnieka rīkiem. Īpašnieks var sev atvērt visus priekšmetus, ierakstot pārlūka konsolē (F12) tīmekļa vietnē komandu `coc`. Tēmas *Hoshi*, *Kintsugi*, *Hanabi* un slepenie priekšmeti ir tikai šādi iegūstami.
 * **Profils:** avatārs ar rāmi, tituls, nozīmītes, izvēlēti logrīki (statistika, sasniegumi, kolekcija, sērija, pēdējie atradumi, trofeju skapis, retākie atradumi, veiksmes radars), un publiska saite `/#/u/<vārds>`. Publisko profilu var izslēgt.
 * **Īpašnieka rīki:** ja tavs konts ir norādīts kā servera īpašnieks, profila lapā parādās **Īpašnieka rīki**: vari sev pievienot zvaigžņu putekļus un biļetes, jebkuru priekšmetu (pieskaries, lai pievienotu vai noņemtu), visus sasniegumus, iestatīt statistiku vai atiestatīt kontu. Citi to neredz, un serveris pārbauda tiesības vēlreiz. Īpašnieku norāda ar `JETLAG_OWNER=tavs_konta_vārds` (serviceā) vai failā `data/owner.json`: `{"owner": "tavs_konta_vārds"}`. Citām kontiem šo nevar iespējot.
 * **Pret krāpšanu:** sasniegumu un uzvaru atlīdzības dod tikai spēles ar vismaz diviem dažādiem kontiem un vismaz 15 minūtēm spēles laika, un putekļi no darbībām ir ierobežoti dienā.

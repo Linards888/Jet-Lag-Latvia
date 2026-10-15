@@ -203,7 +203,7 @@ T = {
     'acct.dupe': 'Дубликат: +{n} пыли',
     'acct.collection': 'Коллекция',
     'acct.owned': 'Собрано {a} из {b}',
-    'acct.locked': 'Закрыто - нажмите, чтобы узнать как',
+    'acct.locked': 'Закрыто',
     'acct.unlock_hint': 'Откройте {name} призывом в аккаунте',
     'acct.anime_fonts': 'Аниме-шрифты',
     'acct.how_std': 'Обычный призыв',

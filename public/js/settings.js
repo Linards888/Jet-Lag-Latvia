@@ -5,7 +5,7 @@ import { AsyncBtn, Chip, Field, Modal, fmtDateTime, Seg } from './ui.js';
 import { AppearancePanel } from './theme.js';
 import { Guide } from './guide.js';
 
-const Acc = ({ title, open, children, badge }) => html`<details class="qcat" open=${open}><summary><span>${title}</span>${badge || ''}</summary><div style="padding:0 14px 14px">${children}</div></details>`;
+const Acc = ({ title, children, badge }) => html`<section class="set-sec"><h3>${title}${badge || ''}</h3>${children}</section>`;
 
 // one window for everything that is not the game itself: language, look, notifications, people, admin tools, log
 export function SettingsModal({ game, guideFirst, onClose }) {

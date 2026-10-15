@@ -203,7 +203,7 @@ T = {
     'acct.dupe': 'Dublikāts: +{n} putekļi',
     'acct.collection': 'Kolekcija',
     'acct.owned': 'Savākti {a} no {b}',
-    'acct.locked': 'Slēgts - pieskaries, lai uzzinātu kā',
+    'acct.locked': 'Slēgts',
     'acct.unlock_hint': 'Atslēdz {name} ar izsaukumiem savā kontā',
     'acct.anime_fonts': 'Anime fonti',
     'acct.how_std': 'Standarta izsaukums',

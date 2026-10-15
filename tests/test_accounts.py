@@ -39,16 +39,18 @@ class AccountTests(unittest.TestCase):
     def test_equip_needs_ownership(self):
         a, _ = self.A.register('Look', 'secret1')
         with self.assertRaises(GameError):
-            self.A.equip(a, {'kind': 'font', 'item': 'mochiy'})
+            self.A.equip(a, {'kind': 'frame', 'item': 'f_gold'})
         with self.assertRaises(GameError):
             self.A.equip(a, {'kind': 'theme', 'item': 'hanabi'})
         self.A.equip(a, {'kind': 'theme', 'item': 'sora'})  # free theme
         self.assertEqual(a['equip']['theme'], 'sora')
-        a['inv']['mochiy'] = {'n': 1, 't': 0, 'src': 'test'}
-        self.A.equip(a, {'kind': 'font', 'item': 'mochiy'})
-        self.assertEqual(self.A.me(a)['equip']['font'], 'mochiy')
+        a['inv']['f_gold'] = {'n': 1, 't': 0, 'src': 'test'}
+        self.A.equip(a, {'kind': 'frame', 'item': 'f_gold'})
+        self.assertEqual(self.A.me(a)['equip']['frame'], 'f_gold')
         with self.assertRaises(GameError):
-            self.A.equip(a, {'kind': 'font', 'item': 'sora'})  # wrong kind
+            self.A.equip(a, {'kind': 'frame', 'item': 'sora'})  # wrong kind
+        with self.assertRaises(GameError):
+            self.A.equip(a, {'kind': 'font', 'item': 'mochiy'})  # fonts no longer exist
 
     def test_achievements_rewards_and_daily_cap(self):
         a, _ = self.A.register('Ach', 'secret1')
@@ -77,12 +79,12 @@ class AccountTests(unittest.TestCase):
             self.A.owner_action(me, {'action': 'give', 'dust': 5000, 'sakura': 3, 'std': 2})
             self.assertEqual((me['tickets']['sakura'], me['tickets']['std']), (3, 2))
             self.assertGreaterEqual(me['dust'], 5000)
-            self.A.owner_action(me, {'action': 'item', 'id': 'mochiy', 'have': True})
-            self.assertIn('mochiy', me['inv'])
-            self.A.equip(me, {'kind': 'font', 'item': 'mochiy'})
-            self.A.owner_action(me, {'action': 'item', 'id': 'mochiy', 'have': False})
-            self.assertNotIn('mochiy', me['inv'])
-            self.assertEqual(me['equip']['font'], 'theme')  # an equipped item that is removed is unequipped
+            self.A.owner_action(me, {'action': 'item', 'id': 'f_gold', 'have': True})
+            self.assertIn('f_gold', me['inv'])
+            self.A.equip(me, {'kind': 'frame', 'item': 'f_gold'})
+            self.A.owner_action(me, {'action': 'item', 'id': 'f_gold', 'have': False})
+            self.assertNotIn('f_gold', me['inv'])
+            self.assertEqual(me['equip']['frame'], 'f_plain')  # an equipped item that is removed is unequipped
             self.A.owner_action(me, {'action': 'all_items'})
             self.A.owner_action(me, {'action': 'ach', 'id': 'all'})
             self.assertEqual(len(me['ach']), len(loot.ACH))

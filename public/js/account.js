@@ -42,7 +42,7 @@ export function applyEquip(v) {
   const e = v.equip;
   const root = document.documentElement;
   root.setAttribute('data-skin', e.skin || 's_peach');
-  setPrefs({ theme: e.theme || 'sakura', font: e.font || 'theme' });
+  setPrefs({ theme: e.theme || 'sakura' });
 }
 
 export async function loadMe(quiet) {
@@ -81,9 +81,8 @@ export function Avatar({ name, frame = 'f_plain', skin = 's_peach', size = 64 })
 }
 const Badge = ({ id }) => html`<span class="badge ${id}" title=${itemName(id)}></span>`;
 const Tile = ({ it, owned, on, onClick, children }) => html`<button class="tile r-${it.rarity} ${owned ? '' : 'locked'} ${on ? 'on' : ''}" onClick=${onClick} disabled=${!onClick}>
-  <span class="tn" style=${it.kind === 'font' ? { fontFamily: fontCss(it.id) } : null}>${owned || it.pool === 'std' || it.pool === 'achv' ? it.name : '???'}</span>
+  <span class="tn">${owned || it.pool === 'std' || it.pool === 'achv' ? it.name : '???'}</span>
   <span class="tr">${rarName(it.rarity)}</span>${children}</button>`;
-export const fontCss = (id) => ({ zenmaru: "'Zen Maru Gothic'", rocknroll: "'RocknRoll One'", reggae: "'Reggae One'", dotgothic: "'DotGothic16'", dela: "'Dela Gothic One'", potta: "'Potta One'", mochiy: "'Mochiy Pop One'", hachi: "'Hachi Maru Pop'" }[id] || 'inherit') + ', Nunito, sans-serif';
 
 function AuthForm({ onDone }) {
   const [mode, setMode] = useState('login');
@@ -135,11 +134,11 @@ function Widgets({ v, own }) {
 }
 
 // ---------------------------------------------------------------- collection and equip
-const KINDS = ['theme', 'font', 'title', 'frame', 'skin', 'badge', 'widget'];
+const KINDS = ['theme', 'title', 'frame', 'skin', 'badge', 'widget'];
 function Collection({ v }) {
   const owned = ownedSet();
   const eq = v.equip;
-  const isOn = (it) => (it.kind === 'badge' ? (eq.badges || []).includes(it.id) : it.kind === 'widget' ? (eq.widgets || []).includes(it.id) : eq[it.kind === 'font' || it.kind === 'theme' || it.kind === 'title' || it.kind === 'frame' || it.kind === 'skin' ? it.kind : ''] === it.id);
+  const isOn = (it) => (it.kind === 'badge' ? (eq.badges || []).includes(it.id) : it.kind === 'widget' ? (eq.widgets || []).includes(it.id) : eq[it.kind === 'theme' || it.kind === 'title' || it.kind === 'frame' || it.kind === 'skin' ? it.kind : ''] === it.id);
   const click = async (it) => {
     try {
       if (it.kind === 'badge' || it.kind === 'widget') {
@@ -151,7 +150,6 @@ function Collection({ v }) {
   return html`<section class="card"><div class="sec-h"><h2>${t('acct.collection')}</h2><span class="chip plain">${t('acct.owned', { a: v.owned.length, b: cat.items.filter((i) => i.pool !== 'base').length })}</span></div>
     ${KINDS.map((k) => { const list = cat.items.filter((i) => i.kind === k).sort((a, b) => RAR.indexOf(a.rarity) - RAR.indexOf(b.rarity));
       return html`<div key=${k}><p class="eyebrow mt">${t('acct.kind_' + k)}</p>
-        ${k === 'font' && html`<button class="tile ${eq.font === 'theme' ? 'on' : ''}" onClick=${() => equip({ kind: 'font', item: null })}><span class="tn">${t('ap.theme_default')}</span></button>`}
         <div class="tiles">${list.filter((i) => owned.has(i.id) || i.rarity !== 'secret' || owned.has(i.id)).map((it) => html`<${Tile} key=${it.id} it=${it} owned=${owned.has(it.id)} on=${isOn(it)} onClick=${owned.has(it.id) ? () => click(it) : null}>
           ${!owned.has(it.id) && it.pool === 'achv' && html`<span class="small dim">${t('acct.how_ach')}</span>`}
           ${k === 'badge' && html`<${Badge} id=${it.id} />`}<//>`)}</div></div>`; })}</section>`;
@@ -163,7 +161,7 @@ function Achievements({ v }) {
       const r = a.reward;
       return html`<div class="ach ${done ? 'done' : ''}" key=${a.id}><b>${x.name}</b><span class="small">${x.desc}</span>
         <i class="pbar"><u style=${{ width: Math.min(100, (done ? a.goal : Math.min(val, a.goal)) / a.goal * 100) + '%' }}></u></i>
-        <span class="small dim">${done ? fmtDateTime(done) : (['anime_fonts', 'mythics', 'themes_owned', 'secret'].includes(a.stat) ? '' : val + '/' + a.goal)} ${r.dust ? '+' + r.dust : ''}${r.std ? ' +' + r.std + ' T' : ''}${r.sakura ? ' +' + r.sakura + ' S' : ''}${r.item ? ' + ' + itemName(r.item) : ''}</span></div>`; })}</div></section>`;
+        <span class="small dim">${done ? fmtDateTime(done) : (['mythics', 'themes_owned', 'secret'].includes(a.stat) ? '' : val + '/' + a.goal)} ${r.dust ? '+' + r.dust : ''}${r.std ? ' +' + r.std + ' T' : ''}${r.sakura ? ' +' + r.sakura + ' S' : ''}${r.item ? ' + ' + itemName(r.item) : ''}</span></div>`; })}</div></section>`;
 }
 
 function Header({ v, own }) {

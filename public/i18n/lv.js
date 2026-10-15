@@ -35,7 +35,7 @@
 "acct.kind_title": "Tituli",
 "acct.kind_widget": "Profila logrīki",
 "acct.level": "{n}. līmenis",
-"acct.locked": "Slēgts - pieskaries, lai uzzinātu kā",
+"acct.locked": "Slēgts",
 "acct.login": "Pieslēgties",
 "acct.logout": "Iziet",
 "acct.n_ach": "Sasniegums atvērts: {name}",

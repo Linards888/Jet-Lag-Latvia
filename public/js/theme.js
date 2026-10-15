@@ -1,7 +1,7 @@
 import { html, useState } from '/vendor/preact.js';
 import { t } from './i18n.js';
 import { Seg, Switch } from './ui.js';
-import { useAccount, ownedSet, fontCss } from './account.js';
+import { useAccount, ownedSet } from './account.js';
 
 // Each theme is a complete look (shape, type, background) - see css/style.css. The preview shows its personality.
 export const THEMES = [
@@ -14,53 +14,26 @@ export const THEMES = [
 ];
 export const FREE_THEMES = ['sakura', 'sora', 'latvija'];
 
-const DEFAULTS = { theme: 'sakura', accent: '', radius: 100, text: 100, density: 'cozy', pattern: 'theme', cards: 'theme', buttons: 'theme', motion: 'full', map: 'theme', font: 'theme' };
-const FONTS = {  // [body, display]
-  rounded: ["'Nunito', sans-serif", "'M PLUS Rounded 1c', 'Nunito', sans-serif"], serif: ["'Lora', serif", "'Cormorant Garamond', 'Lora', serif"],
-  sans: ["'Source Sans 3', sans-serif", "'Rubik', 'Source Sans 3', sans-serif"], mono: ["'JetBrains Mono', monospace", "'JetBrains Mono', monospace"],
-  bold: ["'Rubik', sans-serif", "'Unbounded', 'Rubik', sans-serif"], editorial: ["'IBM Plex Sans', sans-serif", "'Playfair Display', serif"],
-  // anime collection (exclusive): display font changes, body text stays readable
-  zenmaru: ["'Zen Maru Gothic', 'Nunito', sans-serif", "'Zen Maru Gothic', 'Nunito', sans-serif"], rocknroll: ["'Nunito', sans-serif", "'RocknRoll One', 'Nunito', sans-serif"],
-  reggae: ["'Nunito', sans-serif", "'Reggae One', 'Nunito', sans-serif"], dotgothic: ["'DotGothic16', 'Nunito', sans-serif", "'DotGothic16', 'Nunito', sans-serif"],
-  dela: ["'Nunito', sans-serif", "'Dela Gothic One', 'Nunito', sans-serif"], potta: ["'Nunito', sans-serif", "'Potta One', 'Nunito', sans-serif"],
-  mochiy: ["'Nunito', sans-serif", "'Mochiy Pop One', 'Nunito', sans-serif"], hachi: ["'Hachi Maru Pop', 'Nunito', sans-serif", "'Hachi Maru Pop', 'Nunito', sans-serif"],
-};
-const BASE_FONTS = ['rounded', 'serif', 'sans', 'mono', 'bold', 'editorial'];
+const DEFAULTS = { theme: 'sakura', cards: 'theme', motion: 'full', map: 'theme' };
 let prefs = { ...DEFAULTS };
 
 export const getPrefs = () => prefs;
 
-function lum(hex) {
-  const n = parseInt(hex.slice(1), 16), c = [n >> 16, (n >> 8) & 255, n & 255].map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });
-  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
-}
-
 export function applyPrefs(p = prefs) {
-  const r = document.documentElement, s = r.style;
+  const r = document.documentElement;
   r.setAttribute('data-theme', p.theme);
   const attr = (k, v, d) => (v && v !== d ? r.setAttribute('data-' + k, v) : r.removeAttribute('data-' + k));
-  attr('density', p.density, 'cozy'); attr('pattern', p.pattern, 'theme'); attr('cards', p.cards, 'theme'); attr('buttons', p.buttons, 'theme'); attr('motion', p.motion, 'full'); attr('map', p.map, 'theme');
-  s.setProperty('--rs', String(p.radius / 100)); s.setProperty('--ts', String(p.text / 100));
-  const vars = ['--accent', '--accent-deep', '--accent-soft', '--accent-ink', '--ink-accent'];
-  if (/^#[0-9a-f]{6}$/i.test(p.accent)) {
-    s.setProperty('--accent', p.accent);
-    s.setProperty('--accent-deep', 'color-mix(in srgb, ' + p.accent + ' 70%, #000)');
-    s.setProperty('--accent-soft', 'color-mix(in srgb, ' + p.accent + ' 16%, var(--surface))');
-    s.setProperty('--ink-accent', 'color-mix(in srgb, ' + p.accent + ' 75%, var(--text))');
-    s.setProperty('--accent-ink', lum(p.accent) > 0.5 ? '#161616' : '#ffffff');
-  } else vars.forEach((v) => s.removeProperty(v));
-  if (FONTS[p.font]) { s.setProperty('--font-b', FONTS[p.font][0]); s.setProperty('--font-d', FONTS[p.font][1]); } else { s.removeProperty('--font-b'); s.removeProperty('--font-d'); }
+  attr('cards', p.cards, 'theme'); attr('motion', p.motion, 'full'); attr('map', p.map, 'theme');
   const th = THEMES.find((x) => x.id === p.theme);
   const m = document.querySelector('meta[name=theme-color]');
   if (m && th) m.setAttribute('content', th.pv.ac);
 }
 
 export function loadPrefs() {
-  try { prefs = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('jll.prefs') || '{}') }; } catch { prefs = { ...DEFAULTS }; }
+  try { const o = JSON.parse(localStorage.getItem('jll.prefs') || '{}'); prefs = { ...DEFAULTS, theme: o.theme || DEFAULTS.theme, cards: o.cards || 'theme', motion: o.motion || 'full', map: o.map || 'theme' }; } catch { prefs = { ...DEFAULTS }; }
   let loggedIn = false;
   try { loggedIn = !!localStorage.getItem('jll.acct'); } catch {}
   if (!THEMES.some((x) => x.id === prefs.theme) || (!loggedIn && !FREE_THEMES.includes(prefs.theme))) prefs.theme = 'sakura';
-  if (!loggedIn && prefs.font && !BASE_FONTS.includes(prefs.font)) prefs.font = 'theme';
   applyPrefs();
 }
 export function setPrefs(patch) {
@@ -84,26 +57,13 @@ export function AppearancePanel() {
   const [, force] = useState(0);
   useAccount();
   const owned = ownedSet();
-  const fontOpts = [['theme', 'ap.theme_default'], ['rounded', 'ap.f_rounded'], ['serif', 'ap.f_serif'], ['sans', 'ap.f_sans'], ['mono', 'ap.f_mono'], ['bold', 'ap.f_bold'], ['editorial', 'ap.f_editorial']];
   const p = prefs;
   const set = (patch) => { setPrefs(patch); force((x) => x + 1); };
   const opt = (key, vals) => html`<${Seg} options=${vals.map(([v, k]) => [v, t(k)])} value=${p[key]} onChange=${(v) => set({ [key]: v })} />`;
   return html`<div class="stack" style="gap:6px">
-    <p class="eyebrow">${t('ap.theme')}</p>
     <div class="swatches">${THEMES.map((th) => { const locked = !FREE_THEMES.includes(th.id) && !owned.has(th.id);
       return html`<${Preview} th=${th} key=${th.id} locked=${locked} on=${p.theme === th.id} onClick=${() => (locked ? location.assign('#/me') : set({ theme: th.id }))} />`; })}</div>
-    <p class="eyebrow mt">${t('ap.customize')}</p>
-    <label>${t('ap.accent')}</label>
-    <div class="row nw"><input type="color" value=${p.accent || THEMES.find((x) => x.id === p.theme).pv.ac} onInput=${(e) => set({ accent: e.target.value })} />
-      <button class="ghost sm" onClick=${() => set({ accent: '' })}>${t('ap.reset_accent')}</button></div>
-    <label>${t('ap.roundness')}: ${p.radius}%</label><input type="range" min="0" max="160" step="10" value=${p.radius} onInput=${(e) => set({ radius: +e.target.value })} />
-    <label>${t('ap.textsize')}: ${p.text}%</label><input type="range" min="85" max="135" step="5" value=${p.text} onInput=${(e) => set({ text: +e.target.value })} />
-    <label>${t('ap.density')}</label>${opt('density', [['compact', 'ap.compact'], ['cozy', 'ap.cozy'], ['roomy', 'ap.roomy']])}
-    <label>${t('ap.font')}</label>${opt('font', fontOpts)}
-    ${Object.keys(FONTS).filter((f) => !BASE_FONTS.includes(f) && owned.has(f)).length > 0 && html`<p class="eyebrow mt">${t('acct.anime_fonts')}</p><div class="pill-row">${Object.keys(FONTS).filter((f) => !BASE_FONTS.includes(f) && owned.has(f)).map((f) => html`<button class=${p.font === f ? '' : 'ghost'} key=${f} style=${{ fontFamily: fontCss(f) }} onClick=${() => set({ font: f })}>${f}</button>`)}</div>`}
-    <label>${t('ap.pattern')}</label>${opt('pattern', [['theme', 'ap.theme_default'], ['none', 'ap.none'], ['waves', 'ap.p_waves'], ['dots', 'ap.p_dots'], ['grid', 'ap.p_grid'], ['zigzag', 'ap.p_zigzag'], ['lines', 'ap.p_lines']])}
-    <label>${t('ap.cards')}</label>${opt('cards', [['theme', 'ap.theme_default'], ['soft', 'ap.c_soft'], ['outline', 'ap.c_outline'], ['flat', 'ap.c_flat'], ['glass', 'ap.c_glass']])}
-    <label>${t('ap.buttons')}</label>${opt('buttons', [['theme', 'ap.theme_default'], ['pill', 'ap.b_pill'], ['round', 'ap.b_round'], ['square', 'ap.b_square']])}
+    <label class="mt">${t('ap.cards')}</label>${opt('cards', [['theme', 'ap.theme_default'], ['soft', 'ap.c_soft'], ['outline', 'ap.c_outline'], ['flat', 'ap.c_flat'], ['glass', 'ap.c_glass']])}
     <label>${t('ap.map')}</label>${opt('map', [['theme', 'ap.theme_default'], ['normal', 'ap.m_normal'], ['muted', 'ap.m_muted'], ['dark', 'ap.m_dark']])}
     <label>${t('ap.motion')}</label>${opt('motion', [['full', 'ap.full'], ['reduced', 'ap.reduced'], ['off', 'ap.off']])}
     <button class="ghost mt" onClick=${() => { resetPrefs(); force((x) => x + 1); }}>${t('ap.reset')}</button></div>`;

@@ -49,6 +49,12 @@ class Accounts:
             except (OSError, ValueError):
                 continue
         for uid, a in self.users.items():
+            a['inv'] = {i: v for i, v in a.get('inv', {}).items() if i in loot.BY_ID}
+            a['ach'] = {i: v for i, v in a.get('ach', {}).items() if i in loot.ACH_BY_ID}
+            a['equip'].pop('font', None)
+            for k, v in list(a['equip'].items()):
+                if k in ('theme', 'frame', 'skin') and v and v not in loot.BASE and v not in a['inv']:
+                    a['equip'][k] = loot.DEFAULT_EQUIP[k]
             self.names[a['name'].lower()] = uid
             for h in a['tokens']:
                 self.tokens[h] = uid
@@ -173,8 +179,6 @@ class Accounts:
             return len(a['inv'])
         if stat == 'streak':
             return a['streak']['best']
-        if stat == 'anime_fonts':
-            return sum(1 for f in loot.ANIME_FONTS if f in a['inv'])
         if stat == 'mythics':
             return sum(1 for i in a['inv'] if loot.BY_ID[i]['rarity'] == 'mythic')
         if stat == 'themes_owned':
@@ -420,11 +424,11 @@ class Accounts:
         with LOCK:
             e = a['equip']
             kind, item = p.get('kind'), p.get('item')
-            if kind in ('theme', 'font', 'title', 'frame', 'skin'):
+            if kind in ('theme', 'title', 'frame', 'skin'):
                 if item is None:
-                    if kind not in ('title', 'font'):
+                    if kind != 'title':
                         raise GameError('Not found')
-                    e[kind] = None if kind == 'title' else 'theme'
+                    e[kind] = None
                 else:
                     it = loot.BY_ID.get(item)
                     if not it or it['kind'] != kind or not self.owns(a, item):

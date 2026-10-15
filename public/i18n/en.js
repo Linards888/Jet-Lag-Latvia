@@ -35,7 +35,7 @@
 "acct.kind_title": "Titles",
 "acct.kind_widget": "Profile widgets",
 "acct.level": "Level {n}",
-"acct.locked": "Locked - tap to find out how",
+"acct.locked": "Locked",
 "acct.login": "Log in",
 "acct.logout": "Log out",
 "acct.n_ach": "Achievement unlocked: {name}",
