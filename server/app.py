@@ -269,6 +269,11 @@ class Handler(BaseHTTPRequestHandler):
         if sub == 'logout' and method == 'POST':
             A.logout(a, token)
             return self.send_json({'ok': True})
+        if sub == 'redeem' and method == 'POST':
+            if not rate_ok(('redeem', a['id']), 12, 3600) or not rate_ok(('redeem-ip', self.ip()), 30, 3600):
+                raise GameError('Too many attempts - wait a few minutes', 429)
+            A.redeem(a, self.json_body().get('code'))
+            return self.send_json({'me': A.me(a)})
         if sub == 'equip' and method == 'POST':
             A.equip(a, self.json_body())
             return self.send_json({'ok': True})

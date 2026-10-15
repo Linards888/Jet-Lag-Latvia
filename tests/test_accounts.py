@@ -102,6 +102,32 @@ class AccountTests(unittest.TestCase):
         with self.assertRaises(GameError):
             self.A.public('Ach')
 
+    def test_cheat_codes(self):
+        import json
+        path = self.A._cheats_path()
+        self.assertTrue(os.path.exists(path))  # created on first start with a random master code
+        with open(path, encoding='utf8') as f:
+            codes = json.load(f)
+        master = next(k for k in codes if k.startswith('MASTER-'))
+        with open(path, 'w', encoding='utf8') as f:
+            json.dump({'gift one': {'dust': 500, 'sakura': 2, 'items': ['mochiy', 'sakura'], 'achievements': ['first_win']}, master: codes[master]}, f)
+        a, _ = self.A.register('Cheater', 'secret1')
+        with self.assertRaises(GameError):
+            self.A.redeem(a, 'nope')
+        before = a['dust']
+        self.A.redeem(a, 'GIFT ONE')  # case and spaces do not matter
+        self.assertEqual(a['dust'] - before >= 500, True)
+        self.assertEqual(a['tickets']['sakura'], 2)
+        self.assertIn('mochiy', a['inv'])
+        self.assertNotIn('sakura', a['inv'])  # base items are owned by everybody already
+        self.assertIn('first_win', a['ach'])
+        with self.assertRaises(GameError):
+            self.A.redeem(a, 'gift one')  # one-time code
+        self.A.redeem(a, master)
+        self.A.redeem(a, master)  # repeatable
+        self.assertEqual(len(a['ach']), len(loot.ACH))
+        self.assertTrue(all(i['id'] in a['inv'] for i in loot.ITEMS if i['pool'] != 'base'))
+
     def test_persistence(self):
         a, tok = self.A.register('Keep', 'secret1')
         a['dust'] = 777

@@ -32,6 +32,7 @@ function announce(pending) {
     if (ev.k === 'ach') { const a = achOf(ev.id); if (a) toast(t('acct.n_ach', { name: achText(a).name }), true); }
     else if (ev.k === 'item') toast(t('acct.n_item', { name: itemName(ev.item) }), true);
     else if (ev.k === 'encounter') toast(t('acct.n_encounter'), true);
+    else if (ev.k === 'code') toast(t('acct.n_code'), true);
     else if (ev.k === 'daily') toast(t('acct.n_daily', { dust: ev.dust, n: ev.streak }), true);
   }
 }
@@ -200,6 +201,13 @@ function Header({ v, own }) {
       <span class="small dim">${t('acct.today', { a: v.todayEarned, b: v.dailyCap })}</span></div>`}</section>`;
 }
 
+function Redeem() {
+  const [code, setCode] = useState('');
+  const go_ = async () => { try { await call('POST', '/redeem', { code }); setCode(''); await loadMe(); return true; } catch (e) { toast(e.message); return false; } };
+  return html`<section class="card"><div class="sec-h"><h2>${t('acct.redeem')}</h2></div><div class="row nw"><input value=${code} placeholder=${t('acct.redeem_ph')} autocomplete="off" autocapitalize="characters" onInput=${(e) => setCode(e.target.value)} onKeyDown=${(e) => e.key === 'Enter' && go_()} />
+    <${AsyncBtn} onClick=${go_} disabled=${!code.trim()}>${t('acct.redeem_btn')}<//></div></section>`;
+}
+
 export function ProfilePage() {
   const { me: m } = useAccount();
   const [auth, setAuth] = useState(false);
@@ -209,6 +217,7 @@ export function ProfilePage() {
   return html`<div class="wrap"><div class="row sp"><button class="ghost icon" aria-label=${t('back')} onClick=${() => go('#/')}><${Ico} n="back" /></button>
       <span class="row"><button class="ghost sm" onClick=${() => { const url = location.origin + '/#/u/' + m.name; copy(url); toast(t('copied'), true); }}>${t('acct.share')}</button></span></div>
     <div class="stack mt"><${Header} v=${m} own=${true} /><${Widgets} v=${m} own=${true} /><${Summon} me=${m} /><${Collection} v=${m} /><${Achievements} v=${m} />
+      <${Redeem} />
       <section class="card"><${Switch} checked=${m.public} onChange=${(val) => equip({ kind: 'public', value: val })}>${t('acct.public')}<//>
         <button class="ghost block mt" onClick=${() => { logout(); go('#/'); }}>${t('acct.logout')}</button></section></div></div>`;
 }

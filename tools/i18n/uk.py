@@ -245,4 +245,8 @@ T = {
     'acct.s_summons': 'Викликів',
     'acct.s_encounters': 'Рідкісних подій',
     'acct.s_best_streak': 'Краща серія',
+    'acct.redeem': 'Ввести код',
+    'acct.redeem_ph': 'Введіть код',
+    'acct.redeem_btn': 'Активувати',
+    'acct.n_code': 'Код прийнято!',
 }

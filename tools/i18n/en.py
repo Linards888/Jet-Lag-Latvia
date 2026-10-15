@@ -263,4 +263,8 @@ T = {
     'acct.s_summons': 'Summons',
     'acct.s_encounters': 'Rare encounters',
     'acct.s_best_streak': 'Best streak',
+    'acct.redeem': 'Redeem a code',
+    'acct.redeem_ph': 'Enter code',
+    'acct.redeem_btn': 'Redeem',
+    'acct.n_code': 'Code accepted!',
 }

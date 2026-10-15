@@ -245,4 +245,8 @@ T = {
     'acct.s_summons': 'Izsaukumi',
     'acct.s_encounters': 'Reti notikumi',
     'acct.s_best_streak': 'Labākā sērija',
+    'acct.redeem': 'Ievadīt kodu',
+    'acct.redeem_ph': 'Ieraksti kodu',
+    'acct.redeem_btn': 'Aktivizēt',
+    'acct.n_code': 'Kods pieņemts!',
 }

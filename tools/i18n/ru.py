@@ -245,4 +245,8 @@ T = {
     'acct.s_summons': 'Призывов',
     'acct.s_encounters': 'Редких событий',
     'acct.s_best_streak': 'Лучшая серия',
+    'acct.redeem': 'Ввести код',
+    'acct.redeem_ph': 'Введите код',
+    'acct.redeem_btn': 'Активировать',
+    'acct.n_code': 'Код принят!',
 }

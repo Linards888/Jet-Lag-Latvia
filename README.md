@@ -77,6 +77,7 @@ Konts (poga **Konts** sākuma ekrānā) saglabā tavu profilu visās spēlēs. N
 * **Slepeni priekšmeti** (Rainbow Mochi, One of One, titulu *The Chosen One*) var iegūt tikai ļoti retos gadījumos.
 * **Profils:** avatārs ar rāmi, tituls, nozīmītes, izvēlēti logrīki (statistika, sasniegumi, kolekcija, sērija, pēdējie atradumi, trofeju skapis, retākie atradumi, veiksmes radars), un publiska saite `/#/u/<vārds>`. Publisko profilu var izslēgt.
 * **Ikdienas sērija:** katra diena dod putekļus, ik pa 7 dienām izsaukuma biļeti.
+* **Kodi (cheat/dāvanu kodi):** profila apakšā ir lauks **Ievadīt kodu**. Kodus nosaka servera īpašnieks failā `data/cheats.json` (tas nav repozitorijā). Pirmajā startā serveris izveido failu ar nejaušu **MASTER-kodu** (viss: visi priekšmeti, sasniegumi, putekļi, biļetes, atkārtoti lietojams); to var apskatīt ar `cat ~/Jet-Lag-Latvia/data/cheats.json`. Savus kodus pievieno šādi: `"MANSKODS": {"dust": 5000, "std": 3, "sakura": 5, "items": ["mochiy", "hanabi"], "achievements": "all", "repeat": false}` (`items` un `achievements` var būt `"all"`). Kodus var lietot tikai viens reizi uz kontu, ja nav `"repeat": true`.
 * **Pret krāpšanu:** sasniegumu un uzvaru atlīdzības dod tikai spēles ar vismaz diviem dažādiem kontiem un vismaz 15 minūtēm spēles laika, un putekļi no darbībām ir ierobežoti dienā.
 
 ---

@@ -21,6 +21,7 @@ LOCK = threading.RLock()
 DAY_MS = 86400000
 DAILY_EVENT_DUST_CAP = 400
 STD_PITY_EPIC, STD_PITY_LEG, ANI_PITY_LEG, ANI_PITY_MYTH = 30, 90, 10, 40
+CHEATS_FILE = 'cheats.json'
 NAME_OK = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-')
 
 
@@ -341,6 +342,64 @@ class Accounts:
             self._mark()
             return results
 
+    # ---------------------------------------------------------- cheat / gift codes (secret, defined by the server owner)
+    def _cheats_path(self):
+        return os.path.join(os.path.dirname(self.path), CHEATS_FILE)
+
+    def load_cheats(self):
+        """data/cheats.json = {"CODE": {"dust": 5000, "std": 3, "sakura": 5, "items": ["mochiy"] | "all", "achievements": "all" | [ids], "repeat": false}}.
+        A file with one random master code is created on first start (read it on the server; it is never in the repo)."""
+        path = self._cheats_path()
+        if not os.path.exists(path):
+            master = 'MASTER-' + secrets.token_hex(4).upper()
+            default = {master: {'note': 'everything, any number of times', 'dust': 100000, 'std': 50, 'sakura': 100, 'items': 'all', 'achievements': 'all', 'repeat': True},
+                       'EXAMPLE-DUST': {'note': 'edit or delete me', 'dust': 500}}
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, 'w', encoding='utf8') as f:
+                json.dump(default, f, indent=2, ensure_ascii=False)
+            print('Cheat codes file created: %s  (master code: %s)' % (path, master))
+        try:
+            with open(path, encoding='utf8') as f:
+                raw = json.load(f)
+        except (OSError, ValueError):
+            return {}
+        return {str(k).strip().upper().replace(' ', ''): v for k, v in raw.items() if isinstance(v, dict)}
+
+    def redeem(self, a, code):
+        key = str(code or '').strip().upper().replace(' ', '')
+        with LOCK:
+            spec = self.load_cheats().get(key)
+            if not spec:
+                raise GameError('Invalid code')
+            if key in a.setdefault('redeemed', []) and not spec.get('repeat'):
+                raise GameError('Code already used')
+            if key not in a['redeemed']:
+                a['redeemed'].append(key)
+            a['dust'] += int(spec.get('dust', 0))
+            a['tickets']['std'] += int(spec.get('std', 0))
+            a['tickets']['sakura'] += int(spec.get('sakura', 0))
+            a['xp'] += int(spec.get('xp', 0))
+            items = spec.get('items') or []
+            if items == 'all':
+                items = [i['id'] for i in loot.ITEMS]
+            added = 0
+            for it in items:
+                if it in loot.BY_ID and it not in loot.BASE and it not in a['inv']:
+                    a['inv'][it] = {'n': 1, 't': _now(), 'src': 'code'}
+                    added += 1
+            ach = spec.get('achievements') or []
+            if ach == 'all':
+                ach = [x[0] for x in loot.ACH]
+            for x in ach:
+                if x in loot.ACH_BY_ID and x not in a['ach']:
+                    a['ach'][x] = _now()
+            self._push(a, {'k': 'code', 'items': added, 'dust': int(spec.get('dust', 0))})
+            self._log(a, 'code')
+            self.check_achievements(a)
+            self._mark()
+            print('code redeemed by %s: %s' % (a['name'], key))
+            return added
+
     # ---------------------------------------------------------- equip
     def equip(self, a, p):
         with LOCK:
@@ -411,6 +470,7 @@ ACC = None
 def init(path=None):
     global ACC
     ACC = Accounts(path)
+    ACC.load_cheats()  # creates data/cheats.json with a random master code on first start
     return ACC
 
 
