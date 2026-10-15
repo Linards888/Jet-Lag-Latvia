@@ -15,6 +15,7 @@ import threading
 
 import core
 import loot
+import secretart
 from core import GameError
 
 LOCK = threading.RLock()
@@ -300,6 +301,9 @@ class Accounts:
             if v == item_id:
                 a['equip'][k] = loot.DEFAULT_EQUIP[k]
 
+    def holds_secret(self, a):
+        return loot.SECRET_IDS[0] in a['inv']
+
     def secret_action(self, actor, p):
         """claim / give / revoke (owner only) and drop (any holder). Everybody else gets a plain 404: the place does not exist for them."""
         item = loot.SECRET_IDS[0]
@@ -470,6 +474,8 @@ class Accounts:
             v.update({'id': a['id'], 'public': a['public'], 'streakNow': a['streak']['n'], 'pending': a['pending'], 'newcomerUntil': a['newcomerUntil']})
             secret = [i for i in loot.SECRET if i['id'] in a['inv']]  # only the holder ever sees these
             v['owned'], v['secret'] = v['owned'] + [i['id'] for i in secret], secret
+            if secret:
+                v['secretArt'] = secretart.listing()
             a['pending'] = []
             if changed:
                 self._mark()

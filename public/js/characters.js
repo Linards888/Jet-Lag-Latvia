@@ -1,3 +1,4 @@
+import { useSecretPic, useSecretStickers } from './secretart.js';
 import { html, useState, useEffect } from '/vendor/preact.js';
 import { t } from './i18n.js';
 import { Mochi } from './ui.js';
@@ -121,20 +122,26 @@ const CUTOUT = ['toradora', 'evangelion', 'killlakill', 'zerotwo', 'mezs', 'arca
 const NO_ART = new Set();  // themes whose /art/<theme> image does not exist (no repeated requests)
 const PORTRAITS = ['mezs'];  // bundled public-domain portrait cut-out of the poet Rainis (public/art)
 export const clearArt = (theme) => NO_ART.delete(theme);
-function Mascot({ theme, size = 150 }) {
+function Mascot({ theme, size = 150, slot }) {
+  const pic = useSecretPic(theme === 'onimai' ? slot : null);  // the owner's own picture for this place (secret look only)
   const [missing, setMissing] = useState(NO_ART.has(theme));
   useEffect(() => setMissing(NO_ART.has(theme)), [theme]);
+  if (pic) return html`<img class="portrait cut" src=${pic} width=${size} height=${size * 1.2} alt="" />`;
   if (!missing) return html`<img class=${'portrait' + (CUTOUT.includes(theme) ? ' cut' : '')} src=${'/art/' + theme} width=${size} height=${size * 1.2} alt="" onError=${() => { NO_ART.add(theme); setMissing(true); }} />`;
   const Art = SVG_MASCOT[theme], info = THEME_INFO[theme];  // no picture: an original SVG mascot, else the small drawn girl, else the Mochi
   return Art ? html`<${Art} size=${size} />` : info ? html`<${Girl} ...${info.girl} size=${size} />` : html`<${Mochi} size=${size * 0.78} />`;
 }
 const TILT = [-8, 6, -4, 9];
-const Stickers = ({ theme, cls = '' }) => html`<div class="stickers ${cls}">${stickersOf(theme).map(([k, c, l], i) => html`<${Sticker} key=${k + i} kind=${k} color=${c} label=${l} tilt=${TILT[i % 4]} />`)}</div>`;
+function Stickers({ theme, cls = '' }) {
+  const pics = useSecretStickers();
+  if (theme === 'onimai' && pics.length) return html`<div class="stickers secret-stickers ${cls}">${pics.map((u, i) => html`<img key=${i} src=${u} alt="" style=${{ transform: 'rotate(' + TILT[i % 4] + 'deg)' }} />`)}</div>`;
+  return html`<div class="stickers ${cls}">${stickersOf(theme).map(([k, c, l], i) => html`<${Sticker} key=${k + i} kind=${k} color=${c} label=${l} tilt=${TILT[i % 4]} />`)}</div>`;
+}
 export function ThemeHero({ theme }) {
-  return html`<div class="theme-hero"><${Mascot} theme=${theme} size=${130} /><${Stickers} theme=${theme} /></div>`;
+  return html`<div class="theme-hero"><${Mascot} theme=${theme} size=${130} slot="hero" /><${Stickers} theme=${theme} /></div>`;
 }
 export function ThemeCard({ theme, name }) {
-  return html`<section class="card theme-card"><div class="row nw" style="gap:16px;align-items:flex-start"><${Mascot} theme=${theme} size=${120} />
+  return html`<section class="card theme-card"><div class="row nw" style="gap:16px;align-items:flex-start"><${Mascot} theme=${theme} size=${120} slot="profile" />
     <div class="grow"><h2 style="margin:0">${name}</h2><div class="title-tag">${t('char.' + theme)}</div><p class="small" style="margin:6px 0 0">${t('lore.' + theme)}</p>
       ${PORTRAITS.includes(theme) && html`<p class="small dim" style="margin:6px 0 0">${t('acct.photo_credit')}</p>`}</div></div>
     <${Stickers} theme=${theme} cls="mt" /></section>`;

@@ -2,7 +2,7 @@ import { html, useState, useEffect } from '/vendor/preact.js';
 import { toast } from './api.js';
 import { t } from './i18n.js';
 import { AsyncBtn, Field, Modal } from './ui.js';
-import { call, loadMe, useAccount } from './account.js';
+import { call, loadMe, useAccount, accountToken } from './account.js';
 
 // ---------------------------------------------------------------- the hidden place
 // Nothing on any page points here. A secret order of taps on the home screen makes a tiny heart appear (only for the site owner, only
@@ -35,15 +35,30 @@ export function SecretButton() {
     ${open && html`<${SecretModal} onClose=${() => setOpen(false)} />`}`;
 }
 
+const SLOTS = ['hero', 'profile', 'game', 'settings', 'community', 'sticker1', 'sticker2', 'sticker3', 'sticker4', 'sticker5', 'sticker6'];
+
 function SecretModal({ onClose }) {
+  const { me } = useAccount();
   const [info, setInfo] = useState(null);
   const [name, setName] = useState('');
   const run = async (body, msg) => { try { const r = await call('POST', '/secret', body); if (r.holders) setInfo(r); await loadMe(true); if (msg) toast(msg, true); return true; } catch (e) { toast(e.message); return false; } };
   useEffect(() => { run({ action: 'list' }); }, []);
+  const upload = async (slot, body) => {
+    try {
+      const r = await fetch('/api/account/secret-art/' + slot, { method: 'POST', headers: { 'X-Account': accountToken() }, body });
+      if (!r.ok) throw new Error((await r.json()).error);
+      await loadMe(true); toast(t('secret.done'), true);
+    } catch (e) { toast(e.message); }
+  };
+  const label = (s) => (s.startsWith('sticker') ? t('secret.slot_sticker', { n: s.slice(7) }) : t('secret.slot_' + s));
   return html`<${Modal} title=${t('secret.title')} onClose=${onClose}><div class="stack">
     ${info && !info.mine ? html`<${AsyncBtn} class="block" onClick=${() => run({ action: 'claim' }, t('secret.done'))}>${t('secret.claim')}<//>` : html`<div class="callout good">${t('secret.have')}</div>`}
     <${Field} label=${t('secret.player')}><input value=${name} maxlength="16" onInput=${(e) => setName(e.target.value)} /><//>
     <div class="row"><${AsyncBtn} class="grow" disabled=${!name.trim()} onClick=${() => run({ action: 'give', name: name.trim() }, t('secret.done'))}>${t('secret.give')}<//>
       <${AsyncBtn} class="ghost grow" disabled=${!name.trim()} onClick=${() => run({ action: 'revoke', name: name.trim() }, t('secret.done'))}>${t('secret.revoke')}<//></div>
+    <details><summary class="eyebrow" style="cursor:pointer">${t('secret.art')}</summary><p class="small dim">${t('secret.art_hint')}</p>
+      ${SLOTS.map((s) => html`<div class="row sp nw" key=${s} style="padding:4px 0"><span>${label(s)}${me && me.secretArt && me.secretArt[s] ? html` <span class="chip good">${t('secret.set')}</span>` : ''}</span>
+        <span class="row nw" style="gap:6px"><input type="file" accept="image/jpeg,image/png,image/webp" style="max-width:150px" onChange=${(e) => e.target.files[0] && upload(s, e.target.files[0])} />
+          <button class="sm ghost" onClick=${() => upload(s, new Blob([]))}>${t('remove')}</button></span></div>`)}</details>
     ${info && info.holders.length > 0 && html`<div><p class="eyebrow">${t('secret.holders')}</p><div class="pill-row">${info.holders.map((n) => html`<button class="sm ghost" key=${n} onClick=${() => setName(n)}>${n}</button>`)}</div></div>`}</div><//>`;
 }

@@ -466,4 +466,13 @@ T = {
     'secret.done': 'Готово',
     'secret.drop': 'Убрать секретный вид из моего меню',
     'secret.drop_confirm': 'Убрать из ваших меню? Вернуть его может только владелец.',
+    'secret.art': 'Картинки',
+    'secret.art_hint': 'Эти картинки видят только аккаунты с этим видом и только пока он активен. В публичных профилях и списках их нет.',
+    'secret.set': 'есть',
+    'secret.slot_hero': 'Главный экран',
+    'secret.slot_profile': 'Профиль',
+    'secret.slot_game': 'В игре',
+    'secret.slot_settings': 'Настройки',
+    'secret.slot_community': 'Сообщество',
+    'secret.slot_sticker': 'Стикер {n}',
 }

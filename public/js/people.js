@@ -6,6 +6,7 @@ import { Avatar, Header, Stats, themeName, itemName, loadCatalog, call, getCatal
 import { refreshSocial, openFriends } from './friends.js';
 import { ThemeCard } from './characters.js';
 import { go } from './home.js';
+import { SecretPic } from './secretart.js';
 
 const RAR = ['common', 'rare', 'epic', 'legendary', 'mythic'];
 const open = (name) => go('#/u/' + encodeURIComponent(name));
@@ -49,7 +50,7 @@ export function CommunityPage() {
   if (!data || !getCatalog()) return html`<div class="wrap center"><${Mochi} size=${90} mood="sleepy" /></div>`;
   const top = data.top[tab];
   return html`<div class="wrap"><div class="row sp">${back}<span class="dim small">${t('people.players', { n: data.total })}</span></div>
-    <div class="stack mt"><section class="card"><h1 style="margin:0 0 8px;font-size:1.5rem">${t('people.title')}</h1>
+    <div class="stack mt"><${SecretPic} slot="community" /><section class="card"><h1 style="margin:0 0 8px;font-size:1.5rem">${t('people.title')}</h1>
       <input type="search" placeholder=${t('people.search')} value=${q} onInput=${(e) => setQ(e.target.value)} />
       ${found && html`<div class="people mt">${found.length === 0 ? html`<p class="dim small">${t('people.none')}</p>` : found.map((p) => html`<${PersonRow} p=${p} key=${p.name} />`)}</div>`}</section>
     ${!found && html`<section class="card"><div class="sec-h"><h2>${t('people.top')}</h2></div>

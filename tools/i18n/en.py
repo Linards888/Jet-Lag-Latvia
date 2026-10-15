@@ -484,4 +484,13 @@ T = {
     'secret.done': 'Done',
     'secret.drop': 'Remove the secret look from my menu',
     'secret.drop_confirm': 'Remove it from your menus? Only the owner can give it back.',
+    'secret.art': 'Pictures',
+    'secret.art_hint': 'Only accounts that hold this look can see these pictures, and only while it is their active theme. They never appear on public profiles or lists.',
+    'secret.set': 'set',
+    'secret.slot_hero': 'Home screen',
+    'secret.slot_profile': 'Profile page',
+    'secret.slot_game': 'In a game',
+    'secret.slot_settings': 'Settings',
+    'secret.slot_community': 'Community',
+    'secret.slot_sticker': 'Sticker {n}',
 }

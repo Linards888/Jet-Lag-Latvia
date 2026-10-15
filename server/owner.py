@@ -90,7 +90,10 @@ def _art_dir():
 
 
 def find_art(theme, public_dir):
+    import loot
     theme = re.sub(r'[^a-z0-9]', '', str(theme).lower())
+    if theme in loot.SECRET_IDS:  # its pictures live in secretart.py, behind the account API
+        return None
     for base in (_art_dir(), os.path.join(public_dir, 'art')):
         for ext, _ in ART_EXT:
             f = os.path.join(base, theme + '.' + ext)
@@ -102,19 +105,22 @@ def find_art(theme, public_dir):
 def save_art(theme, data):
     """Store (or, with an empty body, remove) the art of one theme. Only real jpg/png/webp files are accepted."""
     import loot
-    if loot.BY_ID.get(theme, {}).get('kind') != 'theme':
+    if loot.BY_ID.get(theme, {}).get('kind') != 'theme' or theme in loot.SECRET_IDS:
         raise GameError('Not found')
+    new = None
+    if data:  # check the new picture BEFORE the old one is removed
+        new = next((e for e, magic in ART_EXT if data.startswith(magic) and (e != 'webp' or data[8:12] == b'WEBP')), None)
+        if not new:
+            raise GameError('Only JPEG/PNG/WebP images are accepted')
     os.makedirs(_art_dir(), exist_ok=True)
-    for ext, _ in ART_EXT:
+    for old, _ in ART_EXT:
         try:
-            os.remove(os.path.join(_art_dir(), theme + '.' + ext))
+            os.remove(os.path.join(_art_dir(), theme + '.' + old))
         except OSError:
             pass
     if not data:
         return True
-    ext = next((e for e, magic in ART_EXT if data.startswith(magic) and (e != 'webp' or data[8:12] == b'WEBP')), None)
-    if not ext:
-        raise GameError('Only JPEG/PNG/WebP images are accepted')
+    ext = new
     with open(os.path.join(_art_dir(), theme + '.' + ext), 'wb') as f:
         f.write(data)
     return True
