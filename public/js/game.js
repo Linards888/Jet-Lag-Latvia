@@ -1,5 +1,5 @@
 import { html, useState, useEffect } from '/vendor/preact.js';
-import { linkGame } from './account.js';
+import { linkGame, AccountButton } from './account.js';
 import { useGame, useClock, useLocation, useNotices, saved, toast, META, useGeo, pushStatus, refreshPush, enablePush } from './api.js';
 import { t, tx, noticeText } from './i18n.js';
 import { AsyncBtn, Chip, Field, Switch, Seg, Modal, Ico, Empty, Mochi, copy } from './ui.js';
@@ -39,7 +39,7 @@ export function GamePage({ code }) {
       <div class="right"><${Conn} conn=${conn} />
         ${st.me.role === 'admin' && html`<button class="soft sm" onClick=${() => setModal('mode')}>${t('adminmode.short.' + st.me.adminMode)}</button>`}
         ${st.me.plays && html`<button class="ghost sm" onClick=${() => setGps(!gps)}>${gpsLabel(gps, loc)}</button>`}
-        <button class="ghost icon" aria-label=${t('settings')} onClick=${() => setModal('settings')}><${Ico} n="gear" /></button></div>
+        <${AccountButton} /><button class="ghost icon" aria-label=${t('settings')} onClick=${() => setModal('settings')}><${Ico} n="gear" /></button></div>
     </div></div>
     <div class="notices">${notices.map((n) => html`<div class="notice ${n.kind}" key=${n.id} onClick=${() => dismiss(n.id)}>${noticeText(n)}</div>`)}</div>
     <div class="wrap"><div class="stack">

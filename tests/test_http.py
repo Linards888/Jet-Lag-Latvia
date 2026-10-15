@@ -25,9 +25,11 @@ class HttpTests(unittest.TestCase):
     def tearDownClass(cls):
         cls.srv.shutdown()
 
-    def call(self, method, path, body=None, token=None, raw=None):
+    def call(self, method, path, body=None, token=None, raw=None, acct=None):
         c = http.client.HTTPConnection('127.0.0.1', self.port, timeout=10)
         h = {'X-Token': token} if token else {}
+        if acct:
+            h['X-Account'] = acct
         data = raw
         if body is not None:
             data, h['Content-Type'] = json.dumps(body), 'application/json'
@@ -40,13 +42,36 @@ class HttpTests(unittest.TestCase):
         except ValueError:
             return r.status, b
 
+    def account(self, name):
+        s, d = self.call('POST', '/api/account/register', {'first': 'Test', 'last': name, 'name': name, 'password': 'secret12'})
+        self.assertEqual(s, 201)
+        return d['token']
+
+    def test_games_need_an_account_and_use_its_username(self):
+        s, e = self.call('POST', '/api/games', {'mode': 'tag', 'name': 'No account', 'adminPlays': True})
+        self.assertEqual(s, 401)
+        t = self.account('NeedsAcct')
+        s, g = self.call('POST', '/api/games', {'mode': 'tag', 'name': 'With account', 'adminPlays': True}, acct=t)
+        self.assertEqual(s, 201)
+        self.assertEqual(self.call('POST', f"/api/games/{g['code']}/join", {'role': 'player'})[0], 401)  # joining needs an account too
+        other = self.account('Joiner1')
+        s, j = self.call('POST', f"/api/games/{g['code']}/join", {'role': 'player'}, acct=other)
+        self.assertEqual(s, 200)
+        s, st = self.call('GET', f"/api/games/{g['code']}/state", token=j['token'])
+        self.assertEqual(st['me']['name'], 'Joiner1')  # the account username is the player name everywhere
+        s, again = self.call('POST', f"/api/games/{g['code']}/join", {'role': 'player'}, acct=other)  # joining twice = back in
+        self.assertEqual((s, again['memberId']), (200, j['memberId']))
+        s, back = self.call('POST', f"/api/games/{g['code']}/rejoin", {}, acct=other)  # new device: no PIN needed
+        self.assertEqual(s, 200)
+        self.assertEqual(self.call('GET', f"/api/games/{g['code']}/state", token=j['token'])[0], 401)  # the old device is signed out
+
     def test_race_upload_and_acl_and_admin(self):
-        s, g = self.call('POST', '/api/games', {'mode': 'race', 'name': 'Test race', 'adminName': 'Boss', 'adminPin': '1234', 'adminPlays': False, 'settings': {'useWindow': False}})
+        s, g = self.call('POST', '/api/games', {'mode': 'race', 'name': 'Test race', 'adminPlays': False, 'settings': {'useWindow': False}}, acct=self.account('RaceBoss'))
         self.assertEqual(s, 201)
         code, key, admin = g['code'], g['adminKey'], g['token']
-        s, a = self.call('POST', f'/api/games/{code}/join', {'name': 'Anna', 'pin': '1111', 'role': 'player'})
-        s, b = self.call('POST', f'/api/games/{code}/join', {'name': 'Bob', 'pin': '1111', 'role': 'player'})
-        s, sp = self.call('POST', f'/api/games/{code}/join', {'name': 'Spec', 'pin': '1111', 'role': 'spectator'})
+        s, a = self.call('POST', f'/api/games/{code}/join', {'role': 'player'}, acct=self.account('Anna'))
+        s, b = self.call('POST', f'/api/games/{code}/join', {'role': 'player'}, acct=self.account('Bob'))
+        s, sp = self.call('POST', f'/api/games/{code}/join', {'role': 'spectator'}, acct=self.account('Spec'))
         self.assertEqual(s, 200)
         # spectator cannot act / upload
         s, e = self.call('POST', f'/api/games/{code}/action', {'type': 'team_create', 'payload': {'name': 'X'}}, sp['token'])
@@ -65,9 +90,9 @@ class HttpTests(unittest.TestCase):
         s, _ = self.call('POST', f'/api/games/{code}/upload', token=a['token'], raw=b'<svg onload=alert(1)>' + b'x' * 200)
         self.assertEqual(s, 400)
         # admin re-login revokes the old admin token (single admin)
-        s, _ = self.call('POST', f'/api/games/{code}/admin-login', {'key': 'WRONG'})
+        s, _ = self.call('POST', f'/api/games/{code}/admin-login', {'key': 'WRONG'}, acct=self.account('Wrong1'))
         self.assertEqual(s, 400)
-        s, n = self.call('POST', f'/api/games/{code}/admin-login', {'key': key})
+        s, n = self.call('POST', f'/api/games/{code}/admin-login', {'key': key}, acct=self.account('Newdevice'))
         self.assertEqual(s, 200)
         self.assertEqual(self.call('GET', f'/api/games/{code}/state', token=admin)[0], 401)
         s, st = self.call('GET', f'/api/games/{code}/state', token=n['token'])
@@ -109,7 +134,7 @@ class HttpTests(unittest.TestCase):
         s, k = self.call('GET', '/api/push/key')
         self.assertEqual(s, 200)
         self.assertTrue(k['key'])
-        s, g = self.call('POST', '/api/games', {'mode': 'hide', 'name': 'Cat', 'adminName': 'Boss', 'adminPin': '1234', 'adminPlays': False})
+        s, g = self.call('POST', '/api/games', {'mode': 'hide', 'name': 'Cat', 'adminPlays': False}, acct=self.account('CatBoss'))
         code, tok = g['code'], g['token']
         s, full = self.call('GET', f'/api/games/{code}/state', token=tok)
         self.assertIn('catalog', full)
@@ -117,7 +142,7 @@ class HttpTests(unittest.TestCase):
         self.assertNotIn('catalog', slim)
 
     def test_sse_pushes_version(self):
-        s, g = self.call('POST', '/api/games', {'mode': 'tag', 'name': 'SSE game', 'adminName': 'Boss', 'adminPin': '1234', 'adminPlays': True})
+        s, g = self.call('POST', '/api/games', {'mode': 'tag', 'name': 'SSE game', 'adminPlays': True}, acct=self.account('SseBoss'))
         c = http.client.HTTPConnection('127.0.0.1', self.port, timeout=10)
         c.request('GET', f'/api/games/{g["code"]}/events?t={g["token"]}')
         r = c.getresponse()

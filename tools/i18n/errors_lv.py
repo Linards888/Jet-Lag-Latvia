@@ -164,4 +164,5 @@ E = {
     'Not enough Sakura tickets': 'Nepietiek Sakura biļešu',
     'You do not own that': 'Tev tā nav',
     'Log in to your account first': 'Vispirms pieslēdzies savam kontam',
+    '{1} must be 1-24 characters': '{1} jābūt 1-24 simbolus garam',
 }

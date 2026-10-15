@@ -1,4 +1,4 @@
-import { html } from '/vendor/preact.js';
+import { html, useState, useEffect } from '/vendor/preact.js';
 import { t } from './i18n.js';
 import { Mochi } from './ui.js';
 
@@ -77,8 +77,14 @@ const FREE_STICKERS = {
 const stickersOf = (theme) => (THEME_INFO[theme] ? THEME_INFO[theme].stickers : FREE_STICKERS[theme] || FREE_STICKERS.sakura);
 
 // the picture that stands in for the old floating blob: the theme's own character, no animation
+const NO_ART = new Set();  // themes whose /art/<theme> image does not exist (no repeated requests)
+const PORTRAITS = ['mezs', 'saulriets', 'latvija', 'okeans'];  // bundled public-domain portraits of Rainis, Aspazija, Barons and Valdemars (public/art)
+export const clearArt = (theme) => NO_ART.delete(theme);
 function Mascot({ theme, size = 150 }) {
-  const info = THEME_INFO[theme];
+  const [missing, setMissing] = useState(NO_ART.has(theme));
+  useEffect(() => setMissing(NO_ART.has(theme)), [theme]);
+  if (!missing) return html`<img class="portrait" src=${'/art/' + theme} width=${size} height=${size * 1.2} alt="" onError=${() => { NO_ART.add(theme); setMissing(true); }} />`;
+  const info = THEME_INFO[theme];  // no picture uploaded: the small drawn girl for the character themes, the Mochi mascot for the rest
   return info ? html`<${Girl} ...${info.girl} size=${size} />` : html`<${Mochi} size=${size * 0.78} />`;
 }
 const TILT = [-8, 6, -4, 9];
@@ -88,6 +94,7 @@ export function ThemeHero({ theme }) {
 }
 export function ThemeCard({ theme, name }) {
   return html`<section class="card theme-card"><div class="row nw" style="gap:16px;align-items:flex-start"><${Mascot} theme=${theme} size=${120} />
-    <div class="grow"><h2 style="margin:0">${name}</h2><div class="title-tag">${t('char.' + theme)}</div><p class="small" style="margin:6px 0 0">${t('lore.' + theme)}</p></div></div>
+    <div class="grow"><h2 style="margin:0">${name}</h2><div class="title-tag">${t('char.' + theme)}</div><p class="small" style="margin:6px 0 0">${t('lore.' + theme)}</p>
+      ${PORTRAITS.includes(theme) && html`<p class="small dim" style="margin:6px 0 0">${t('acct.photo_credit')}</p>`}</div></div>
     <${Stickers} theme=${theme} cls="mt" /></section>`;
 }

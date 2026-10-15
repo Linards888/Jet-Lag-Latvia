@@ -67,19 +67,18 @@ Augšā redzams **savienojuma indikators** (zaļš = savienots) un GPS stāvokli
 
 ## Konti, kolekcija un īpašnieka konsole
 
-Konts (poga **Konts** sākuma ekrānā) saglabā tavu profilu visās spēlēs. Nav e-pasta un nav maksājumu.
+**Lai izveidotu vai pievienotos spēlei, vajadzīgs konts** (serveris to pārbauda). Konta dati: vārds, uzvārds, **lietotājvārds** (to redz visur, arī spēlēs; atsevišķi spēlē vārdu vairs nav jāievada) un parole (serveris glabā tikai jaukumu). Spēlei vienmēr pievienojies kā savs konts; jaunā ierīcē ieej kontā un pievienojies vēlreiz (PIN nav vajadzīgs).
 
-* **Reģistrācija:** konta vārds (3-16 simboli) un parole (6+; serveris glabā tikai jaukumu, nevis pašu paroli). Kad esi pieslēdzies un pievienojies spēlei, tā tiek piesaistīta kontam.
-* **Profils:** avatārs ar rāmi, tituls, nozīmītes, līmenis, **tēmas varone ar stikeriem un īsu stāstu**, statistika un kolekcija. Publiskā saite `/#/u/<vārds>` (izslēdzama).
-* **Tēmas:** 8 visiem pieejamas (*Sakura, Sora, Latvija, Kintsugi, Mežs, Okeāns, Saulriets, Arcade*) un 6 varoņu tēmas **tikai servera īpašniekam**: *Hoshi, Hanabi, 02, Toradora, Evangelion, Kill la Kill*. Katrai tēmai ir sava varone sākuma ekrānā (bez animācijas).
-* **Sasniegumi:** 32 sasniegumi dod xp un katrs atver vienu kolekcijas priekšmetu (titulus, rāmjus, talismanu izskatus, nozīmītes, profila logrīkus). Ļoti reti nejauši notikumi spēles laikā var iedot retākos priekšmetus.
-* **Pret krāpšanu:** sasniegumu un uzvaru balvas dod tikai spēles ar vismaz diviem dažādiem kontiem un vismaz 15 minūtēm spēles laika, un xp no darbībām ir ierobežots dienā.
+* **Profils:** avatārs ar rāmi, tituls, **apraksts, ko raksti pats**, līmenis, tēmas attēls ar stāstu, statistika. Visa izskata maiņa ir paslēpta aiz mazās pogas **Labot**. Publiskā saite `/#/u/<vārds>` (izslēdzama).
+* **Kolekcija:** četrās kategorijās (tēmas, tituli, avatāra rāmji, talismana izskati) ir pa **3 priekšmetiem katrā no 5 pakāpēm** (common, rare, epic, legendary, mythic), un katru atver, spēlējot (uzdevumi, teritorijas, uzvaras, noķeršanas, ikdienas sērija u.c.), no vieglām prasībām līdz ļoti grūtām. Common un rare redz prasību; epic un augstāk ir tikai **"?"** (zini, ka ir, bet ne kas vai kā); septiņi priekšmeti (tēmas Hanabi, 02, Toradora, Evangelion, Kill la Kill un tituli Otaku, Senpai Noticed Me) **nav redzami vispār**, kamēr tos neatver.
+* **Tēmu attēli:** tēmām Mežs, Saulriets, Latvija un Okeāns ir vēsturisku personu (Rainis, Aspazija, Krišjānis Barons, Krišjānis Valdemārs) portreti no Wikimedia Commons (brīvi izmantojami; avoti `public/art/CREDITS.txt`). Pārējām tēmām ir mazs zīmēts attēls; īpašnieks var katrai tēmai **augšupielādēt savu attēlu** īpašnieka konsolē (vietne pati attēlus no interneta nelejupielādē).
+* **Pret krāpšanu:** balvas par uzvarām dod tikai spēles ar vismaz diviem dažādiem kontiem un vismaz 15 minūtēm spēles laika, un xp no darbībām ir ierobežots dienā.
 
 ### Īpašnieka konsole (tikai tavam kontam)
 
-Īpašnieku norāda ar `JETLAG_OWNER=tavs_konta_vārds` (servisā) vai failā `data/owner.json`: `{"owner": "tavs_konta_vārds"}`. Tikai šis konts profilā redz pogu **Owner console**, un serveris katru pieprasījumu pārbauda vēlreiz.
+Īpašnieku norāda ar `JETLAG_OWNER=tavs_konta_vārds` (servisā) vai failā `data/owner.json`: `{"owner": "tavs_konta_vārds"}`. Tikai šis konts profilā redz pogu **Owner console**, un serveris katru pieprasījumu pārbauda vēlreiz. Īpašniekam pieder visi priekšmeti, un viņa profilā visiem redzama **"Site owner" atzīme ar saiti uz linardsb.xyz**.
 
-* **Visi konti:** saraksts, un katram var mainīt visu: tēmu, titulu, rāmi, talismanu, visus priekšmetus un sasniegumus, statistiku, xp, **iestatīt jaunu paroli** (vecās ierīces tiek atslēgtas), pārdēvēt, atiestatīt, dzēst un **ieiet kā šis konts** (poga "Back to my account" atgriež).
+* **Visi konti:** saraksts, un katram var mainīt visu: vārdu, uzvārdu, aprakstu, tēmu, titulu, rāmi, talismanu, priekšmetus, statistiku, xp, **iestatīt jaunu paroli** (vecās ierīces tiek atslēgtas), pārdēvēt, atiestatīt, dzēst un **ieiet kā šis konts** (poga "Back to my account" atgriež).
 * **Visas spēles:** saraksts ar kodu, režīmu, stāvokli un spēlētājiem. Katrai spēlei: pauze, atsākt, beigt, paziņojums; saraksts ar dalībniekiem un viņu kontiem; **darboties kā jebkurš dalībnieks** (spēlēt kārtis, korekcijas u.c.); **mainīt jebkuru vērtību** pēc ceļa (piem. `data.teams.<id>.bonusMin`); iestatīt dalībnieka PIN; neapstrādāti spēles dati; dzēst spēli.
 * **Paroles un PIN** netiek glabāti atklātā tekstā, tāpēc tos nevar parādīt, bet var nomainīt.
 

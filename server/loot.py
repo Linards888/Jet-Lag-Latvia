@@ -1,247 +1,72 @@
-"""Collectibles and achievements for player accounts (no real money anywhere: everything is earned by playing).
+"""Collectibles for player accounts (no real money anywhere: everything is unlocked by playing).
 
-Rarity tiers: common < rare < epic < legendary < mythic < secret (shown as the tile colour).
-Pools: 'base'  = everybody owns it,
-       'std'   = earned: every achievement unlocks one item, and a very rare random encounter drops one of RARE_DROPS,
-       'owner' = the six character themes. Only the server owner has them; nobody else can obtain them.
+Four categories (themes, titles, avatar frames, mascot skins) with exactly three items in each of the five tiers
+common < rare < epic < legendary < mythic. Every item has one unlock rule: a counter (see EVENT_XP / ACTION_STAT) that must reach a goal.
+How much of it the player may see before unlocking depends on `vis`:
+  'show'    name and requirement are visible (common and rare),
+  'mystery' only a "?" tile: the player knows it exists but not what it is or how to get it (epic and above),
+  'hidden'  not shown at all until unlocked (the character themes Hanabi, 02, Toradora, Evangelion, Kill la Kill and two titles).
+The site owner (JETLAG_OWNER / data/owner.json) owns everything and can grant or take any item from any account (owner console).
 """
-RARITIES = ['common', 'rare', 'epic', 'legendary', 'mythic', 'secret']
-RARE_ENCOUNTER_CHANCE = 1 / 900  # per counted game action
+RARITIES = ['common', 'rare', 'epic', 'legendary', 'mythic']
+OWNER_SITE = 'https://linardsb.xyz'  # shown on the owner's profile for everybody
 
-
-def _i(iid, kind, rarity, pool, name, d=''):
-    return {'id': iid, 'kind': kind, 'rarity': rarity, 'pool': pool, 'name': name, 'd': d}
-
-
-ITEMS = [
-    _i('sakura', 'theme', 'common', 'base', 'Sakura'),
-    _i('sora', 'theme', 'common', 'base', 'Sora'),
-    _i('latvija', 'theme', 'common', 'base', 'Latvija'),
-    _i('kintsugi', 'theme', 'common', 'base', 'Kintsugi', 'Black lacquer mended with gold.'),
-    _i('mezs', 'theme', 'common', 'base', 'Mezs', 'A quiet forest in summer.'),
-    _i('okeans', 'theme', 'common', 'base', 'Okeans', 'Deep sea and sunken light.'),
-    _i('saulriets', 'theme', 'common', 'base', 'Saulriets', 'A warm sunset over the dunes.'),
-    _i('arcade', 'theme', 'common', 'base', 'Arcade', 'Neon pixels and a pocketful of coins.'),
-    _i('hoshi', 'theme', 'legendary', 'owner', 'Hoshi', 'A night sky full of stars.'),
-    _i('hanabi', 'theme', 'mythic', 'owner', 'Hanabi', 'Fireworks over a summer festival.'),
-    _i('zerotwo', 'theme', 'mythic', 'owner', '02', 'Pink hair, red horns and a very short fuse.'),
-    _i('toradora', 'theme', 'mythic', 'owner', 'Toradora', 'The palmtop tiger.'),
-    _i('evangelion', 'theme', 'mythic', 'owner', 'Evangelion', 'Get in the plug suit.'),
-    _i('killlakill', 'theme', 'mythic', 'owner', 'Kill la Kill', 'Scissors, school uniforms and a lot of shouting.'),
-    _i('t_newcomer', 'title', 'common', 'std', 'Newcomer'),
-    _i('t_rupjmaize', 'title', 'common', 'std', 'Rupjmaize Rider'),
-    _i('t_piragi', 'title', 'common', 'std', 'Piragi Enjoyer'),
-    _i('t_wanderer', 'title', 'rare', 'std', 'Daugava Drifter'),
-    _i('t_ozols', 'title', 'rare', 'std', 'Oak Keeper'),
-    _i('t_balzams', 'title', 'rare', 'std', 'Black Balsam'),
-    _i('t_wreath', 'title', 'rare', 'std', 'Midsummer Wreath'),
-    _i('t_kokle', 'title', 'epic', 'std', 'Kokle Master'),
-    _i('t_tram', 'title', 'epic', 'std', 'Last Tram'),
-    _i('t_saule', 'title', 'legendary', 'std', 'Daughter of the Sun'),
-    _i('t_lacplesis', 'title', 'legendary', 'std', 'Bearslayer'),
-    _i('t_otaku', 'title', 'epic', 'std', 'Otaku'),
-    _i('t_senpai', 'title', 'legendary', 'std', 'Senpai Noticed Me'),
-    _i('t_chosen', 'title', 'secret', 'std', 'The Chosen One'),
-    _i('t_hider', 'title', 'epic', 'std', 'Hider of Hiders'),
-    _i('t_ghost', 'title', 'legendary', 'std', 'Ghost Runner'),
-    _i('t_collector', 'title', 'epic', 'std', 'Collector'),
-    _i('f_plain', 'frame', 'common', 'base', 'Plain ring'),
-    _i('f_petal', 'frame', 'rare', 'std', 'Petal ring'),
-    _i('f_wave', 'frame', 'rare', 'std', 'Wave ring'),
-    _i('f_ornament', 'frame', 'epic', 'std', 'Latvian ornament'),
-    _i('f_neon', 'frame', 'epic', 'std', 'Neon ring'),
-    _i('f_gold', 'frame', 'legendary', 'std', 'Gilded ring'),
-    _i('f_prism', 'frame', 'mythic', 'std', 'Prism ring'),
-    _i('f_storm', 'frame', 'mythic', 'std', 'Sakura storm'),
-    _i('s_peach', 'skin', 'common', 'base', 'Peach Mochi'),
-    _i('s_mint', 'skin', 'rare', 'std', 'Mint Mochi'),
-    _i('s_grape', 'skin', 'rare', 'std', 'Grape Mochi'),
-    _i('s_sky', 'skin', 'rare', 'std', 'Sky Mochi'),
-    _i('s_shadow', 'skin', 'epic', 'std', 'Shadow Mochi'),
-    _i('s_gold', 'skin', 'legendary', 'std', 'Golden Mochi'),
-    _i('s_rainbow', 'skin', 'secret', 'std', 'Rainbow Mochi'),
-    _i('b_star', 'badge', 'common', 'std', 'Star'),
-    _i('b_leaf', 'badge', 'common', 'std', 'Leaf'),
-    _i('b_flame', 'badge', 'rare', 'std', 'Flame'),
-    _i('b_wave', 'badge', 'rare', 'std', 'Wave'),
-    _i('b_crown', 'badge', 'epic', 'std', 'Crown'),
-    _i('b_moon', 'badge', 'epic', 'std', 'Moon'),
-    _i('b_comet', 'badge', 'legendary', 'std', 'Comet'),
-    _i('b_sun', 'badge', 'legendary', 'std', 'Sun'),
-    _i('b_void', 'badge', 'mythic', 'std', 'Void'),
-    _i('b_one', 'badge', 'secret', 'std', 'One of One'),
-    _i('w_stats', 'widget', 'common', 'base', 'Stats'),
-    _i('w_streak', 'widget', 'rare', 'std', 'Login streak'),
-    _i('w_timeline', 'widget', 'rare', 'std', 'Recent finds'),
-    _i('w_cabinet', 'widget', 'epic', 'std', 'Trophy cabinet'),
-    _i('w_rarest', 'widget', 'epic', 'std', 'Rarest finds'),
+# (id, kind, rarity, name, stat, goal)  stat None = everybody owns it
+_ROWS = [
+    # ---- themes
+    ('sakura', 'theme', 'common', 'Sakura', None, 0), ('sora', 'theme', 'common', 'Sora', None, 0), ('latvija', 'theme', 'common', 'Latvija', None, 0),
+    ('mezs', 'theme', 'rare', 'Mežs', 'games_played', 3), ('okeans', 'theme', 'rare', 'Okeāns', 'tasks_done', 10), ('saulriets', 'theme', 'rare', 'Saulriets', 'territories', 10),
+    ('kintsugi', 'theme', 'epic', 'Kintsugi', 'wins', 3), ('arcade', 'theme', 'epic', 'Arcade', 'shop_buys', 15), ('hoshi', 'theme', 'epic', 'Hoshi', 'first_claims', 5),
+    ('hanabi', 'theme', 'legendary', 'Hanabi', 'wins', 15), ('zerotwo', 'theme', 'legendary', '02', 'found', 25), ('toradora', 'theme', 'legendary', 'Toradora', 'tags_made', 30),
+    ('evangelion', 'theme', 'mythic', 'Evangelion', 'streak', 30), ('killlakill', 'theme', 'mythic', 'Kill la Kill', 'wins', 50), ('aurora', 'theme', 'mythic', 'Aurora', 'night', 50),
+    # ---- titles
+    ('t_newcomer', 'title', 'common', 'Newcomer', 'games_played', 1), ('t_rupjmaize', 'title', 'common', 'Rupjmaize Rider', 'tasks_done', 3), ('t_piragi', 'title', 'common', 'Piragi Enjoyer', 'cards_played', 3),
+    ('t_wanderer', 'title', 'rare', 'Daugava Drifter', 'territories', 8), ('t_ozols', 'title', 'rare', 'Oak Keeper', 'tasks_done', 25), ('t_balzams', 'title', 'rare', 'Black Balsam', 'questions_asked', 25),
+    ('t_kokle', 'title', 'epic', 'Kokle Master', 'cards_played', 60), ('t_tram', 'title', 'epic', 'Last Tram', 'dest_claims', 20), ('t_wreath', 'title', 'epic', 'Midsummer Wreath', 'modes', 3),
+    ('t_lacplesis', 'title', 'legendary', 'Bearslayer', 'tags_made', 50), ('t_otaku', 'title', 'legendary', 'Otaku', 'found', 40), ('t_senpai', 'title', 'legendary', 'Senpai Noticed Me', 'wins', 20),
+    ('t_saule', 'title', 'mythic', 'Daughter of the Sun', 'wins', 40), ('t_ghost', 'title', 'mythic', 'Ghost Runner', 'night', 100), ('t_chosen', 'title', 'mythic', 'The Chosen One', 'encounters', 1),
+    # ---- avatar frames
+    ('f_plain', 'frame', 'common', 'Plain ring', None, 0), ('f_petal', 'frame', 'common', 'Petal ring', 'games_played', 2), ('f_wave', 'frame', 'common', 'Wave ring', 'tasks_done', 5),
+    ('f_leaf', 'frame', 'rare', 'Leaf ring', 'territories', 5), ('f_sky', 'frame', 'rare', 'Sky ring', 'questions_asked', 15), ('f_ember', 'frame', 'rare', 'Ember ring', 'cards_played', 25),
+    ('f_ornament', 'frame', 'epic', 'Latvian ornament', 'first_claims', 3), ('f_neon', 'frame', 'epic', 'Neon ring', 'tags_made', 15), ('f_ice', 'frame', 'epic', 'Ice ring', 'streak', 7),
+    ('f_gold', 'frame', 'legendary', 'Gilded ring', 'wins', 8), ('f_rose', 'frame', 'legendary', 'Rose ring', 'dest_claims', 40), ('f_void', 'frame', 'legendary', 'Void ring', 'found', 15),
+    ('f_prism', 'frame', 'mythic', 'Prism ring', 'wins', 30), ('f_storm', 'frame', 'mythic', 'Sakura storm', 'streak', 20), ('f_galaxy', 'frame', 'mythic', 'Galaxy ring', 'encounters', 1),
+    # ---- mascot skins
+    ('s_peach', 'skin', 'common', 'Peach Mochi', None, 0), ('s_rose', 'skin', 'common', 'Rose Mochi', 'games_played', 4), ('s_lemon', 'skin', 'common', 'Lemon Mochi', 'tasks_done', 8),
+    ('s_mint', 'skin', 'rare', 'Mint Mochi', 'cards_played', 15), ('s_grape', 'skin', 'rare', 'Grape Mochi', 'questions_asked', 20), ('s_sky', 'skin', 'rare', 'Sky Mochi', 'territories', 6),
+    ('s_shadow', 'skin', 'epic', 'Shadow Mochi', 'night', 10), ('s_ocean', 'skin', 'epic', 'Ocean Mochi', 'dest_claims', 15), ('s_ember', 'skin', 'epic', 'Ember Mochi', 'tags_made', 10),
+    ('s_gold', 'skin', 'legendary', 'Golden Mochi', 'wins', 12), ('s_ghost', 'skin', 'legendary', 'Ghost Mochi', 'found', 20), ('s_sakura', 'skin', 'legendary', 'Sakura Mochi', 'streak', 14),
+    ('s_rainbow', 'skin', 'mythic', 'Rainbow Mochi', 'wins', 40), ('s_glitch', 'skin', 'mythic', 'Glitch Mochi', 'night', 60), ('s_cosmic', 'skin', 'mythic', 'Cosmic Mochi', 'encounters', 1),
 ]
+HIDDEN = {'hanabi', 'zerotwo', 'toradora', 'evangelion', 'killlakill', 't_otaku', 't_senpai'}
+
+
+def _vis(iid, rarity):
+    return 'hidden' if iid in HIDDEN else 'show' if rarity in ('common', 'rare') else 'mystery'
+
+
+ITEMS = [{'id': i, 'kind': k, 'rarity': r, 'name': n, 'stat': s, 'goal': g, 'vis': _vis(i, r)} for i, k, r, n, s, g in _ROWS]
 BY_ID = {i['id']: i for i in ITEMS}
-RARE_DROPS = ['t_saule', 't_lacplesis', 't_senpai', 'f_prism', 'f_storm', 's_gold', 's_rainbow', 'b_comet', 'b_sun', 'b_one']
-DEFAULT_EQUIP = {'theme': 'sakura', 'title': None, 'frame': 'f_plain', 'skin': 's_peach', 'badges': [], 'widgets': ['w_stats']}
+BASE = [i['id'] for i in ITEMS if i['stat'] is None]
+UNLOCKABLE = [i for i in ITEMS if i['stat'] is not None]
+DEFAULT_EQUIP = {'theme': 'sakura', 'title': None, 'frame': 'f_plain', 'skin': 's_peach'}
+RARE_ENCOUNTER_CHANCE = 1 / 900  # per counted game action; counts toward the 'encounters' stat
 
 # xp per game event (capped per day, see accounts.py) and the game action that counts as which event
 EVENT_XP = {'tasks_done': 4, 'territories': 6, 'first_claims': 12, 'cards_played': 2, 'picks_taken': 1, 'questions_asked': 1, 'found': 8, 'tags_made': 8, 'dest_claims': 6, 'shop_buys': 2}
 ACTION_STAT = {'complete_task': 'tasks_done', 'checkin': 'territories', 'play_card': 'cards_played', 'pick': 'picks_taken', 'ask': 'questions_asked',
                'found': 'found', 'tag': 'tags_made', 'claim_destination': 'dest_claims', 'buy': 'shop_buys', 'draw_keep': 'picks_taken'}
-
-# achievements: (id, stat, goal, unlocked item, texts per language). Stats are plain counters except modes (distinct game modes played),
-# items (collection size), streak (best login streak) and night (actions between 00:00 and 04:00).
-ACH = [('first_steps',
-  'games_played',
-  1,
-  't_newcomer',
-  {'en': ('First Steps', 'Start your first game.'), 'lv': ('Pirmie soļi', 'Sāc savu pirmo spēli.'), 'ru': ('Первые шаги', 'Начните первую игру.')}),
- ('regular', 'games_played', 10, 'b_star', {'en': ('Regular', 'Play 10 games.'), 'lv': ('Pastāvīgais', 'Nospēlē 10 spēles.'), 'ru': ('Завсегдатай', 'Сыграйте 10 игр.')}),
- ('veteran', 'games_played', 50, 't_wanderer', {'en': ('Veteran', 'Play 50 games.'), 'lv': ('Veterāns', 'Nospēlē 50 spēles.'), 'ru': ('Ветеран', 'Сыграйте 50 игр.')}),
- ('first_win', 'wins', 1, 'b_leaf', {'en': ('Winner', 'Win a game.'), 'lv': ('Uzvarētājs', 'Uzvari spēlē.'), 'ru': ('Победитель', 'Выиграйте игру.')}),
- ('champion', 'wins', 5, 'f_petal', {'en': ('Champion', 'Win 5 games.'), 'lv': ('Čempions', 'Uzvari 5 spēlēs.'), 'ru': ('Чемпион', 'Выиграйте 5 игр.')}),
- ('legend', 'wins', 25, 'f_gold', {'en': ('Living Legend', 'Win 25 games.'), 'lv': ('Dzīvā leģenda', 'Uzvari 25 spēlēs.'), 'ru': ('Живая легенда', 'Выиграйте 25 игр.')}),
- ('task_rookie',
-  'tasks_done',
-  5,
-  't_piragi',
-  {'en': ('Task Rookie', 'Complete 5 tasks.'), 'lv': ('Uzdevumu jauniņais', 'Izpildi 5 uzdevumus.'), 'ru': ('Новичок заданий', 'Выполните 5 заданий.')}),
- ('task_master',
-  'tasks_done',
-  50,
-  't_ozols',
-  {'en': ('Task Master', 'Complete 50 tasks.'), 'lv': ('Uzdevumu meistars', 'Izpildi 50 uzdevumus.'), 'ru': ('Мастер заданий', 'Выполните 50 заданий.')}),
- ('task_legend',
-  'tasks_done',
-  250,
-  'b_crown',
-  {'en': ('Task Legend', 'Complete 250 tasks.'), 'lv': ('Uzdevumu leģenda', 'Izpildi 250 uzdevumus.'), 'ru': ('Легенда заданий', 'Выполните 250 заданий.')}),
- ('explorer',
-  'territories',
-  5,
-  't_rupjmaize',
-  {'en': ('Explorer', 'Leave 5 territories.'), 'lv': ('Pētnieks', 'Tiec ārā no 5 teritorijām.'), 'ru': ('Исследователь', 'Выйдите из 5 территорий.')}),
- ('pathfinder',
-  'territories',
-  25,
-  't_tram',
-  {'en': ('Pathfinder', 'Leave 25 territories.'), 'lv': ('Ceļu meklētājs', 'Tiec ārā no 25 teritorijām.'), 'ru': ('Следопыт', 'Выйдите из 25 территорий.')}),
- ('first_arrival',
-  'first_claims',
-  1,
-  'b_flame',
-  {'en': ('First to Arrive', 'Be the first team out of a territory.'),
-   'lv': ('Pirmais klāt', 'Esi pirmā komanda, kas tiek ārā no teritorijas.'),
-   'ru': ('Первым на месте', 'Станьте первой командой, вышедшей из территории.')}),
- ('trailblazer',
-  'first_claims',
-  10,
-  'f_ornament',
-  {'en': ('Trailblazer', 'Be first out of a territory 10 times.'),
-   'lv': ('Ceļa skaldītājs', 'Esi pirmais 10 teritorijās.'),
-   'ru': ('Первопроходец', 'Будьте первыми в 10 территориях.')}),
- ('card_shark',
-  'cards_played',
-  10,
-  's_mint',
-  {'en': ('Card Shark', 'Play 10 cards.'), 'lv': ('Kāršu haizivs', 'Izspēlē 10 kārtis.'), 'ru': ('Карточная акула', 'Сыграйте 10 карт.')}),
- ('card_baron',
-  'cards_played',
-  60,
-  's_shadow',
-  {'en': ('Card Baron', 'Play 60 cards.'), 'lv': ('Kāršu barons', 'Izspēlē 60 kārtis.'), 'ru': ('Карточный барон', 'Сыграйте 60 карт.')}),
- ('picker',
-  'picks_taken',
-  30,
-  'w_timeline',
-  {'en': ('Careful Picker', 'Take 30 card picks.'), 'lv': ('Rūpīgais izvēlētājs', 'Paņem 30 kāršu izvēles.'), 'ru': ('Внимательный выбор', 'Сделайте 30 выборов карт.')}),
- ('detective',
-  'questions_asked',
-  10,
-  't_balzams',
-  {'en': ('Detective', 'Ask 10 questions as a seeker.'),
-   'lv': ('Detektīvs', 'Uzdod 10 jautājumus kā meklētājs.'),
-   'ru': ('Детектив', 'Задайте 10 вопросов как ищущий.')}),
- ('sherlock',
-  'questions_asked',
-  100,
-  's_grape',
-  {'en': ('Sherlock', 'Ask 100 questions.'), 'lv': ('Šerloks', 'Uzdod 100 jautājumus.'), 'ru': ('Шерлок', 'Задайте 100 вопросов.')}),
- ('hunter',
-  'found',
-  5,
-  'b_wave',
-  {'en': ('Hunter', 'Find the hider 5 times.'), 'lv': ('Mednieks', 'Atrodi slēpēju 5 reizes.'), 'ru': ('Охотник', 'Найдите прячущегося 5 раз.')}),
- ('tagger', 'tags_made', 5, 's_sky', {'en': ('Tagger', 'Tag 5 teams.'), 'lv': ('Ķērājs', 'Noķer 5 komandas.'), 'ru': ('Салка', 'Осалите 5 команд.')}),
- ('tag_terror',
-  'tags_made',
-  30,
-  'f_neon',
-  {'en': ('Terror of the Streets', 'Tag 30 teams.'), 'lv': ('Ielu šausmas', 'Noķer 30 komandas.'), 'ru': ('Гроза улиц', 'Осалите 30 команд.')}),
- ('traveler',
-  'dest_claims',
-  5,
-  't_wreath',
-  {'en': ('Traveler', 'Reach 5 destinations.'), 'lv': ('Ceļotājs', 'Sasniedz 5 mērķus.'), 'ru': ('Путешественник', 'Достигните 5 пунктов.')}),
- ('globetrotter',
-  'dest_claims',
-  40,
-  'b_moon',
-  {'en': ('Globetrotter', 'Reach 40 destinations.'), 'lv': ('Pasaules ceļotājs', 'Sasniedz 40 mērķus.'), 'ru': ('Глобтроттер', 'Достигните 40 пунктов.')}),
- ('shopper',
-  'shop_buys',
-  5,
-  'w_rarest',
-  {'en': ('Shopper', 'Buy 5 things in the shop.'), 'lv': ('Pircējs', 'Nopērc 5 lietas veikalā.'), 'ru': ('Покупатель', 'Купите 5 вещей в магазине.')}),
- ('all_modes',
-  'modes',
-  3,
-  't_kokle',
-  {'en': ('All Rounder', 'Play Race, Hide & Seek and Tag.'),
-   'lv': ('Visu prasmju meistars', 'Nospēlē Race, Hide & Seek un Tag.'),
-   'ru': ('Универсал', 'Сыграйте в Race, Hide & Seek и Tag.')}),
- ('streak3',
-  'streak',
-  3,
-  'w_streak',
-  {'en': ('Warming Up', 'Log in 3 days in a row.'), 'lv': ('Iesilšanās', 'Pieslēdzies 3 dienas pēc kārtas.'), 'ru': ('Разогрев', 'Заходите 3 дня подряд.')}),
- ('streak7',
-  'streak',
-  7,
-  'f_wave',
-  {'en': ('Weekly Habit', 'Log in 7 days in a row.'),
-   'lv': ('Nedēļas ieradums', 'Pieslēdzies 7 dienas pēc kārtas.'),
-   'ru': ('Недельная привычка', 'Заходите 7 дней подряд.')}),
- ('streak30',
-  'streak',
-  30,
-  'b_void',
-  {'en': ('Unbreakable', 'Log in 30 days in a row.'), 'lv': ('Nesalaužamais', 'Pieslēdzies 30 dienas pēc kārtas.'), 'ru': ('Несокрушимый', 'Заходите 30 дней подряд.')}),
- ('collector',
-  'items',
-  15,
-  't_collector',
-  {'en': ('Collector', 'Own 15 collectibles.'), 'lv': ('Kolekcionārs', 'Savāc 15 priekšmetus.'), 'ru': ('Коллекционер', 'Соберите 15 предметов.')}),
- ('hoarder',
-  'items',
-  40,
-  'w_cabinet',
-  {'en': ('Dragon Hoard', 'Own 40 collectibles.'), 'lv': ('Pūķa krājums', 'Savāc 40 priekšmetus.'), 'ru': ('Сокровища дракона', 'Соберите 40 предметов.')}),
- ('night_owl',
-  'night',
-  5,
-  't_ghost',
-  {'en': ('Night Owl', 'Play 5 actions between midnight and 4 am.'),
-   'lv': ('Naktssikspārnis', 'Veic 5 darbības starp pusnakti un 4:00.'),
-   'ru': ('Ночная сова', 'Сделайте 5 действий между полуночью и 4:00.')}),
- ('lucky',
-  'encounters',
-  1,
-  't_chosen',
-  {'en': ('Lucky Star', 'Meet a rare encounter during a game.'),
-   'lv': ('Laimes zvaigzne', 'Sastop retu notikumu spēles laikā.'),
-   'ru': ('Счастливая звезда', 'Встретьте редкое событие во время игры.')})]
-ACH_BY_ID = {a[0]: a for a in ACH}
+# counters that are not plain per-account sums: modes (distinct game modes played), streak (best login streak)
+STATS = ['games_played', 'games_finished', 'wins', 'tasks_done', 'territories', 'first_claims', 'cards_played', 'picks_taken', 'questions_asked', 'found',
+         'tags_made', 'dest_claims', 'shop_buys', 'encounters', 'night', 'modes', 'streak']
 
 
 def catalog():
-    return {
-        'rarities': RARITIES, 'items': ITEMS,
-        'ach': [{'id': a[0], 'stat': a[1], 'goal': a[2], 'item': a[3], 'tr': {l: {'name': v[0], 'desc': v[1]} for l, v in a[4].items()}} for a in ACH],
-    }
+    """Public catalog. The requirement of epic-and-above items is not sent: the player only learns that such an item exists."""
+    out = []
+    for i in ITEMS:
+        row = {'id': i['id'], 'kind': i['kind'], 'rarity': i['rarity'], 'name': i['name'], 'vis': i['vis']}
+        if i['vis'] == 'show' and i['stat']:
+            row.update(stat=i['stat'], goal=i['goal'])
+        out.append(row)
+    return {'rarities': RARITIES, 'items': out, 'base': BASE, 'ownerSite': OWNER_SITE}

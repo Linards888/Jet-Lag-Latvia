@@ -2,6 +2,8 @@
 JETLAG_OWNER / data/owner.json; app.py checks that before calling anything here. PINs and passwords are stored only as salted
 hashes, so they cannot be shown: the owner can replace them instead (set_pin here, set_password in accounts.py)."""
 import json
+import os
+import re
 
 import core
 import game as G
@@ -77,3 +79,42 @@ def game_action(store, g, p):
             raise GameError('Not found')
         G.settle(g, core.now_ms())  # a status changed through patch/act pays rewards exactly like a normal finish
         G.bump(store, g)
+
+
+# ---------------------------------------------------------------- theme art (the owner uploads images they have the rights to)
+ART_EXT = (('jpg', bytes([0xFF, 0xD8, 0xFF])), ('png', bytes([0x89, 0x50, 0x4E, 0x47])), ('webp', b'RIFF'))
+
+
+def _art_dir():
+    return os.path.join(core.DATA_DIR, 'art')
+
+
+def find_art(theme, public_dir):
+    theme = re.sub(r'[^a-z0-9]', '', str(theme).lower())
+    for base in (_art_dir(), os.path.join(public_dir, 'art')):
+        for ext, _ in ART_EXT:
+            f = os.path.join(base, theme + '.' + ext)
+            if theme and os.path.isfile(f):
+                return f
+    return None
+
+
+def save_art(theme, data):
+    """Store (or, with an empty body, remove) the art of one theme. Only real jpg/png/webp files are accepted."""
+    import loot
+    if loot.BY_ID.get(theme, {}).get('kind') != 'theme':
+        raise GameError('Not found')
+    os.makedirs(_art_dir(), exist_ok=True)
+    for ext, _ in ART_EXT:
+        try:
+            os.remove(os.path.join(_art_dir(), theme + '.' + ext))
+        except OSError:
+            pass
+    if not data:
+        return True
+    ext = next((e for e, magic in ART_EXT if data.startswith(magic) and (e != 'webp' or data[8:12] == b'WEBP')), None)
+    if not ext:
+        raise GameError('Only JPEG/PNG/WebP images are accepted')
+    with open(os.path.join(_art_dir(), theme + '.' + ext), 'wb') as f:
+        f.write(data)
+    return True

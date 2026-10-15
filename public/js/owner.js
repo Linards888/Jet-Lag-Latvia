@@ -3,7 +3,8 @@ import { toast } from './api.js';
 import { t } from './i18n.js';
 import { AsyncBtn, Chip, Field, Mochi, Ico, fmtDateTime } from './ui.js';
 import { go } from './home.js';
-import { call, loadCatalog, loadMe, useAccount, getCatalog, achText, switchToToken, Tile } from './account.js';
+import { call, loadCatalog, loadMe, useAccount, getCatalog, accountToken, switchToToken, Tile } from './account.js';
+import { clearArt } from './characters.js';
 
 // Owner console: every account and every game. Only the server owner (JETLAG_OWNER / data/owner.json) gets past the server check.
 const guard = async (fn, ok) => { try { const r = await fn(); if (ok) toast(ok, true); return r === undefined ? true : r; } catch (e) { toast(e.message); return false; } };
@@ -15,8 +16,9 @@ function AccountPanel({ id, onChange }) {
   const [v, setV] = useState(null);
   const [stat, setStat] = useState('tasks_done'), [val, setVal] = useState('100');
   const [pw, setPw] = useState(''), [name, setName] = useState('');
+  const [pf, setPf] = useState({ first: '', last: '', bio: '' });
   const run = (body, ok) => guard(async () => { const r = await call('POST', '/owner/accounts/' + id, body); setV(r.view); onChange && onChange(); return r; }, ok);
-  useEffect(() => { call('GET', '/owner/accounts/' + id).then(setV).catch((e) => toast(e.message)); }, [id]);
+  useEffect(() => { call('GET', '/owner/accounts/' + id).then((x) => { setV(x); setPf({ first: x.first, last: x.last, bio: x.bio }); }).catch((e) => toast(e.message)); }, [id]);
   if (!v) return html`<p class="dim small">...</p>`;
   const has = new Set(v.owned);
   const pick = (kind, label) => html`<${Field} label=${label}><select value=${v.equip[kind] || ''} onChange=${(e) => run({ action: 'equip', kind, item: e.target.value || null })}>
@@ -24,12 +26,12 @@ function AccountPanel({ id, onChange }) {
   return html`<div class="stack owner-panel">
     <div class="row" style="flex-wrap:wrap;gap:8px"><${Chip}>id ${v.id}<//><${Chip}>${t('owner.devices', { n: v.devices })}<//><${Chip}>${t('acct.level', { n: v.level })}<//></div>
     <div class="row" style="flex-wrap:wrap;gap:8px">${pick('theme', t('acct.kind_theme'))}${pick('title', t('acct.kind_title'))}${pick('frame', t('acct.kind_frame'))}${pick('skin', t('acct.kind_skin'))}</div>
-    <div class="row" style="flex-wrap:wrap"><${AsyncBtn} class="sm soft" onClick=${() => run({ action: 'all_items' }, t('saved'))}>${t('owner.all_items')}<//>
-      <${AsyncBtn} class="sm soft" onClick=${() => run({ action: 'ach', id: 'all' }, t('saved'))}>${t('owner.all_ach')}<//></div>
+    <div class="row nw"><input placeholder=${t('acct.first')} value=${pf.first} onInput=${(e) => setPf({ ...pf, first: e.target.value })} /><input placeholder=${t('acct.last')} value=${pf.last} onInput=${(e) => setPf({ ...pf, last: e.target.value })} /></div>
+    <textarea rows="2" maxlength="300" placeholder=${t('acct.bio')} value=${pf.bio} onInput=${(e) => setPf({ ...pf, bio: e.target.value })}></textarea>
+    <${AsyncBtn} class="sm" onClick=${() => run({ action: 'profile', ...pf }, t('saved'))}>${t('acct.save')}<//>
+    <div class="row" style="flex-wrap:wrap"><${AsyncBtn} class="sm soft" onClick=${() => run({ action: 'all_items' }, t('saved'))}>${t('owner.all_items')}<//></div>
     <p class="eyebrow">${t('owner.items')}</p>
-    <div class="tiles compact">${cat.items.filter((i) => i.pool === 'std').map((it) => html`<${Tile} key=${it.id} it=${it} owned=${has.has(it.id)} on=${has.has(it.id)} onClick=${() => run({ action: 'item', id: it.id, have: !has.has(it.id) })}><//>`)}</div>
-    <p class="eyebrow">${t('owner.ach')}</p>
-    <div class="chips">${cat.ach.map((a) => html`<button class="sm ${v.ach[a.id] ? '' : 'ghost'}" key=${a.id} onClick=${() => run({ action: 'ach', id: a.id, have: !v.ach[a.id] })}>${achText(a).name}</button>`)}</div>
+    <div class="tiles compact">${cat.items.filter((i) => !cat.base.includes(i.id)).map((it) => html`<${Tile} key=${it.id} it=${it} owned=${has.has(it.id)} on=${has.has(it.id)} onClick=${() => run({ action: 'item', id: it.id, have: !has.has(it.id) })}><span class="tn">${it.name}</span><//>`)}</div>
     <p class="eyebrow">${t('owner.stats')}</p>
     <div class="row nw"><select value=${stat} onChange=${(e) => setStat(e.target.value)}>${['games_played', 'games_finished', 'wins', 'tasks_done', 'territories', 'first_claims', 'cards_played', 'picks_taken', 'questions_asked', 'found', 'tags_made', 'dest_claims', 'shop_buys', 'encounters', 'night'].map((k) => html`<option key=${k} value=${k}>${k} (${v.stats[k] || 0})</option>`)}</select>
       <input type="number" value=${val} onInput=${(e) => setVal(e.target.value)} /><${AsyncBtn} class="sm" onClick=${() => run({ action: 'stat', stat, value: num(val) }, t('saved'))}>${t('owner.set')}<//>
@@ -51,7 +53,7 @@ function Accounts() {
   const rows = (list || []).filter((a) => a.name.toLowerCase().includes(q.toLowerCase()));
   return html`<section class="card"><div class="sec-h"><h2>${t('owner.accounts')}</h2><span class="chip plain">${list ? list.length : '...'}</span></div>
     <input placeholder=${t('owner.search')} value=${q} onInput=${(e) => setQ(e.target.value)} />
-    <div class="list mt">${rows.map((a) => html`<div key=${a.id} class="owner-row"><div class="row sp nw" onClick=${() => setOpen(open === a.id ? null : a.id)} style="cursor:pointer"><span><b>${a.name}</b> <span class="small dim">${t('acct.level', { n: a.level })} - ${a.items} ${t('owner.items_short')} - ${a.ach} ${t('owner.ach_short')} - ${fmtDateTime(a.created)}</span></span><${Ico} n=${open === a.id ? 'close' : 'back'} size=${14} /></div>
+    <div class="list mt">${rows.map((a) => html`<div key=${a.id} class="owner-row"><div class="row sp nw" onClick=${() => setOpen(open === a.id ? null : a.id)} style="cursor:pointer"><span><b>${a.name}</b> <span class="small dim">${a.first} ${a.last} - ${t('acct.level', { n: a.level })} - ${a.items} ${t('owner.items_short')} - ${fmtDateTime(a.created)}</span></span><${Ico} n=${open === a.id ? 'close' : 'back'} size=${14} /></div>
       ${open === a.id && html`<${AccountPanel} id=${a.id} onChange=${refresh} />`}</div>`)}</div></section>`;
 }
 
@@ -104,11 +106,28 @@ function Games() {
       ${open === g.code && html`<${GamePanel} code=${g.code} onChange=${refresh} />`}</div>`)}</div></section>`;
 }
 
+// character art per theme: the owner uploads images they have the rights to (nothing is fetched from the internet by the site)
+function ThemeArt() {
+  const cat = getCatalog();
+  const [theme, setTheme] = useState('zerotwo');
+  const send = async (body) => {
+    try {
+      const r = await fetch('/api/account/owner/art/' + theme, { method: 'POST', headers: { 'X-Account': accountToken() }, body });
+      if (!r.ok) throw new Error((await r.json()).error);
+      clearArt(theme); toast(t('saved'), true);
+    } catch (e) { toast(e.message); }
+  };
+  return html`<section class="card"><div class="sec-h"><h2>${t('owner.art')}</h2></div><p class="small dim" style="margin-top:0">${t('owner.art_hint')}</p>
+    <div class="row nw"><select value=${theme} onChange=${(e) => setTheme(e.target.value)}>${cat.items.filter((i) => i.kind === 'theme').map((i) => html`<option key=${i.id} value=${i.id}>${i.name}</option>`)}</select>
+      <input type="file" accept="image/jpeg,image/png,image/webp" onChange=${(e) => e.target.files[0] && send(e.target.files[0])} /></div>
+    <button class="sm ghost mt" onClick=${() => send(new Blob([]))}>${t('owner.art_remove')}</button></section>`;
+}
+
 export function OwnerPage() {
   const { me: m } = useAccount();
   useEffect(() => { loadCatalog().then(() => loadMe(true)); }, []);
   if (!getCatalog() || !m) return html`<div class="wrap center"><${Mochi} size=${90} mood="sleepy" /></div>`;
   if (!m.owner) return html`<div class="wrap center"><${Mochi} size=${90} mood="sleepy" /><p class="dim">${t('nf.title')}</p><button onClick=${() => go('#/')}>${t('nf.back')}</button></div>`;
   return html`<div class="wrap"><div class="row"><button class="ghost icon" aria-label=${t('back')} onClick=${() => go('#/me')}><${Ico} n="back" /></button><h2 style="margin:0">${t('owner.console')}</h2></div>
-    <div class="stack mt"><${Accounts} /><${Games} /></div></div>`;
+    <div class="stack mt"><${Accounts} /><${Games} /><${ThemeArt} /></div></div>`;
 }

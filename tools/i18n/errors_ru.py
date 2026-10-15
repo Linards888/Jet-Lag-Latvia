@@ -164,4 +164,5 @@ E = {
     'Not enough Sakura tickets': 'Не хватает билетов Сакуры',
     'You do not own that': 'У вас этого нет',
     'Log in to your account first': 'Сначала войдите в аккаунт',
+    '{1} must be 1-24 characters': '{1}: от 1 до 24 символов',
 }

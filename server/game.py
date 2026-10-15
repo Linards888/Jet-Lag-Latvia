@@ -136,6 +136,24 @@ def join(store, game, name, role, pin):
     return m, token
 
 
+def account_join(store, game, acc, role):
+    """Join as the logged-in account: the player's name is the account username; a random PIN is kept only for the old name+PIN flow."""
+    again = next((x for x in game['members'].values() if x.get('acct') == acc['id']), None)
+    if again:
+        return again, _issue_token(store, game, again)
+    m, token = join(store, game, acc['name'], role, ''.join(secrets.choice('0123456789') for _ in range(8)))
+    m['acct'] = acc['id']
+    return m, token
+
+
+def account_rejoin(store, game, acc):
+    """Back into a game on a new device with the account (no PIN or admin key needed)."""
+    m = next((x for x in game['members'].values() if x.get('acct') == acc['id']), None)
+    if not m:
+        raise GameError('No such member (admins use the admin key)')
+    return m, _issue_token(store, game, m)
+
+
 def rejoin(store, game, name, pin):
     m = next((x for x in game['members'].values() if x['name'].lower() == str(name or '').strip().lower()), None)
     if not m or m['role'] == 'admin':

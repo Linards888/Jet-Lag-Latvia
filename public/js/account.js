@@ -1,7 +1,7 @@
 import { html, useState, useEffect } from '/vendor/preact.js';
 import { api, toast } from './api.js';
-import { t, getLang } from './i18n.js';
-import { AsyncBtn, Field, Modal, Mochi, Ico, Switch, copy, fmtDateTime } from './ui.js';
+import { t } from './i18n.js';
+import { AsyncBtn, Field, Modal, Mochi, Ico, Switch, copy } from './ui.js';
 import { setPrefs, useTheme } from './theme.js';
 import { go } from './home.js';
 import { ThemeCard } from './characters.js';
@@ -27,13 +27,9 @@ export async function loadCatalog() {
 }
 export const getCatalog = () => cat;
 export const itemName = (id) => (cat && cat.byId[id] ? cat.byId[id].name : id);
-export const achText = (a) => a.tr[getLang()] || a.tr.en;
 
 function announce(pending) {
-  for (const ev of pending || []) {
-    if (ev.k === 'item') toast(t('acct.n_item', { name: itemName(ev.item) }), true);
-    else if (ev.k === 'encounter') toast(t('acct.n_encounter'), true);
-  }
+  for (const ev of pending || []) if (ev.k === 'item') toast(t('acct.n_item', { name: itemName(ev.item) }), true);
 }
 
 // the equipped theme / mascot skin become the active look (done on login and when equipping, not on every load, so the local choice sticks)
@@ -54,22 +50,23 @@ export async function loadMe(quiet) {
   emit();
   return me;
 }
-export const ownedSet = () => new Set([...(cat ? cat.items.filter((i) => i.pool === 'base').map((i) => i.id) : []), ...(me ? me.owned : [])]);
+export const ownedSet = () => new Set([...(cat ? cat.base : ['sakura', 'sora', 'latvija']), ...(me ? me.owned : [])]);
 
-async function authed(path, name, password) {
-  const d = await call('POST', path, { name, password });
+async function authed(path, body) {
+  const d = await call('POST', path, body);
   token = d.token; store(KEY, token); store(OWNER_KEY, null);
   await loadCatalog();
   me = d.me; announce(d.me.pending); applyEquip(d.me); emit();
 }
-export const login = (n, p) => authed('/login', n, p);
-export const register = (n, p) => authed('/register', n, p);
+export const login = (name, password) => authed('/login', { name, password });
+export const register = (first, last, name, password) => authed('/register', { first, last, name, password });
 export async function logout() {
   try { await call('POST', '/logout', {}); } catch {}
   token = null; me = null; store(KEY, null); store(OWNER_KEY, null);
   document.documentElement.removeAttribute('data-skin'); emit();
 }
 export async function equip(body) { await call('POST', '/equip', body); await loadMe(true); if (body.kind === 'theme' || body.kind === 'skin') applyEquip(me); }
+export async function saveProfile(body) { await call('POST', '/profile', body); await loadMe(true); }
 export async function linkGame(code, gameToken) { if (token) { try { await api('POST', `/games/${code}/link`, {}, gameToken); } catch {} } }
 // the owner can open any account; the owner's own session is kept so they can switch back
 export function switchToToken(newToken) { if (!load(OWNER_KEY)) store(OWNER_KEY, token); store(KEY, newToken); location.hash = '#/me'; location.reload(); }
@@ -78,75 +75,81 @@ export const isImpersonating = () => !!load(OWNER_KEY);
 if (token) setTimeout(() => loadMe(), 0);
 
 // ---------------------------------------------------------------- small pieces
-const RAR = ['common', 'rare', 'epic', 'legendary', 'mythic', 'secret'];
+const RAR = ['common', 'rare', 'epic', 'legendary', 'mythic'];
+const KINDS = ['theme', 'title', 'frame', 'skin'];
 export function Avatar({ name, frame = 'f_plain', skin = 's_peach', size = 64 }) {
   return html`<span class="avatar ${frame}" data-skin=${skin} style=${{ width: size + 'px', height: size + 'px', fontSize: size * 0.42 + 'px' }}><b>${(name || '?').slice(0, 1).toUpperCase()}</b></span>`;
 }
-export const Badge = ({ id }) => html`<span class="badge ${id}" title=${itemName(id)}></span>`;
-export const Tile = ({ it, owned, on, onClick, children }) => html`<button class="tile r-${it.rarity} ${owned ? '' : 'locked'} ${on ? 'on' : ''}" onClick=${onClick} disabled=${!onClick}>
-  <span class="tn">${it.name}</span>${children}</button>`;
+export const Tile = ({ it, owned, on, onClick, children }) => html`<button class="tile r-${it.rarity} ${owned ? '' : 'locked'} ${on ? 'on' : ''}" onClick=${onClick} disabled=${!onClick}>${children}</button>`;
 
-function AuthForm({ onDone }) {
+// ---------------------------------------------------------------- sign in / create account (a real account is needed to play)
+export function AuthForm({ onDone }) {
   const [mode, setMode] = useState('login');
-  const [name, setName] = useState('');
-  const [pw, setPw] = useState('');
-  const submit = async () => { try { await (mode === 'login' ? login : register)(name.trim(), pw); onDone && onDone(); return true; } catch (e) { toast(e.message); return false; } };
+  const [f, setF] = useState({ first: '', last: '', name: '', pw: '' });
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const submit = async () => {
+    try { await (mode === 'login' ? login(f.name.trim(), f.pw) : register(f.first, f.last, f.name.trim(), f.pw)); onDone && onDone(); return true; } catch (e) { toast(e.message); return false; }
+  };
   return html`<div class="stack"><p class="dim small" style="margin:0">${t('acct.why')}</p>
-    <${Field} label=${t('acct.name')}><input value=${name} maxlength="16" autocomplete="username" onInput=${(e) => setName(e.target.value)} /><//>
-    <${Field} label=${t('acct.password')}><input type="password" value=${pw} autocomplete=${mode === 'login' ? 'current-password' : 'new-password'} onInput=${(e) => setPw(e.target.value)} onKeyDown=${(e) => e.key === 'Enter' && submit()} /><//>
+    ${mode === 'register' && html`<div class="row nw"><${Field} label=${t('acct.first')}><input value=${f.first} maxlength="24" autocomplete="given-name" onInput=${set('first')} /><//>
+      <${Field} label=${t('acct.last')}><input value=${f.last} maxlength="24" autocomplete="family-name" onInput=${set('last')} /><//></div>`}
+    <${Field} label=${t('acct.name')}><input value=${f.name} maxlength="16" autocomplete="username" onInput=${set('name')} /><//>
+    <${Field} label=${t('acct.password')}><input type="password" value=${f.pw} autocomplete=${mode === 'login' ? 'current-password' : 'new-password'} onInput=${set('pw')} onKeyDown=${(e) => e.key === 'Enter' && submit()} /><//>
     <${AsyncBtn} class="block" onClick=${submit}>${mode === 'login' ? t('acct.login') : t('acct.register')}<//>
     <button class="link" onClick=${() => setMode(mode === 'login' ? 'register' : 'login')}>${mode === 'login' ? t('acct.to_register') : t('acct.to_login')}</button></div>`;
 }
 export function AuthModal({ onClose }) { return html`<${Modal} title=${t('acct.title')} onClose=${onClose}><${AuthForm} onDone=${onClose} /><//>`; }
+// wrap a page that needs an account: shows the sign-in form instead until the player has one
+export function RequireAccount({ children }) {
+  const { me: m } = useAccount();
+  return m ? children : html`<div class="card"><h2>${t('acct.need')}</h2><${AuthForm} /></div>`;
+}
 
-// button on the home page: opens the profile or the login dialog
+// button for the global bar and game topbar: opens the profile or the sign-in dialog
 export function AccountButton() {
   const { me: m } = useAccount();
   const [open, setOpen] = useState(false);
   return html`<span><button class="ghost sm" onClick=${() => (m ? go('#/me') : setOpen(true))}>${m ? m.name : t('acct.title')}</button>${open && html`<${AuthModal} onClose=${() => setOpen(false)} />`}</span>`;
 }
 
-// ---------------------------------------------------------------- profile widgets (the Stats one is always shown)
-const STAT_KEYS = ['games_played', 'wins', 'tasks_done', 'territories', 'first_claims', 'cards_played', 'questions_asked', 'found', 'tags_made', 'dest_claims', 'shop_buys', 'encounters', 'best_streak'];
-const WStats = ({ v }) => html`<div class="statgrid">${STAT_KEYS.map((k) => html`<div class="stat" key=${k}><b>${v.stats[k] || 0}</b><span>${t('acct.s_' + k)}</span></div>`)}</div>`;
-const WStreak = ({ v }) => html`<div class="row"><span class="big">${(v.streak && v.streak.n) || 0}</span><span class="dim small">${t('acct.streak', { n: (v.streak && v.streak.n) || 0 })} - ${t('acct.best', { n: v.stats.best_streak || 0 })}</span></div>`;
-const WTimeline = ({ v }) => html`<div class="list">${(v.recent || []).length === 0 ? html`<span class="dim small">-</span>` : v.recent.map((e, i) => html`<div class="row sp small" key=${i}><span>${e.kind === 'item' ? itemName(e.item) : e.kind === 'ach' ? achText(cat.ach.find((a) => a.id === e.id) || { tr: { en: { name: e.id } } }).name : t('acct.n_encounter')}</span><span class="dim">${fmtDateTime(e.t)}</span></div>`)}</div>`;
-const WRarest = ({ v }) => html`<div class="chips">${v.rarest.map((id) => html`<span class="chip r-${cat.byId[id].rarity}" key=${id}>${itemName(id)}</span>`)}</div>`;
-const WCabinet = ({ v }) => html`<div class="cabinet">${RAR.slice().reverse().flatMap((r) => v.owned.filter((i) => cat.byId[i].rarity === r && cat.byId[i].kind !== 'widget')).slice(0, 24).map((id) => html`<span class="trophy r-${cat.byId[id].rarity}" title=${itemName(id)} key=${id}></span>`)}</div>`;
-const WIDGETS = { w_stats: WStats, w_streak: WStreak, w_timeline: WTimeline, w_rarest: WRarest, w_cabinet: WCabinet };
-const Widgets = ({ v }) => html`<div class="widgets">${(v.equip.widgets || []).filter((w) => WIDGETS[w]).map((w) => { const W = WIDGETS[w]; return html`<section class="card widget" key=${w}><div class="sec-h"><h3 style="margin:0">${itemName(w)}</h3></div><${W} v=${v} /></section>`; })}</div>`;
+// ---------------------------------------------------------------- profile
+const statValue = (v, stat) => v.stats[stat] || 0;
+const STAT_KEYS = ['games_played', 'wins', 'tasks_done', 'territories', 'first_claims', 'cards_played', 'questions_asked', 'found', 'tags_made', 'dest_claims', 'shop_buys', 'encounters', 'streak'];
+const OwnerMark = () => html`<a class="owner-mark" href=${cat.ownerSite} target="_blank" rel="noopener noreferrer"><i></i>${t('acct.owner_mark')}<b>${cat.ownerSite.replace('https://', '')}</b></a>`;
 
-// ---------------------------------------------------------------- collection: compact tiles, tap to equip
-const KINDS = ['theme', 'title', 'frame', 'skin', 'badge', 'widget'];
-const SLOT = { badge: 'badges', widget: 'widgets' };
-function Collection({ v }) {
-  const owned = ownedSet(), eq = v.equip;
-  const isOn = (it) => (SLOT[it.kind] ? (eq[SLOT[it.kind]] || []).includes(it.id) : eq[it.kind] === it.id);
-  const click = async (it) => {
-    try {
-      if (SLOT[it.kind]) { const cur = eq[SLOT[it.kind]] || []; await equip({ kind: SLOT[it.kind], items: cur.includes(it.id) ? cur.filter((x) => x !== it.id) : [...cur, it.id] }); }
-      else await equip({ kind: it.kind, item: it.kind === 'title' && isOn(it) ? null : it.id });
-    } catch (e) { toast(e.message); }
-  };
-  const shown = (it) => it.pool === 'base' || owned.has(it.id) || it.kind !== 'theme';
-  return html`<section class="card"><div class="sec-h"><h2>${t('acct.collection')}</h2><span class="chip plain">${t('acct.owned', { a: v.owned.length, b: cat.items.filter((i) => i.pool !== 'base' && shown(i)).length })}</span></div>
-    ${KINDS.map((k) => html`<div key=${k}><p class="eyebrow mt">${t('acct.kind_' + k)}</p><div class="tiles compact">${cat.items.filter((i) => i.kind === k && shown(i)).sort((a, b) => RAR.indexOf(a.rarity) - RAR.indexOf(b.rarity)).map((it) =>
-      html`<${Tile} key=${it.id} it=${it} owned=${owned.has(it.id)} on=${isOn(it)} onClick=${owned.has(it.id) ? () => click(it) : null}>${k === 'badge' && html`<${Badge} id=${it.id} />`}<//>`)}</div></div>`)}</section>`;
-}
-
-export function Header({ v }) {
+export function Header({ v, own, onEdit }) {
   const e = v.equip, nextLv = Math.pow(v.level, 2) * 60, curLv = Math.pow(v.level - 1, 2) * 60;
   return html`<section class="card profile-head"><div class="row nw" style="gap:14px"><${Avatar} name=${v.name} frame=${e.frame} skin=${e.skin} size=${76} />
-    <div class="grow"><h1 style="margin:0;font-size:1.5rem">${v.name}</h1>${e.title && html`<div class="title-tag">${itemName(e.title)}</div>`}
+    <div class="grow"><div class="row sp nw"><h1 style="margin:0;font-size:1.5rem">${v.name}</h1>${own && html`<button class="ghost sm" onClick=${onEdit}>${t('acct.edit')}</button>`}</div>
+      <div class="small dim">${v.first} ${v.last}</div>${e.title && html`<div class="title-tag">${itemName(e.title)}</div>`}
       <div class="small dim">${t('acct.level', { n: v.level })}</div><i class="pbar"><u style=${{ width: Math.min(100, (v.xp - curLv) / (nextLv - curLv) * 100) + '%' }}></u></i></div></div>
-    ${(e.badges || []).length > 0 && html`<div class="row mt" style="gap:8px">${e.badges.map((b) => html`<${Badge} id=${b} key=${b} />`)}</div>`}</section>`;
+    ${v.owner && html`<div class="mt"><${OwnerMark} /></div>`}${v.bio && html`<p class="bio">${v.bio}</p>`}</section>`;
 }
+const Stats = ({ v }) => html`<section class="card"><div class="sec-h"><h2>${t('acct.stats')}</h2></div><div class="statgrid">${STAT_KEYS.map((k) => html`<div class="stat" key=${k}><b>${statValue(v, k)}</b><span>${t('acct.s_' + k)}</span></div>`)}</div></section>`;
 const themeName = (id) => (cat.byId[id] ? cat.byId[id].name : id);
+
+// ---------------------------------------------------------------- edit: bio, name and the whole look (hidden behind the small Edit button)
+const need = (it, v) => (it.stat ? html`<span class="small dim">${t('acct.s_' + it.stat)}: ${Math.min(statValue(v, it.stat), it.goal)}/${it.goal}</span>` : null);
+function EditModal({ v, onClose }) {
+  const [f, setF] = useState({ first: v.first, last: v.last, bio: v.bio });
+  const owned = ownedSet(), eq = v.equip;
+  const click = async (it) => { try { await equip({ kind: it.kind, item: it.kind === 'title' && eq.title === it.id ? null : it.id }); } catch (e) { toast(e.message); } };
+  const save = async () => { try { await saveProfile(f); toast(t('saved'), true); return true; } catch (e) { toast(e.message); return false; } };
+  return html`<${Modal} title=${t('acct.edit')} onClose=${onClose} wide=${true}><div class="stack">
+    <div class="row nw"><${Field} label=${t('acct.first')}><input value=${f.first} maxlength="24" onInput=${(e) => setF({ ...f, first: e.target.value })} /><//><${Field} label=${t('acct.last')}><input value=${f.last} maxlength="24" onInput=${(e) => setF({ ...f, last: e.target.value })} /><//></div>
+    <${Field} label=${t('acct.bio')}><textarea rows="3" maxlength="300" value=${f.bio} placeholder=${t('acct.bio_ph')} onInput=${(e) => setF({ ...f, bio: e.target.value })}></textarea><//>
+    <${AsyncBtn} class="sm" onClick=${save}>${t('acct.save')}<//>
+    ${KINDS.map((k) => html`<div key=${k}><p class="eyebrow mt">${t('acct.kind_' + k)}</p><div class="tiles compact">${cat.items.filter((i) => i.kind === k && (owned.has(i.id) || i.vis !== 'hidden')).sort((a, b) => RAR.indexOf(a.rarity) - RAR.indexOf(b.rarity)).map((it) => {
+      const has = owned.has(it.id), open = has || it.vis === 'show';
+      return html`<${Tile} key=${it.id} it=${it} owned=${has} on=${eq[k] === it.id} onClick=${has ? () => click(it) : null}><span class="tn">${open ? it.name : '?'}</span>${!has && open && need(it, v)}<//>`; })}</div></div>`)}
+    <${Switch} checked=${v.public} onChange=${(val) => equip({ kind: 'public', value: val })}>${t('acct.public')}<//></div><//>`;
+}
 
 export function ProfilePage() {
   const { me: m } = useAccount();
   const theme = useTheme();
-  useEffect(() => { loadCatalog().then(() => loadMe(true)); const id = setInterval(() => loadMe(true), 60000); return () => clearInterval(id); }, []);
+  const [edit, setEdit] = useState(false);
+  useEffect(() => { loadCatalog().then(() => loadMe(true)); const id = setInterval(() => document.hidden || loadMe(true), 60000); return () => clearInterval(id); }, []);
   if (!cat) return html`<div class="wrap center"><${Mochi} size=${90} mood="sleepy" /></div>`;
   const back = html`<button class="ghost icon" aria-label=${t('back')} onClick=${() => go('#/')}><${Ico} n="back" /></button>`;
   if (!m) return html`<div class="wrap"><div class="row">${back}<h2 style="margin:0">${t('acct.title')}</h2></div><div class="card mt"><${AuthForm} /></div></div>`;
@@ -154,9 +157,9 @@ export function ProfilePage() {
       ${isImpersonating() && html`<button class="sm" onClick=${returnToOwner}>${t('owner.back')}</button>`}
       ${m.owner && html`<button class="sm soft" onClick=${() => go('#/owner')}>${t('owner.console')}</button>`}
       <button class="ghost sm" onClick=${() => { copy(location.origin + '/#/u/' + m.name); toast(t('copied'), true); }}>${t('acct.share')}</button></span></div>
-    <div class="stack mt"><${Header} v=${m} /><${ThemeCard} theme=${theme} name=${themeName(theme)} /><${Widgets} v=${m} /><${Collection} v=${m} />
-      <section class="card"><${Switch} checked=${m.public} onChange=${(val) => equip({ kind: 'public', value: val })}>${t('acct.public')}<//>
-        <button class="ghost block mt" onClick=${() => { logout(); go('#/'); }}>${t('acct.logout')}</button></section></div></div>`;
+    <div class="stack mt"><${Header} v=${m} own=${true} onEdit=${() => setEdit(true)} /><${ThemeCard} theme=${theme} name=${themeName(theme)} /><${Stats} v=${m} />
+      <section class="card"><button class="ghost block" onClick=${() => { logout(); go('#/'); }}>${t('acct.logout')}</button></section></div>
+    ${edit && html`<${EditModal} v=${m} onClose=${() => setEdit(false)} />`}</div>`;
 }
 
 export function PublicProfile({ name }) {
@@ -166,7 +169,5 @@ export function PublicProfile({ name }) {
   const back = html`<div class="row"><button class="ghost icon" aria-label=${t('back')} onClick=${() => go('#/')}><${Ico} n="back" /></button></div>`;
   if (err) return html`<div class="wrap center"><${Mochi} size=${90} mood="sleepy" /><p class="dim">${err}</p><button onClick=${() => go('#/')}>${t('nf.back')}</button></div>`;
   if (!v || !cat) return html`<div class="wrap center"><${Mochi} size=${90} mood="sleepy" /></div>`;
-  const items = cat.items.filter((i) => v.owned.includes(i.id)).sort((a, b) => RAR.indexOf(b.rarity) - RAR.indexOf(a.rarity));
-  return html`<div class="wrap">${back}<div class="stack mt"><${Header} v=${v} /><${ThemeCard} theme=${v.equip.theme || 'sakura'} name=${themeName(v.equip.theme || 'sakura')} /><${Widgets} v=${v} />
-      <section class="card"><div class="sec-h"><h2>${t('acct.collection')}</h2></div><div class="tiles compact">${items.map((it) => html`<${Tile} key=${it.id} it=${it} owned=${true} />`)}</div></section></div></div>`;
+  return html`<div class="wrap">${back}<div class="stack mt"><${Header} v=${v} /><${ThemeCard} theme=${v.equip.theme || 'sakura'} name=${themeName(v.equip.theme || 'sakura')} /><${Stats} v=${v} /></div></div>`;
 }

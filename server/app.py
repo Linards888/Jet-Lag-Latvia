@@ -7,6 +7,7 @@ import json
 import mimetypes
 import os
 import re
+import secrets
 import signal
 import sys
 import threading
@@ -133,6 +134,8 @@ class Handler(BaseHTTPRequestHandler):
     def static(self, path):
         if path == '/sw.js':
             return self.service_worker()
+        if path.startswith('/art/'):
+            return self.art(path[5:])
         spa = path in ('/', '', '/index.html')
         full = os.path.realpath(os.path.join(PUBLIC, ('index.html' if spa else path.lstrip('/'))))
         status = 200
@@ -153,6 +156,15 @@ class Handler(BaseHTTPRequestHandler):
         rel = os.path.relpath(full, PUBLIC).replace(os.sep, '/')
         self._send_blob(body, ctype, rel.startswith('vendor/'), full, status, etag if status == 200 else None)
 
+    def art(self, theme):
+        """Character art of a theme: the owner's upload (data/art) wins over a bundled public-domain portrait (public/art)."""
+        f = owner.find_art(theme, PUBLIC)
+        if not f:
+            return self.send_json({'error': 'Not found'}, 404)
+        with open(f, 'rb') as fh:
+            body = fh.read()
+        self._send_blob(body, mimetypes.guess_type(f)[0] or 'image/jpeg', False, f)
+
     def service_worker(self):
         """sw.js is generated: its cache name is a hash of all public files, so every update refreshes the offline cache."""
         files, h = [], hashlib.sha1()
@@ -160,7 +172,7 @@ class Handler(BaseHTTPRequestHandler):
             for n in sorted(names):
                 full = os.path.join(root, n)
                 rel = os.path.relpath(full, PUBLIC).replace(os.sep, '/')
-                if rel in ('sw.js', '404.html') or rel.startswith('vendor/fonts/') or rel.startswith('vendor/images/'):
+                if rel in ('sw.js', '404.html') or rel.startswith('art/') or rel.startswith('vendor/fonts/') or rel.startswith('vendor/images/'):
                     continue
                 st = os.stat(full)
                 h.update(('%s%d%d' % (rel, st.st_mtime_ns, st.st_size)).encode())
@@ -220,15 +232,22 @@ class Handler(BaseHTTPRequestHandler):
             if not rate_ok(('create', self.ip()), 20, 3600):
                 raise GameError('Too many games created from this address', 429)
             b = self.json_body()
+            acc = self.require_account()
             with LOCK:
-                g, key, token, member = G.create_game(STORE, b.get('mode'), b.get('name'), b.get('adminName'), b.get('adminPin'),
+                g, key, token, member = G.create_game(STORE, b.get('mode'), b.get('name'), acc['name'], ''.join(secrets.choice('0123456789') for _ in range(8)),
                                                       b.get('adminPlays'), b.get('settings'))
-                self.link_account(g, member)
+                member['acct'] = acc['id']
             notify()
             return self.send_json({'code': g['code'], 'adminKey': key, 'token': token, 'memberId': member['id']}, 201)
         if len(parts) >= 2 and parts[0] == 'games':
             return self.game_api(method, parts[1].upper(), parts[2:], q)
         raise GameError('Not found', 404)
+
+    def require_account(self):
+        acc = accounts.ACC.by_token(self.headers.get('X-Account'))
+        if not acc:
+            raise GameError('Log in to your account first', 401)
+        return acc
 
     def link_account(self, game, member, force=False):
         """Attach the logged-in account (X-Account header) to this game member. One account per game."""
@@ -259,7 +278,7 @@ class Handler(BaseHTTPRequestHandler):
             b = self.json_body()
             if sub == 'login' and not rate_ok(('acct-user', str(b.get('name') or '').lower()), 12, 900):
                 raise GameError('Too many wrong PINs - try again in 10 minutes', 429)
-            a, token = A.register(b.get('name'), b.get('password')) if sub == 'register' else A.login(b.get('name'), b.get('password'))
+            a, token = A.register(b.get('first'), b.get('last'), b.get('name'), b.get('password')) if sub == 'register' else A.login(b.get('name'), b.get('password'))
             return self.send_json({'token': token, 'me': A.me(a)}, 201 if sub == 'register' else 200)
         token = self.headers.get('X-Account')
         a = A.by_token(token)
@@ -274,6 +293,9 @@ class Handler(BaseHTTPRequestHandler):
             return self.owner_api(a, method, rest[1:])
         if sub == 'equip' and method == 'POST':
             A.equip(a, self.json_body())
+            return self.send_json({'ok': True})
+        if sub == 'profile' and method == 'POST':
+            A.update_profile(a, self.json_body())
             return self.send_json({'ok': True})
         raise GameError('Not found', 404)
 
@@ -290,6 +312,8 @@ class Handler(BaseHTTPRequestHandler):
             body['target'] = None if key == 'me' else key
             out = A.owner_action(a, body)
             return self.send_json(dict(out, view=A.owner_view(a, body['target'] or a['id'])))
+        if what == 'art' and key and method == 'POST':  # owner-supplied character art for a theme (empty body removes it)
+            return self.send_json({'ok': owner.save_art(key, self.read_body(2_000_000))})
         if what == 'games' and key is None and method == 'GET':
             with LOCK:
                 return self.send_json(owner.list_games(STORE))
@@ -315,16 +339,16 @@ class Handler(BaseHTTPRequestHandler):
             if not rate_ok((sub, self.ip()), 40, 600):
                 raise GameError('Too many attempts - wait a few minutes', 429)
             b = self.json_body()
+            acc = self.require_account()  # nobody plays without an account
             with LOCK:
                 if sub == 'join':
-                    m, tok = G.join(STORE, g, b.get('name'), b.get('role'), b.get('pin'))
-                    self.link_account(g, m)
+                    m, tok = G.account_join(STORE, g, acc, b.get('role'))
                 elif sub == 'rejoin':
-                    m, tok = G.rejoin(STORE, g, b.get('name'), b.get('pin'))
-                    self.link_account(g, m)
+                    m, tok = G.account_rejoin(STORE, g, acc)
                 else:
                     m, tok = G.admin_login(STORE, g, b.get('key'))
-                self.link_account(g, m)
+                    if not m.get('acct'):
+                        m['acct'] = acc['id']
                 G.bump(STORE, g)
             notify()
             return self.send_json({'token': tok, 'memberId': m['id'], 'role': m['role']})
