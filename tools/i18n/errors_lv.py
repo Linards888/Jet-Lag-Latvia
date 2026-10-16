@@ -186,4 +186,7 @@ E = {
     '{1} does not border {2}': '{1} nerobežojas ar {2}',
     'Check in to a neighbouring novads before the next task': 'Pirms nākamā uzdevuma atzīmējies blakus novadā',
     'Your team already has a task waiting for review': 'Tavai komandai jau ir uzdevums, kas gaida pārbaudi',
+    'All editions of this look are taken': 'Visi šī izskata eksemplāri ir aizņemti',
+    'Enter your password again': 'Ievadi paroli vēlreiz',
+    'Wrong password': 'Nepareiza parole',
 }

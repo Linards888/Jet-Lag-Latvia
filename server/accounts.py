@@ -6,6 +6,7 @@
 * The server owner (JETLAG_OWNER env or data/owner.json) owns every item and can see and change every account and game:
   see the owner_* methods and the /api/account/owner routes in app.py. Their profile always shows a site-owner mark.
 """
+import hmac
 import json
 import os
 import random
@@ -38,6 +39,12 @@ def _day(now):
 
 def _level(xp):
     return 1 + int((xp / 60) ** 0.5)
+
+
+# the special panel needs the owner's PASSWORD again: a correct one gives a short-lived ticket that every special action must carry
+_TICKETS = {}      # ticket -> (account id, expires ms), memory only
+_PW_FAILS = {}     # account id -> timestamps of wrong passwords
+TICKET_MS, LOCKOUT = 10 * 60 * 1000, (5, 15 * 60 * 1000)
 
 
 def _clean(v):
@@ -82,6 +89,13 @@ class Accounts:
             self.names[a['name'].lower()] = uid
             for h in a['tokens']:
                 self.tokens[h] = uid
+        main = loot.SPECIAL_IDS[0]  # holders from before the bundle existed get the whole bundle and a number
+        for _n, a in self._holders():
+            for i in loot.SPECIAL_IDS:
+                a['inv'].setdefault(i, {'t': _now(), 'src': 'special'})
+        for a in [u for u in self.users.values() if main in u['inv'] and not u['inv'][main].get('no')]:
+            taken = {n for n, _u in self._holders()}
+            a['inv'][main]['no'] = next((n for n in range(1, loot.SPECIAL_EDITIONS + 1) if n not in taken), 0)
 
     def flush(self, force=False):
         with LOCK:
@@ -295,40 +309,90 @@ class Accounts:
         return True
 
     # ---------------------------------------------------------- the special look
-    def _take(self, a, item_id):
-        a['inv'].pop(item_id, None)
-        for k, v in list(a['equip'].items()):
-            if v == item_id:
-                a['equip'][k] = loot.DEFAULT_EQUIP[k]
-
     def holds_special(self, a):
         return loot.SPECIAL_IDS[0] in a['inv']
 
+    def _holders(self):
+        main = loot.SPECIAL_IDS[0]
+        return sorted(((u['inv'][main].get('no') or 0, u) for u in self.users.values() if main in u['inv']), key=lambda x: x[0])
+
+    def _grant_special(self, a, src):
+        """The whole bundle, with the lowest free edition number. False when the account already has it."""
+        main = loot.SPECIAL_IDS[0]
+        if main in a['inv']:
+            return False
+        taken = {n for n, _u in self._holders()}
+        no = next((n for n in range(1, loot.SPECIAL_EDITIONS + 1) if n not in taken), None)
+        if no is None:
+            raise GameError('All editions of this look are taken')
+        for i in loot.SPECIAL_IDS:
+            a['inv'][i] = {'t': _now(), 'src': src}
+        a['inv'][main]['no'] = no
+        self._push(a, {'k': 'item', 'item': main, 'src': src})
+        self._log(a, 'item', item=main, src=src, no=no)
+        return True
+
+    def _take(self, a):
+        for i in loot.SPECIAL_IDS:
+            a['inv'].pop(i, None)
+        e = a['equip']
+        for k in ('theme', 'title', 'frame', 'skin'):
+            if e.get(k) in loot.SPECIAL_IDS:
+                e[k] = loot.DEFAULT_EQUIP[k]
+        e['symbols'] = [y for y in e.get('symbols', []) if y not in loot.SPECIAL_IDS]
+
+    def special_unlock(self, a, pw):
+        """Owner + password -> a ticket for 10 minutes. Five wrong passwords lock the panel for 15 minutes."""
+        now = _now()
+        fails = [t for t in _PW_FAILS.get(a['id'], []) if now - t < LOCKOUT[1]]
+        if len(fails) >= LOCKOUT[0]:
+            raise GameError('Too many attempts - wait a few minutes', 429)
+        if not hmac.compare_digest(self._hash_pw(a['salt'], str(pw or '')), a['pw']):
+            _PW_FAILS[a['id']] = fails + [now]
+            raise GameError('Wrong password')
+        _PW_FAILS.pop(a['id'], None)
+        for k in [k for k, (uid, exp) in _TICKETS.items() if exp < now or uid == a['id']]:
+            del _TICKETS[k]
+        ticket = secrets.token_urlsafe(24)
+        _TICKETS[ticket] = (a['id'], now + TICKET_MS)
+        return {'ticket': ticket}
+
+    def special_ticket_ok(self, a, ticket):
+        rec = _TICKETS.get(str(ticket or ''))
+        return bool(rec and rec[0] == a['id'] and rec[1] > _now() and self.is_owner(a))
+
     def special_action(self, actor, p):
-        """claim / give / revoke (owner only) and drop (any holder). Everybody else gets a plain 404: the place does not exist for them."""
-        item = loot.SPECIAL_IDS[0]
+        """unlock (password) -> ticket; with a ticket the owner can claim / give / revoke / list; any holder can drop it for themselves.
+        Everybody else gets a plain 404: for them this place does not exist."""
         act = p.get('action')
         with LOCK:
-            if act == 'drop' and item in actor['inv']:
-                self._take(actor, item)
+            if act == 'drop' and self.holds_special(actor):
+                self._take(actor)
                 self._mark()
                 return {'ok': True}
             if not self.is_owner(actor):
                 raise GameError('Not found', 404)
+            if act == 'unlock':
+                return self.special_unlock(actor, p.get('password'))
+            if not self.special_ticket_ok(actor, p.get('ticket')):
+                raise GameError('Enter your password again', 403)
+            target = None
             if act == 'claim':
-                self.unlock_item(actor, item, 'special')
+                self._grant_special(actor, 'special')
             elif act in ('give', 'revoke'):
-                u = self._by_name(p.get('name'))
-                if not u:
+                target = self._by_name(p.get('name'))
+                if not target:
                     raise GameError('Not found')
                 if act == 'give':
-                    self.unlock_item(u, item, 'gift')
+                    self._grant_special(target, 'gift')
                 else:
-                    self._take(u, item)
+                    self._take(target)
             elif act != 'list':
                 raise GameError('Not found')
+            if act != 'list':
+                self._log(actor, 'special', act=act, to=target['name'] if target else actor['name'])
             self._mark()
-            return {'holders': sorted(u['name'] for u in self.users.values() if item in u['inv']), 'mine': item in actor['inv']}
+            return {'holders': [{'name': u['name'], 'no': n} for n, u in self._holders()], 'mine': self.holds_special(actor), 'editions': loot.SPECIAL_EDITIONS}
 
     # ---------------------------------------------------------- equip
     def equip(self, a, p):
@@ -472,7 +536,8 @@ class Accounts:
             changed = self._daily(a, _now()) or bool(a['pending'])
             v = self._common(a)
             v.update({'id': a['id'], 'public': a['public'], 'streakNow': a['streak']['n'], 'pending': a['pending'], 'newcomerUntil': a['newcomerUntil']})
-            special = [i for i in loot.SPECIAL if i['id'] in a['inv']]  # only the holder ever sees these
+            no = a['inv'].get(loot.SPECIAL_IDS[0], {}).get('no')
+            special = [dict(i, no=no) for i in loot.SPECIAL if i['id'] in a['inv']]  # only the holder ever sees these
             v['owned'], v['special'] = v['owned'] + [i['id'] for i in special], special
             if special:
                 v['specialArt'] = specialart.listing()

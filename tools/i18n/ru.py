@@ -474,4 +474,11 @@ T = {
     'special.slot_settings': 'Настройки',
     'special.slot_community': 'Сообщество',
     'special.slot_sticker': 'Стикер {n}',
+    'special.gate': 'Введите пароль ещё раз, чтобы открыть панель. Она остаётся открытой десять минут.',
+    'special.unlock': 'Открыть',
+    'special.lock': 'Закрыть сейчас',
+    'special.editions': 'Занято {used} из {max} экземпляров',
+    'special.edition_chip': 'Лимитированный выпуск #{n}',
+    'special.claim': 'Взять особый вид и весь набор',
+    'special.drop': 'Убрать особый вид и набор из моего меню',
 }

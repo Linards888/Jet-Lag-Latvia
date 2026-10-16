@@ -663,3 +663,12 @@ html button.tile.locked .tn { color: var(--dim); } html button.tile.on .tn { fon
 /* pictures of the special look */
 .special-pic { display: block; width: 100%; max-height: 260px; object-fit: cover; border-radius: var(--r); border: var(--bw) solid var(--line2); box-shadow: var(--bs); }
 .special-stickers { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; } .special-stickers img { height: 64px; width: auto; max-width: 30%; object-fit: contain; border-radius: 12px; filter: drop-shadow(0 4px 6px rgba(120,20,70,.3)); }
+
+/* the special bundle: an exclusive frame, symbol and the limited-edition markers */
+.avatar.f_heartbeat { border: 5px solid transparent; background: linear-gradient(var(--surface), var(--surface)) padding-box, linear-gradient(135deg, #ff4d9a, #ffd27a, #ff4d9a, #ff9fcf) border-box; box-shadow: 0 0 14px rgba(255,77,154,.55); animation: ringbeat 1.3s ease-in-out infinite; }
+@keyframes ringbeat { 0%, 100% { box-shadow: 0 0 10px rgba(255,77,154,.45); } 14% { box-shadow: 0 0 22px 3px rgba(255,77,154,.8); } 28% { box-shadow: 0 0 10px rgba(255,77,154,.45); } 42% { box-shadow: 0 0 18px 2px rgba(255,77,154,.7); } }
+.symbol.y_lovelock { background: radial-gradient(circle at 50% 46%, #5b1740 0 11%, transparent 12%), radial-gradient(ellipse at 50% 62%, #5b1740 0 6%, transparent 7%), linear-gradient(135deg, #ff6fb0, #ffd27a 60%, #ff9fcf); clip-path: path('M11 21C2 15 0 9 4 5c3-3 6-1 7 2 1-3 4-5 7-2 4 4 2 10-7 16z'); filter: drop-shadow(0 0 4px rgba(255,77,154,.7)); }
+.edition { position: relative; overflow: hidden; padding: 9px 12px 12px; border-radius: 14px; background: var(--accent-soft); border: 1px solid var(--line2); } .edition i { position: absolute; left: 0; bottom: 0; height: 5px; background: linear-gradient(90deg, var(--accent), #ffd27a); border-radius: 0 4px 4px 0; }
+.edition-chip { background: linear-gradient(135deg, #ff4d9a, #ffb347); color: #fff; border: 0; font-weight: 800; letter-spacing: .04em; margin-top: 4px; box-shadow: 0 0 12px rgba(255,77,154,.45); }
+.special-heart { animation: heartbeat 1.6s ease-in-out infinite; }
+@keyframes heartbeat { 0%, 100% { transform: scale(1); } 14% { transform: scale(1.22); } 28% { transform: scale(1); } 42% { transform: scale(1.14); } 70% { transform: scale(1); } }

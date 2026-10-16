@@ -474,4 +474,11 @@ T = {
     'special.slot_settings': 'Iestatījumi',
     'special.slot_community': 'Kopiena',
     'special.slot_sticker': 'Stikers {n}',
+    'special.gate': 'Ievadi savu paroli vēlreiz, lai atvērtu šo paneli. Tas paliek atvērts desmit minūtes.',
+    'special.unlock': 'Atslēgt',
+    'special.lock': 'Aizslēgt tagad',
+    'special.editions': 'Aizņemti {used} no {max} eksemplāriem',
+    'special.edition_chip': 'Ierobežotais izdevums #{n}',
+    'special.claim': 'Paņemt īpašo izskatu un visu komplektu',
+    'special.drop': 'Noņemt īpašo izskatu un komplektu no manas izvēlnes',
 }

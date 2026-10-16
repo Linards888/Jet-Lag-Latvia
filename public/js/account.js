@@ -27,7 +27,9 @@ export async function loadCatalog() {
   return cat;
 }
 export const getCatalog = () => cat;
-export const itemName = (id) => (cat && cat.byId[id] ? cat.byId[id].name : id);
+// the bundle's frame, title and symbol can be worn by a holder and so be seen by others, who have no catalogue entry for them
+const BUNDLE_NAMES = { f_heartbeat: 'Heartbeat ring', t_heartkeeper: 'Heart Keeper', y_lovelock: 'Love lock', onimai: 'Onimai' };
+export const itemName = (id) => (cat && cat.byId[id] ? cat.byId[id].name : BUNDLE_NAMES[id] || id);
 
 // the special look is in no public list: it reaches the page only inside the holder's own /me
 function mergeSpecial(m) {
@@ -131,7 +133,7 @@ export function Header({ v, own, onEdit }) {
   const e = v.equip, nextLv = Math.pow(v.level, 2) * 60, curLv = Math.pow(v.level - 1, 2) * 60;
   return html`<section class="card profile-head"><div class="row nw" style="gap:14px"><${Avatar} name=${v.name} frame=${e.frame} skin=${e.skin} size=${76} />
     <div class="grow"><div class="row sp nw"><h1 style="margin:0;font-size:1.5rem">${v.name}</h1>${own && html`<button class="ghost sm" onClick=${onEdit}>${t('acct.edit')}</button>`}</div>
-      <div class="small dim">${v.first} ${v.last}</div>${e.title && html`<div class="title-tag">${itemName(e.title)}</div>`}
+      <div class="small dim">${v.first} ${v.last}</div>${e.title && html`<div class="title-tag">${itemName(e.title)}</div>`}${own && v.special && v.special.length > 0 && html`<div><span class="chip edition-chip">${t('special.edition_chip', { n: v.special[0].no })}</span></div>`}
       ${(e.symbols || []).length > 0 && html`<div class="row" style="gap:8px;margin:4px 0">${e.symbols.map((y) => html`<${Sym} id=${y} key=${y} />`)}</div>`}
       <div class="small dim">${t('acct.level', { n: v.level })}</div><i class="pbar"><u style=${{ width: Math.min(100, (v.xp - curLv) / (nextLv - curLv) * 100) + '%' }}></u></i></div></div>
     ${v.owner && html`<div class="mt"><${OwnerMark} /></div>`}${v.bio && html`<p class="bio">${v.bio}</p>`}</section>`;

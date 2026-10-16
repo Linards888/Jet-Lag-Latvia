@@ -492,4 +492,11 @@ T = {
     'special.slot_settings': 'Settings',
     'special.slot_community': 'Community',
     'special.slot_sticker': 'Sticker {n}',
+    'special.gate': 'Enter your password again to open this panel. It stays open for ten minutes.',
+    'special.unlock': 'Unlock',
+    'special.lock': 'Lock now',
+    'special.editions': '{used} of {max} editions taken',
+    'special.edition_chip': 'Limited edition #{n}',
+    'special.claim': 'Take the special look and its bundle',
+    'special.drop': 'Remove the special look and its bundle from my menu',
 }

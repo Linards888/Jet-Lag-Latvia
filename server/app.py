@@ -212,6 +212,16 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _send_private(self, body, ctype):
+        """Pictures that must never be cached or sniffed by anything between the server and the holder."""
+        self.send_response(200)
+        self.send_header('Content-Type', ctype)
+        self.send_header('Content-Length', str(len(body)))
+        self.send_header('Cache-Control', 'private, no-store')
+        self.send_header('X-Content-Type-Options', 'nosniff')
+        self.end_headers()
+        self.wfile.write(body)
+
     # ------------------------------------------------------------ API
     def api(self, method, parts, q):
         if parts == ['health']:
@@ -300,13 +310,15 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json({'ok': True})
         if sub == 'owner':
             return self.owner_api(a, method, rest[1:])
-        if sub == 'special-art' and len(rest) == 2:  # holders read, only the owner writes; everybody else gets the same 404 as for any unknown route
+        if sub == 'special-art' and len(rest) == 2:  # holders read, only the owner (with a fresh ticket) writes; everybody else gets the same 404 as for any unknown route
             if method == 'GET' and A.holds_special(a):
                 f = specialart.find(rest[1])
                 if f:
                     with open(f, 'rb') as fh:
-                        return self._send_blob(fh.read(), mimetypes.guess_type(f)[0] or 'image/jpeg', False, f)
+                        return self._send_private(fh.read(), mimetypes.guess_type(f)[0] or 'image/jpeg')
             elif method == 'POST' and A.is_owner(a):
+                if not A.special_ticket_ok(a, self.headers.get('X-Special')):
+                    raise GameError('Enter your password again', 403)
                 return self.send_json({'ok': specialart.save(rest[1], self.read_body(specialart.MAX_BYTES))})
             raise GameError('Not found', 404)
         if sub == 'special' and method == 'POST':

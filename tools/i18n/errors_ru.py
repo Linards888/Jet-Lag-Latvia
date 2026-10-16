@@ -186,4 +186,7 @@ E = {
     '{1} does not border {2}': '{1} не граничит с {2}',
     'Check in to a neighbouring novads before the next task': 'Перед следующим заданием отметьтесь в соседнем новаде',
     'Your team already has a task waiting for review': 'У вашей команды уже есть задание на проверке',
+    'All editions of this look are taken': 'Все экземпляры этого вида заняты',
+    'Enter your password again': 'Введите пароль ещё раз',
+    'Wrong password': 'Неверный пароль',
 }

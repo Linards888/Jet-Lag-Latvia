@@ -55,7 +55,13 @@ BY_ID = {i['id']: i for i in ITEMS}
 BASE = [i['id'] for i in ITEMS if i['stat'] is None]
 UNLOCKABLE = [i for i in ITEMS if i['stat'] is not None]
 # a look that is not in the catalogue: only the owner finds it (a hidden place in the app) and only the owner can give or take it
-SPECIAL = [{'id': 'onimai', 'kind': 'theme', 'rarity': 'mythic', 'name': 'Onimai', 'vis': 'hidden'}]
+SPECIAL = [  # the look comes as a bundle: theme + frame + title + symbol, all hidden from every list
+    {'id': 'onimai', 'kind': 'theme', 'rarity': 'mythic', 'name': 'Onimai', 'vis': 'hidden'},
+    {'id': 'f_heartbeat', 'kind': 'frame', 'rarity': 'mythic', 'name': 'Heartbeat ring', 'vis': 'hidden'},
+    {'id': 't_heartkeeper', 'kind': 'title', 'rarity': 'mythic', 'name': 'Heart Keeper', 'vis': 'hidden'},
+    {'id': 'y_lovelock', 'kind': 'symbol', 'rarity': 'mythic', 'name': 'Love lock', 'vis': 'hidden'},
+]
+SPECIAL_EDITIONS = 7  # only this many accounts can hold the look at once; every holder has a number (1..7)
 SPECIAL_IDS = [i['id'] for i in SPECIAL]
 BY_ID.update({i['id']: i for i in SPECIAL})  # known to equip/unlock, but in no list (ITEMS, BASE, UNLOCKABLE) and never owned automatically
 DEFAULT_EQUIP = {'theme': 'sakura', 'title': 't_newcomer', 'frame': 'f_plain', 'skin': 's_peach', 'symbols': []}
