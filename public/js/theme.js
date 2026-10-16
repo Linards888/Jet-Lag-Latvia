@@ -16,7 +16,7 @@ export const THEMES = [
   { id: 'hoshi', name: 'Hoshi', pv: { bg: 'linear-gradient(160deg,#0c0f2e,#232a6e)', card: 'rgba(40,46,104,.8)', ac: '#a393ff', line: '#4a4f9c', r: 18, pill: 99, font: "'M PLUS Rounded 1c',sans-serif", glow: true } },
   { id: 'aurora', name: 'Aurora', pv: { bg: 'linear-gradient(160deg,#06121f,#0f3b3f 55%,#1d2a63)', card: 'rgba(14,40,56,.8)', ac: '#5af0c0', line: '#2f8f8a', r: 16, pill: 99, font: "'Comfortaa',sans-serif", glow: true } },
   { id: 'hanabi', name: 'Hanabi', pv: { bg: 'linear-gradient(135deg,#2a0b44,#0b0a24 55%,#3a1230)', card: 'rgba(46,32,98,.8)', ac: '#ff5fa8', line: '#8a3a78', r: 20, pill: 99, font: "'Comfortaa',sans-serif", glow: true } },
-  { id: 'onimai', name: 'Onimai', pv: { bg: 'linear-gradient(160deg,#ffe3f1,#ffbddc)', card: '#fff8fc', ac: '#ff4d9a', line: '#ffa6d1', r: 28, pill: 99, font: "'M PLUS Rounded 1c',sans-serif" } },
+  { id: 'onimai', name: 'Onimai', pv: { bg: 'linear-gradient(160deg,#e4d4ff,#ffd0e8 55%,#ffbddc)', card: '#fff8fc', ac: '#ff4d9a', line: '#ffa6d1', r: 28, pill: 99, font: "'M PLUS Rounded 1c',sans-serif" } },
   { id: 'zerotwo', name: '02', pv: { bg: 'linear-gradient(160deg,#fff0f4,#ffd6e2)', card: '#ffffff', ac: '#e0114a', line: '#ff8fb1', r: 8, pill: 12, font: "'Bebas Neue',sans-serif", hard: true } },
   { id: 'toradora', name: 'Toradora', pv: { bg: '#fff3dd', card: '#fffaf0', ac: '#f08a24', line: '#5a2a0a', r: 14, pill: 14, font: "'Comfortaa',sans-serif", hard: true } },
   { id: 'evangelion', name: 'Evangelion', pv: { bg: 'linear-gradient(160deg,#170f24,#2a1d4a)', card: '#21173a', ac: '#8cff3c', line: '#6a4bb0', r: 2, pill: 2, font: "'Cinzel',serif", glow: true } },
@@ -27,12 +27,40 @@ const BASE_THEMES = ['sakura', 'sora', 'latvija'];  // everybody; the other them
 const DEFAULTS = { theme: 'sakura', motion: 'full', map: 'theme' };
 let prefs = { ...DEFAULTS };
 
+// Onimai: every tap pops a few little hearts and sparkles (see .tap-pop in css/style.css)
+let tapsOn = false;
+function cosmos() {  // the pastel galaxy behind the app (styled in css/style.css, visible only in Onimai)
+  if (document.getElementById('cosmos')) return;
+  const c = document.createElement('div');
+  c.id = 'cosmos'; c.setAttribute('aria-hidden', 'true');
+  c.innerHTML = '<b class="neb"></b>' + [[10, 6, 1], [34, 2, 4.5], [62, 12, 8], [86, 4, 12.5], [20, 34, 15]].map(([x, y, d]) => '<i class="shoot" style="--x:' + x + 'vw;--y:' + y + 'vh;--d:' + d + 's"></i>').join('') + '<i class="cz moon"></i><i class="cz saturn"></i><i class="cz planet"></i><i class="cz ufo"></i>';
+  document.body.prepend(c);
+}
+function tapHearts() {
+  cosmos();
+  if (tapsOn) return;
+  tapsOn = true;
+  const bits = ['♥', '✦', '✿', '♡', '★', '✧'], cols = ['#ff4d9a', '#ff9fcf', '#ffc24a', '#b79bff'];
+  document.addEventListener('pointerdown', (e) => {
+    const r = document.documentElement, mo = r.getAttribute('data-motion');
+    if (r.getAttribute('data-theme') !== 'onimai' || mo === 'off' || mo === 'reduced') return;
+    for (let i = 0; i < 6; i++) {
+      const el = document.createElement('span'), a = Math.random() * Math.PI * 2, d = 28 + Math.random() * 36;
+      el.className = 'tap-pop'; el.textContent = bits[(Math.random() * bits.length) | 0]; el.setAttribute('aria-hidden', 'true');
+      el.style.cssText = 'left:' + e.clientX + 'px;top:' + e.clientY + 'px;color:' + cols[i % cols.length] + ';--dx:' + (Math.cos(a) * d).toFixed(0) + 'px;--dy:' + (Math.sin(a) * d - 26).toFixed(0) + 'px;--rot:' + ((Math.random() * 70 - 35) | 0) + 'deg';
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 900);
+    }
+  }, { passive: true });
+}
+
 export function applyPrefs(p = prefs) {
   const r = document.documentElement;
   r.setAttribute('data-theme', p.theme);
   const attr = (k, v, d) => (v && v !== d ? r.setAttribute('data-' + k, v) : r.removeAttribute('data-' + k));
   attr('motion', p.motion, 'full'); attr('map', p.map, 'theme');
   window.dispatchEvent(new Event('jll-theme'));
+  if (p.theme === 'onimai') tapHearts();
   const th = THEMES.find((x) => x.id === p.theme);
   const m = document.querySelector('meta[name=theme-color]');
   if (m && th) m.setAttribute('content', th.pv.ac);
